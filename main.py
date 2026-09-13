@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from config import BOT_TOKEN, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, equip, help, claim
+from handlers import start, profile, hunt, inventory, help, claim
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -60,12 +60,12 @@ def main() -> None:
     app.add_handler(CommandHandler("profile", profile.handle))
     app.add_handler(CommandHandler("hunt", hunt.handle))
     app.add_handler(CommandHandler("inventory", inventory.handle))
-    app.add_handler(CommandHandler("equip", equip.handle))
+    app.add_handler(CommandHandler("equip", inventory.handle))  # Backward-compatible shortcut
     app.add_handler(CommandHandler("help", help.handle))
     app.add_handler(CommandHandler("claim", claim.handle))
 
     # ── Inline Button Callbacks ───────────────────────────
-    app.add_handler(CallbackQueryHandler(equip.button_callback, pattern="^equip_"))
+    app.add_handler(CallbackQueryHandler(inventory.equip_callback, pattern="^equip_"))
     app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^inv_"))
     app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^shop_"))
     app.add_handler(CallbackQueryHandler(inventory.buy_callback, pattern="^buy_"))

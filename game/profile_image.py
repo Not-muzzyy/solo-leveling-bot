@@ -579,4 +579,5 @@ def render_profile_image(
     buf = io.BytesIO()
     base.save(buf, format="PNG", optimize=True)
     buf.seek(0)
+    buf.name = "profile.png"
     return buf

@@ -246,41 +246,87 @@ def format_hunt_result(result: HuntResult) -> str:
     return format_hunt_defeat(result)
 
 
-def format_inventory(inventory: Inventory, category: str = "weapon") -> str:
-    """Format inventory display for a specific category."""
+def format_inventory(
+    inventory: Inventory,
+    hunter_or_cat: Hunter | str | None = None,
+    category: str = "weapon",
+    notice: str | None = None,
+) -> str:
+    """Format a polished, Solo Leveling themed Dimensional Inventory window."""
+    if isinstance(hunter_or_cat, str):
+        cat = hunter_or_cat
+        hunter = None
+    else:
+        hunter = hunter_or_cat
+        cat = category
+
     TYPE_LABELS = {
-        "weapon": "⚔️ Weapons",
-        "armor": "🛡️ Armor",
-        "accessory": "💍 Accessories",
-        "consumable": "🧪 Consumables",
-        "material": "📦 Materials",
+        "weapon": ("⚔️", "Weapons"),
+        "armor": ("🛡️", "Armor"),
+        "accessory": ("💍", "Accessories"),
+        "consumable": ("🧪", "Consumables"),
+        "material": ("📦", "Materials"),
     }
 
-    label = TYPE_LABELS.get(category, category.title())
-    items = inventory.get_by_type(category)
-
-    if not items:
-        return (
-            f"🎒 INVENTORY — {label}\n"
-            f"\n"
-            f"  (empty)\n"
-            f"\n"
-            f"Hunt monsters to find loot!"
-        )
+    icon, name = TYPE_LABELS.get(cat, ("🎒", cat.title()))
+    items = inventory.get_by_type(cat)
+    total_items = len(inventory.items)
 
     lines = [
-        f"🎒 INVENTORY — {label}",
-        f"",
+        "╔══════════════════════════════╗",
+        "║   🎒 DIMENSIONAL INVENTORY   ║",
+        "║     System Storage Matrix    ║",
+        "╚══════════════════════════════╝",
     ]
 
-    for item in items:
-        rarity_icon = RARITY_EMOJI.get(item.rarity, "")
-        equipped = "✅ " if item.is_equipped else "🔹 "
-        stats = item.stat_summary()
-        lines.append(f"{equipped}{item.name} {rarity_icon} ({stats})")
+    if hunter:
+        lines.extend([
+            f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}",
+            f"💰 Gold: {hunter.gold:,} G ┊ 📦 Capacity: {total_items} items",
+            "",
+        ])
+    else:
+        lines.extend([
+            f"📦 Stored Items: {total_items}",
+            "",
+        ])
 
-    lines.append("")
-    lines.append("Use /equip to change your gear.")
+    if notice:
+        lines.extend([
+            notice,
+            "",
+        ])
+
+    lines.extend([
+        f"┏━━ {icon} CATEGORY: {name.upper()} ({len(items)}) ━━┓",
+        "",
+    ])
+
+    if not items:
+        lines.extend([
+            "  「 Dimensional pocket empty. 」",
+            "  Defeat monsters via /hunt or browse",
+            "  the 🛒 Shop to collect gear & items!",
+            "",
+        ])
+    else:
+        for i, item in enumerate(items, 1):
+            rarity_icon = RARITY_EMOJI.get(item.rarity, "⚪")
+            status_tag = "⚡ [EQUIPPED]" if item.is_equipped else "📦 [IN STORAGE]"
+            stats = item.stat_summary()
+
+            lines.append(f" {i}. {rarity_icon} {item.name} [{item.rarity}]")
+            lines.append(f"    ├ Status: {status_tag}")
+            lines.append(f"    └ Stats:  {stats}")
+            lines.append("")
+
+    lines.extend([
+        "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛",
+        "💡 Quick Actions:",
+        "• Tap tabs to switch categories",
+        "• Tap ⚡ Equip buttons below to bind gear",
+        "• Tap 🛒 Hunter Shop to buy new items",
+    ])
 
     return "\n".join(lines)
 

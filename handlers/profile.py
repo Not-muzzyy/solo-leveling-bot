@@ -62,8 +62,9 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             pfp_image,
             full_name,
         )
+        photo_buf.name = "profile.png"
         caption = f"⚔️ Hunter {hunter.hunter_name} | Rank {hunter.rank} | Lv. {hunter.level}"
-        await update.message.reply_photo(photo=photo_buf, caption=caption)
+        await update.message.reply_photo(photo=photo_buf, filename="profile.png", caption=caption)
     except Exception as exc:
         logger.error("Failed to render profile image, falling back to text: %s", exc, exc_info=True)
         await update.message.reply_text(format_profile(hunter, inventory))

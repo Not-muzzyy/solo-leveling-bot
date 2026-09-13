@@ -1,6 +1,43 @@
+# ================================================================
+# Solo Leveling Hunter RPG Bot — Git Ignore Configuration
+# ================================================================
+
+# Environment & Secrets (NEVER COMMIT)
 .env
+.env.local
+.env.*.local
+
+# Python Cache & Bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
 .venv/
 venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Local databases
 *.db
+*.sqlite3
+
+# Temporary & Scratch Files
+scratch/
+*.tmp
+*.log
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db

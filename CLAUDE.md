@@ -28,14 +28,16 @@ solo-leveling-bot/
 │   ├── items.py             # generate_loot(), create_starter_weapon(), rarity rolls
 │   ├── shop.py              # 21 purchasable items across 5 categories, get_shop_item(), create_item_from_shop()
 │   ├── profile_image.py     # Pillow renderer — Solo Leveling themed System Status Window image
+│   ├── hunt_gif.py          # Pillow renderer — Animated combat sequence GIF for /hunt
+│   ├── inventory_image.py   # Pillow renderer — High-res Dimensional Inventory image with equipment visuals
 │   └── formatting.py        # All Telegram message formatting (hunt results, inventory, equip, fallback profile, etc.)
 └── handlers/
     ├── __init__.py
     ├── start.py             # /start — create new hunter + starter weapon
     ├── profile.py           # /profile — image-based status card via reply_photo (with text fallback)
-    ├── hunt.py              # /hunt — fight monster, 15min cooldown, XP/gold/loot
-    ├── inventory.py         # /inventory — browse items by category tabs + 🛒 Shop (buy with gold)
-    ├── equip.py             # /equip — equip gear via inline buttons, shows stat diff
+    ├── hunt.py              # /hunt — animated battle GIF sequence via reply_animation (15min cooldown)
+    ├── inventory.py         # /inventory — browse items in PM, dynamic tabs, 1-tap gear equip, shop
+    ├── equip.py             # (Deprecated) Forwarding wrapper delegating to handlers.inventory
     ├── claim.py             # /claim — daily reward (24h cooldown), level-scaled XP+Gold
     └── help.py              # /help — command list + how to play guide
 ```
@@ -71,7 +73,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 - Inventory tabs: `CallbackQueryHandler` with pattern `^inv_` for category switching
 - Shop navigation: `CallbackQueryHandler` with pattern `^shop_` for shop categories
 - Buy items: `CallbackQueryHandler` with pattern `^buy_` for purchases
-- Equip items: `CallbackQueryHandler` with pattern `^equip_` for equipment changes
+- Equip items: `CallbackQueryHandler` with pattern `^equip_` handled in `handlers/inventory.py` (1-tap gear binding with live stat diffs without leaving inventory)
 
 Callbacks are registered in `main.py` and routed to handler functions.
 
@@ -111,6 +113,8 @@ Prices range from 15💰 (iron ore) to 5000💰 (Dragon's Fang). Accessible via 
 - **The `Inventory` class** manages item IDs internally via `_next_id` counter
 - **Hunter stats** use `str_stat` and `int_stat` to avoid shadowing Python builtins `str` and `int`
 - **`/profile` renders an image** — `game/profile_image.py` renders an 860x1180 PNG Status Window using Pillow (including user's Telegram PFP avatar with rank-colored ring and First+Last name), executed via `asyncio.to_thread()`, sent via `reply_photo` with text fallback
+- **`/hunt` renders an animated GIF** — `game/hunt_gif.py` renders a compact 16:9 banner combat sequence GIF (640x360 px) using Pillow (two-column layout: monster card left, dynamic battle arena right; Gate alert → blade slash → critical impact → victory/defeat recap freeze, snappy ~2.7s loop). Quantized with zero dithering for razor-sharp clarity without blur, taking ~40% screen height on mobile. Executed via `asyncio.to_thread()`, sent via `reply_animation(filename="hunt.gif")` with text fallback.
+- **`/inventory` renders a dynamic image card** — `game/inventory_image.py` renders an 860x1060 PNG Dimensional Storage Window showcasing active equipment loadout (weapon, armor, accessory) with glowing vector artwork, rarity auras, stat badges, and storage matrix items; tab switching and 1-tap equipping dynamically update the image in-place via `edit_message_media`! When invoked in a group or supergroup, sends a notification card with an `[🎒 Open Inventory in Bot PM]` deep-link button (`t.me/<bot>?start=inventory`).
 - **`.env` contains real credentials** — never commit, always gitignored
 
 ## Known Issues / TODOs
