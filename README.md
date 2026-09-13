@@ -17,12 +17,12 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - First and last name branding, hunter title, and current level.
 - Live progress bars for **HP** and **EXP**, detailed 5-stat ability matrix (STR, AGI, VIT, INT, PER), equipped gear summaries, and win-rate statistics.
 
-### 🗡️ Snappy Combat Animation (`/hunt`)
-- **Compact 16:9 Banner Combat GIF (`640 × 360` px)** engineered specifically for mobile Telegram screens.
-- **Two-Column Solo Leveling HUD**:
-  - **Left Side**: Gate monster status card with animated HP bar, level, and Hunter combat power.
-  - **Right Side**: Multi-stage combat sequence: Red Gate warning ➜ energy charge ➜ high-voltage laser slash ➜ critical impact burst ➜ victory/defeat rewards freeze.
-- **Zero-Dither Adaptive Quantization**: Crisp, blur-free vector rendering at ~77 KB for instant mobile playback.
+### 🗡️ Visual Combat Resolution (`/hunt`)
+- **High-Definition 16:9 Combat Banner (`800 × 450` px)** engineered specifically for mobile Telegram screens.
+- **Dynamic Victory & Defeat Layouts**:
+  - **Left Side**: Gate monster target card with HP bar, rank badge, level, and engaged Hunter combat stats.
+  - **Right Side**: Comprehensive combat resolution displaying damage dealt, critical hits, damage taken, experience bounty, gold reward, rare loot drops, level-ups, or tactical system briefings upon defeat.
+- **Pristine PNG Rendering**: Instant delivery with zero compression blur, rich 24-bit color fidelity, and razor-sharp typography.
 
 ### 🎒 Image-Based Dimensional Storage (`/inventory`)
 - **High-Resolution Visual Inventory Card (`860 × 1060` px)**:
@@ -31,6 +31,13 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
   - **Category Storage Matrix**: Displays items in the active category with stat badges, rarity tiers, and glowing status tags (`• EQUIPPED •` / `IN STORAGE`).
 - **1-Tap Inline Equipping**: Unequipped items have dedicated equip buttons in the keyboard. Tapping an item immediately mounts it into your loadout with live in-place image updates via `edit_message_media`!
 - **Group Chat Protection**: Invoking `/inventory` in any group chat automatically provides an instant deep-link button (`[🎒 Open Inventory in Bot PM]`) to protect private gear details and prevent chat clutter.
+
+### 🛒 Visual System Exchange Depot (`/shop`)
+- **High-Resolution Visual Shop Card (`860 × 1060` px)** rendered dynamically with custom vector art.
+- **5 Full Exchange Departments**: Weapons, Armor, Accessories, Consumables, and Materials.
+- **Dynamic Real-Time Affordability**: Displays your Hunter Treasury vault, item stats, prices, and live affordability badges (`READY TO PURCHASE` vs. `NEED X G MORE`).
+- **Live In-Place Purchases**: Tapping buy instantly executes transactions, deposits gear, and updates the image card in-place with real-time acquisition notices!
+- **Group Chat Protection**: Deep-links to Bot PM (`t.me/<bot>?start=shop`) when invoked in groups to ensure secure transactions.
 
 ### 💰 Daily Hunter Allowance (`/claim`)
 - Claim daily rewards once every 24 hours.
@@ -49,8 +56,9 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | :--- | :---: | :--- |
 | `/start` | PM & Groups | Awaken as a new Hunter & claim starter weapon |
 | `/profile` | PM & Groups | View your high-resolution visual RPG Status Window |
-| `/hunt` | PM & Groups | Slay gate monsters via animated GIF (15m cooldown) |
+| `/hunt` | PM & Groups | Slay gate monsters & earn loot via visual Combat Cards (15m cooldown) |
 | `/inventory` | PM & Groups | Open visual Dimensional Storage with 1-tap equip & shop (redirects to PM in groups) |
+| `/shop` | PM & Groups | Open visual Hunter Shop & Exchange Depot (redirects to PM in groups) |
 | `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
 
@@ -149,14 +157,17 @@ solo-leveling-bot/
 │   ├── items.py             # Procedural loot generation & rarity weight tables
 │   ├── shop.py              # Hunter shop items and purchasing logic
 │   ├── profile_image.py     # Pillow renderer: High-res System Status Window
-│   ├── hunt_gif.py          # Pillow renderer: 16:9 Banner Combat GIF sequence
+│   ├── hunt_image.py        # Pillow renderer: 16:9 Combat Cards (Victory & Defeat)
+│   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer: Dimensional Storage image with equipment artwork
+│   ├── shop_image.py        # Pillow renderer: High-res Hunter Shop image with vector catalogue
 │   └── formatting.py        # Plain-text formatting with Unicode box-drawing
 └── handlers/
-    ├── start.py             # /start & /start inventory deep-link router
+    ├── start.py             # /start & deep-link router (inventory, shop, help)
     ├── profile.py           # /profile — photo status card
-    ├── hunt.py              # /hunt — animated combat GIF
+    ├── hunt.py              # /hunt — visual combat resolution card
     ├── inventory.py         # /inventory — image storage, 1-tap equip & shop
+    ├── shop.py              # /shop — visual exchange depot image cards
     ├── equip.py             # Backward-compatible redirect to inventory
     ├── claim.py             # /claim — daily reward (24h cooldown)
     └── help.py              # /help — operational manual

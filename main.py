@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from config import BOT_TOKEN, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim
+from handlers import start, profile, hunt, inventory, help, claim, shop
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -61,6 +61,7 @@ def main() -> None:
     app.add_handler(CommandHandler("hunt", hunt.handle))
     app.add_handler(CommandHandler("inventory", inventory.handle))
     app.add_handler(CommandHandler("equip", inventory.handle))  # Backward-compatible shortcut
+    app.add_handler(CommandHandler("shop", shop.handle))
     app.add_handler(CommandHandler("help", help.handle))
     app.add_handler(CommandHandler("claim", claim.handle))
 

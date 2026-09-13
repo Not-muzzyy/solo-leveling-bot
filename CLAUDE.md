@@ -27,16 +27,18 @@ solo-leveling-bot/
 │   ├── combat.py            # generate_monster(), simulate_hunt() → HuntResult
 │   ├── items.py             # generate_loot(), create_starter_weapon(), rarity rolls
 │   ├── shop.py              # 21 purchasable items across 5 categories, get_shop_item(), create_item_from_shop()
-│   ├── profile_image.py     # Pillow renderer — Solo Leveling themed System Status Window image
-│   ├── hunt_gif.py          # Pillow renderer — Animated combat sequence GIF for /hunt
+│   ├── hunt_image.py        # Pillow renderer — 16:9 Combat Cards (Victory & Defeat) for /hunt
+│   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer — High-res Dimensional Inventory image with equipment visuals
+│   ├── shop_image.py        # Pillow renderer — High-res Hunter Shop image with vector catalogue & treasury
 │   └── formatting.py        # All Telegram message formatting (hunt results, inventory, equip, fallback profile, etc.)
 └── handlers/
     ├── __init__.py
-    ├── start.py             # /start — create new hunter + starter weapon
+    ├── start.py             # /start — create new hunter + starter weapon (deep-links: inventory, shop, help)
     ├── profile.py           # /profile — image-based status card via reply_photo (with text fallback)
-    ├── hunt.py              # /hunt — animated battle GIF sequence via reply_animation (15min cooldown)
+    ├── hunt.py              # /hunt — visual combat card (Victory/Defeat) via reply_photo (15min cooldown)
     ├── inventory.py         # /inventory — browse items in PM, dynamic tabs, 1-tap gear equip, shop
+    ├── shop.py              # /shop — visual Hunter Shop cards, 5 departments, in-place purchases
     ├── equip.py             # (Deprecated) Forwarding wrapper delegating to handlers.inventory
     ├── claim.py             # /claim — daily reward (24h cooldown), level-scaled XP+Gold
     └── help.py              # /help — command list + how to play guide
@@ -113,8 +115,9 @@ Prices range from 15💰 (iron ore) to 5000💰 (Dragon's Fang). Accessible via 
 - **The `Inventory` class** manages item IDs internally via `_next_id` counter
 - **Hunter stats** use `str_stat` and `int_stat` to avoid shadowing Python builtins `str` and `int`
 - **`/profile` renders an image** — `game/profile_image.py` renders an 860x1180 PNG Status Window using Pillow (including user's Telegram PFP avatar with rank-colored ring and First+Last name), executed via `asyncio.to_thread()`, sent via `reply_photo` with text fallback
-- **`/hunt` renders an animated GIF** — `game/hunt_gif.py` renders a compact 16:9 banner combat sequence GIF (640x360 px) using Pillow (two-column layout: monster card left, dynamic battle arena right; Gate alert → blade slash → critical impact → victory/defeat recap freeze, snappy ~2.7s loop). Quantized with zero dithering for razor-sharp clarity without blur, taking ~40% screen height on mobile. Executed via `asyncio.to_thread()`, sent via `reply_animation(filename="hunt.gif")` with text fallback.
+- **`/hunt` renders a visual Combat Card** — `game/hunt_image.py` renders a high-definition 16:9 banner Combat Card (800x450 px) using Pillow (two-column layout: monster target card left with HP bar, hunter status; outcome banner right showing Victory or Defeat, damage dealt/taken, EXP bounty, gold reward, loot drop, level/rank ups, or defeat tactical briefing). Rendered as pristine 24-bit PNG with zero compression blur or animation latency. Executed via `asyncio.to_thread()`, sent via `reply_photo` with text fallback.
 - **`/inventory` renders a dynamic image card** — `game/inventory_image.py` renders an 860x1060 PNG Dimensional Storage Window showcasing active equipment loadout (weapon, armor, accessory) with glowing vector artwork, rarity auras, stat badges, and storage matrix items; tab switching and 1-tap equipping dynamically update the image in-place via `edit_message_media`! When invoked in a group or supergroup, sends a notification card with an `[🎒 Open Inventory in Bot PM]` deep-link button (`t.me/<bot>?start=inventory`).
+- **`/shop` renders a dynamic visual shop card** — `game/shop_image.py` renders an 860x1060 PNG System Exchange Depot Window showcasing the Hunter's Available Treasury, 5 department categories (Weapons, Armor, Accessories, Consumables, Materials), vector equipment artwork, stat chips, and real-time affordability indicators (`READY TO PURCHASE` vs. `NEED X G MORE`); purchasing updates the image in-place with real-time acquisition notices! When invoked in a group or supergroup, sends a notification card with a `[🛒 Open Hunter Shop in Bot PM]` deep-link button (`t.me/<bot>?start=shop`).
 - **`.env` contains real credentials** — never commit, always gitignored
 
 ## Known Issues / TODOs

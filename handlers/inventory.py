@@ -19,6 +19,7 @@ from channel_db import ChannelDB
 from config import RARITY_EMOJI, EQUIPPABLE_TYPES
 from game.formatting import format_inventory, format_not_registered
 from game.inventory_image import render_inventory_image
+from game.shop_image import render_shop_image
 from game.shop import get_shop_items_by_type, get_shop_item, create_item_from_shop
 from models import Inventory, Item
 
@@ -366,32 +367,70 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # ── Shop menu ─────────────────────────────────────────
     elif data == "shop_menu":
-        text = (
-            "🛒 HUNTER SHOP — SYSTEM EXCHANGE DEPOT\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}\n"
-            f"💰 Available Gold: {hunter.gold:,} G\n\n"
-            "Acquire weapons, armor, accessories, and\n"
-            "consumables to boost stats and conquer gates.\n\n"
-            "Select a category below to browse items:"
+        caption = (
+            f"🛒 Hunter Shop — System Exchange Depot\n"
+            f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
+            "Select a department below to browse items:"
         )
-        if query.message.photo:
-            await query.edit_message_caption(caption=text, reply_markup=_shop_category_keyboard())
-        else:
-            await query.edit_message_text(text, reply_markup=_shop_category_keyboard())
+        try:
+            photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
+            if query.message.photo:
+                await query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    reply_markup=_shop_category_keyboard(),
+                )
+            else:
+                await query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_shop_category_keyboard(),
+                )
+        except Exception as e:
+            logger.error("Failed to render shop menu image: %s", e, exc_info=True)
+            text = (
+                "🛒 HUNTER SHOP — SYSTEM EXCHANGE DEPOT\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}\n"
+                f"💰 Available Gold: {hunter.gold:,} G\n\n"
+                "Select a category below to browse items:"
+            )
+            if query.message.photo:
+                await query.edit_message_caption(caption=text, reply_markup=_shop_category_keyboard())
+            else:
+                await query.edit_message_text(text, reply_markup=_shop_category_keyboard())
 
     # ── Shop category view ────────────────────────────────
     elif data.startswith("shop_"):
         category = data.replace("shop_", "")
-        text = _format_shop_category(category, hunter.gold)
-        if query.message.photo:
-            await query.edit_message_caption(
-                caption=text, reply_markup=_shop_items_keyboard(category)
-            )
-        else:
-            await query.edit_message_text(
-                text, reply_markup=_shop_items_keyboard(category)
-            )
+        caption = (
+            f"🛒 Hunter Shop — {category.title()}\n"
+            f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
+            "Tap an item below to purchase:"
+        )
+        try:
+            photo_buf = await asyncio.to_thread(render_shop_image, hunter, category)
+            if query.message.photo:
+                await query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    reply_markup=_shop_items_keyboard(category),
+                )
+            else:
+                await query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_shop_items_keyboard(category),
+                )
+        except Exception as e:
+            logger.error("Failed to render shop category image: %s", e, exc_info=True)
+            text = _format_shop_category(category, hunter.gold)
+            if query.message.photo:
+                await query.edit_message_caption(
+                    caption=text, reply_markup=_shop_items_keyboard(category)
+                )
+            else:
+                await query.edit_message_text(
+                    text, reply_markup=_shop_items_keyboard(category)
+                )
 
 
 async def equip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -538,16 +577,36 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await db.add_item(user.id, new_item)
     await db.save_hunter(user.id)
 
-    rarity_icon = RARITY_EMOJI.get(new_item.rarity, "")
+    notice = f"Acquired {new_item.name}! (-{price:,} G)"
     await query.answer(f"✅ Purchased {new_item.name}!", show_alert=True)
 
-    # Refresh the shop view for that category
-    text = _format_shop_category(shop_entry["type"], hunter.gold)
-    if query.message.photo:
-        await query.edit_message_caption(
-            caption=text, reply_markup=_shop_items_keyboard(shop_entry["type"])
-        )
-    else:
-        await query.edit_message_text(
-            text, reply_markup=_shop_items_keyboard(shop_entry["type"])
-        )
+    # Refresh the shop view with updated image and notice
+    cat = shop_entry["type"]
+    caption = (
+        f"🛒 Hunter Shop — {cat.title()}\n"
+        f"✨ Acquired {new_item.name}! ┊ 💰 Remaining: {hunter.gold:,} G"
+    )
+    try:
+        photo_buf = await asyncio.to_thread(render_shop_image, hunter, cat, notice)
+        if query.message.photo:
+            await query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption),
+                reply_markup=_shop_items_keyboard(cat),
+            )
+        else:
+            await query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_shop_items_keyboard(cat),
+            )
+    except Exception as e:
+        logger.error("Failed to render shop purchase image: %s", e, exc_info=True)
+        text = _format_shop_category(cat, hunter.gold)
+        if query.message.photo:
+            await query.edit_message_caption(
+                caption=text, reply_markup=_shop_items_keyboard(cat)
+            )
+        else:
+            await query.edit_message_text(
+                text, reply_markup=_shop_items_keyboard(cat)
+            )

@@ -17,7 +17,7 @@ from channel_db import ChannelDB
 from config import HUNT_COOLDOWN_SECONDS
 from game.combat import generate_monster, simulate_hunt
 from game.hunter import add_xp
-from game.hunt_gif import render_hunt_gif
+from game.hunt_image import render_hunt_image
 from game.formatting import (
     format_hunt_result,
     format_cooldown,
@@ -103,10 +103,9 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Save to channel
     await db.save_all(user.id)
 
-    # Send animated battle GIF result
+    # Send battle result image (Victory or Defeat)
     try:
-        gif_buf = await asyncio.to_thread(render_hunt_gif, hunter, result)
-        gif_buf.name = "hunt.gif"
+        photo_buf = await asyncio.to_thread(render_hunt_image, hunter, result)
         if result.victory:
             caption = f"⚔️ Victory against {result.monster.name} (+{result.xp_gained} XP, +{result.gold_gained} G)"
             if result.item_drop:
@@ -114,11 +113,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             caption = f"☠️ Defeated by {result.monster.name} (-{result.gold_lost} G)"
 
-        await update.message.reply_animation(
-            animation=gif_buf,
-            filename="hunt.gif",
+        await update.message.reply_photo(
+            photo=photo_buf,
             caption=caption,
         )
     except Exception as exc:
-        logger.error("Failed to render hunt GIF, falling back to text: %s", exc, exc_info=True)
+        logger.error("Failed to render hunt image, falling back to text: %s", exc, exc_info=True)
         await update.message.reply_text(format_hunt_result(result))

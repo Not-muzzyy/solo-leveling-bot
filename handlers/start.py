@@ -32,10 +32,41 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     is_inventory_deeplink = bool(
         context.args and context.args[0].lower() == "inventory"
     )
+    is_help_deeplink = bool(
+        context.args and context.args[0].lower() == "help"
+    )
+    is_shop_deeplink = bool(
+        context.args and context.args[0].lower() == "shop"
+    )
 
     # Check if already registered
     existing = await db.get_hunter(user.id)
     if existing:
+        if is_help_deeplink:
+            from handlers.help import HELP_TEXT, _help_pm_keyboard
+            await update.message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
+            return
+        if is_shop_deeplink:
+            from game.shop_image import render_shop_image
+            from handlers.inventory import _shop_category_keyboard
+            caption = (
+                f"🛒 Hunter Shop — System Exchange Depot\n"
+                f"👤 Hunter: {existing.hunter_name} [Rank {existing.rank}] ┊ 💰 Available Treasury: {existing.gold:,} G\n\n"
+                "Select a department below to browse items:"
+            )
+            try:
+                photo_buf = await asyncio.to_thread(render_shop_image, existing, "menu")
+                await update.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_shop_category_keyboard(),
+                )
+            except Exception:
+                await update.message.reply_text(
+                    f"🛒 Hunter Shop — Available Treasury: {existing.gold:,} G",
+                    reply_markup=_shop_category_keyboard(),
+                )
+            return
         if is_inventory_deeplink:
             inventory = await db.get_inventory(user.id)
             caption = f"🎒 Dimensional Inventory — ⚔️ Weapons\n👤 Hunter: {existing.hunter_name} [Rank {existing.rank}] ┊ 💰 Gold: {existing.gold:,} G"
@@ -66,6 +97,35 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Send welcome message
     await update.message.reply_text(format_welcome(hunter))
     logger.info(f"New hunter created: {hunter.hunter_name} (ID: {user.id})")
+
+    # If awakened via help deep-link, immediately show the Hunter Guide
+    if is_help_deeplink:
+        from handlers.help import HELP_TEXT, _help_pm_keyboard
+        await update.message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
+        return
+
+    # If awakened via shop deep-link, immediately show the Hunter Shop
+    if is_shop_deeplink:
+        from game.shop_image import render_shop_image
+        from handlers.inventory import _shop_category_keyboard
+        caption = (
+            f"🛒 Hunter Shop — System Exchange Depot\n"
+            f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
+            "Select a department below to browse items:"
+        )
+        try:
+            photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
+            await update.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_shop_category_keyboard(),
+            )
+        except Exception:
+            await update.message.reply_text(
+                f"🛒 Hunter Shop — Available Treasury: {hunter.gold:,} G",
+                reply_markup=_shop_category_keyboard(),
+            )
+        return
 
     # If awakened via inventory deep-link, immediately show their starter inventory
     if is_inventory_deeplink:
