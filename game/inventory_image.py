@@ -17,6 +17,7 @@ from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS, EQUIPPABLE_TYPES
+from game.font_manager import get_font_cascade, clean_and_normalize_name
 from models import Hunter, Inventory, Item
 
 # Canvas dimensions (860 x 1060)
@@ -350,7 +351,9 @@ def render_inventory_image(
 
     # Hunter Name & Rank
     rank_color = RANK_COLORS.get(hunter.rank, HUD_CYAN)
-    draw.text((54, info_y + 11), f"HUNTER: {hunter.hunter_name}", font=fonts["name"], fill=TEXT_WHITE)
+    h_name = hunter.display_full_name if hasattr(hunter, "display_full_name") and hunter.display_full_name else hunter.hunter_name
+    cascade_inv = get_font_cascade(18, is_bold=True)
+    cascade_inv.draw_text(draw, (54, info_y + 11), f"HUNTER: {h_name}", fill=TEXT_WHITE, max_w=380)
     draw.text((54, info_y + 36), f"Rank {hunter.rank} • {hunter.title}", font=fonts["small_bold"], fill=rank_color)
 
     # Right side metrics: Gold, Capacity, Power

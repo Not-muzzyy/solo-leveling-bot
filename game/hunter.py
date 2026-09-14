@@ -19,7 +19,12 @@ from config import (
 from models import Hunter
 
 
-def create_new_hunter(user_id: int, username: str) -> Hunter:
+def create_new_hunter(
+    user_id: int,
+    username: str,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+) -> Hunter:
     """Create a fresh Hunter with randomized starting stats."""
     str_stat = random.randint(STAT_MIN, STAT_MAX)
     agi = random.randint(STAT_MIN, STAT_MAX)
@@ -31,7 +36,16 @@ def create_new_hunter(user_id: int, username: str) -> Hunter:
     # HP scales with vitality
     max_hp = BASE_HP + (vit * 5)
 
-    hunter_name = username if username else f"Hunter_{user_id}"
+    fn = (first_name or "").strip()
+    ln = (last_name or "").strip()
+    if fn and ln:
+        hunter_name = f"{fn} {ln}"
+    elif fn:
+        hunter_name = fn
+    elif username:
+        hunter_name = username
+    else:
+        hunter_name = f"Hunter_{user_id}"
 
     return Hunter(
         user_id=user_id,
@@ -51,6 +65,8 @@ def create_new_hunter(user_id: int, username: str) -> Hunter:
         per=per,
         power=power,
         title="Novice Hunter",
+        first_name=first_name,
+        last_name=last_name,
     )
 
 

@@ -13,6 +13,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from channel_db import ChannelDB
+from game.font_manager import clean_and_normalize_name
 from game.hunter import create_new_hunter
 from game.items import create_starter_weapon
 from game.formatting import format_welcome, format_already_registered, format_inventory
@@ -42,6 +43,13 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Check if already registered
     existing = await db.get_hunter(user.id)
     if existing:
+        fn = clean_and_normalize_name(user.first_name)
+        ln = clean_and_normalize_name(user.last_name)
+        if fn and (existing.first_name != fn or existing.last_name != ln):
+            existing.first_name = fn
+            existing.last_name = ln
+            await db.save_hunter(user.id)
+
         if is_help_deeplink:
             from handlers.help import HELP_TEXT, _help_pm_keyboard
             await update.message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
@@ -87,8 +95,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Create new hunter
-    username = user.username or user.first_name or f"Hunter_{user.id}"
-    hunter = create_new_hunter(user.id, username)
+    fn = clean_and_normalize_name(user.first_name)
+    ln = clean_and_normalize_name(user.last_name)
+    username = user.username or fn or f"Hunter_{user.id}"
+    hunter = create_new_hunter(user.id, username, first_name=fn, last_name=ln)
     starter = create_starter_weapon()
 
     # Persist to channel

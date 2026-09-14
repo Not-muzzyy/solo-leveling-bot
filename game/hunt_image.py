@@ -16,6 +16,7 @@ from typing import Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 from config import RANK_EMOJI, RARITY_EMOJI
+from game.font_manager import get_font_cascade, clean_and_normalize_name
 from models import Hunter, Monster, HuntResult, Item
 
 # Dimensions: 800 x 450 (Crisp 16:9 banner)
@@ -230,10 +231,9 @@ def _draw_left_panel(
     )
     draw.text((x + w - hr_w - 18, y + 176), hr_text, font=fonts["small_bold"], fill=h_rank_color)
 
-    h_name = hunter.hunter_name
-    if len(h_name) > 20:
-        h_name = h_name[:18] + "..."
-    draw.text((x + 14, y + 202), h_name, font=fonts["title"], fill=TEXT_WHITE)
+    h_name = hunter.display_full_name if hasattr(hunter, "display_full_name") and hunter.display_full_name else hunter.hunter_name
+    cascade_hunt = get_font_cascade(18, is_bold=True)
+    cascade_hunt.draw_text(draw, (x + 14, y + 202), h_name, fill=TEXT_WHITE, max_w=w - 28)
 
     draw.text((x + 14, y + 236), f"Level: {hunter.level}", font=fonts["body_bold"], fill=HUD_SKY)
     draw.text((x + 14, y + 262), f"Combat Power: {hunter.power:,}", font=fonts["body_bold"], fill=GOLD_COLOR)

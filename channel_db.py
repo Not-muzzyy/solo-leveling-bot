@@ -201,6 +201,10 @@ class ChannelDB:
         entry = self._cache.get(user_id)
         return entry.hunter if entry else None
 
+    async def get_all_hunters(self) -> list[Hunter]:
+        """Get all cached hunters."""
+        return [entry.hunter for entry in self._cache.values()]
+
     async def get_inventory(self, user_id: int) -> Optional[Inventory]:
         """Get inventory from cache."""
         entry = self._cache.get(user_id)
@@ -265,8 +269,10 @@ class ChannelDB:
             )
             logger.info(f"Created hunter: {hunter.hunter_name} (ID: {user_id})")
 
-    async def save_hunter(self, user_id: int) -> None:
+    async def save_hunter(self, user_id: int | Hunter) -> None:
         """Flush cached hunter data to channel."""
+        if hasattr(user_id, "user_id"):
+            user_id = user_id.user_id
         entry = self._cache.get(user_id)
         if not entry:
             return

@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
+from game.font_manager import get_font_cascade, clean_and_normalize_name
 from models import Hunter, Inventory, Item
 
 # Canvas dimensions (High-DPI 860 x 1180)
@@ -375,35 +376,25 @@ def render_profile_image(
     max_text_w = badge_x - text_x - 16
 
     # Determine display name (User's First + Last name if available, else hunter_name)
-    primary_name = full_name.strip() if full_name and full_name.strip() else hunter.hunter_name
+    raw_name = full_name.strip() if full_name and full_name.strip() else hunter.hunter_name
+    primary_name = clean_and_normalize_name(raw_name)
 
-    # Check if primary name fits, otherwise use smaller font or truncate
-    name_font = fonts["name"]
-    name_bbox = name_font.getbbox(primary_name)
-    if (name_bbox[2] - name_bbox[0]) > max_text_w:
-        name_font = fonts["name_small"]
-        name_bbox = name_font.getbbox(primary_name)
-        if (name_bbox[2] - name_bbox[0]) > max_text_w:
-            while len(primary_name) > 3 and (name_font.getbbox(primary_name + "...")[2] - name_font.getbbox(primary_name + "...")[0]) > max_text_w:
-                primary_name = primary_name[:-1]
-            primary_name += "..."
-
-    draw.text((text_x, card1_y + 22), primary_name, font=name_font, fill=TEXT_WHITE)
+    cascade_name = get_font_cascade(26, is_bold=True)
+    cascade_name_small = get_font_cascade(20, is_bold=True)
+    bb_name = cascade_name.getbbox(primary_name)
+    w_name = bb_name[2] - bb_name[0]
+    name_cascade = cascade_name_small if w_name > max_text_w else cascade_name
+    name_cascade.draw_text(draw, (text_x, card1_y + 22), primary_name, fill=TEXT_WHITE, max_w=max_text_w)
 
     # Sub-header line: Hunter Codename & Title
     if full_name and full_name.strip().lower() != hunter.hunter_name.strip().lower():
         title_text = f"Hunter: {hunter.hunter_name} • {hunter.title}"
     else:
         title_text = f"Title: {hunter.title}"
+    title_text = clean_and_normalize_name(title_text)
 
-    # Truncate title if too long
-    t_bbox = fonts["body_bold"].getbbox(title_text)
-    if (t_bbox[2] - t_bbox[0]) > max_text_w:
-        while len(title_text) > 5 and (fonts["body_bold"].getbbox(title_text + "...")[2] - fonts["body_bold"].getbbox(title_text + "...")[0]) > max_text_w:
-            title_text = title_text[:-1]
-        title_text += "..."
-
-    draw.text((text_x, card1_y + 60), title_text, font=fonts["body_bold"], fill=HUD_SKY)
+    cascade_title = get_font_cascade(13, is_bold=True)
+    cascade_title.draw_text(draw, (text_x, card1_y + 60), title_text, fill=HUD_SKY, max_w=max_text_w)
 
     # Username or User ID tag
     user_tag = f"@{hunter.username}" if hunter.username else f"ID: {hunter.user_id}"

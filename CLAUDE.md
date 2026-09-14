@@ -27,10 +27,14 @@ solo-leveling-bot/
 │   ├── combat.py            # generate_monster(), simulate_hunt() → HuntResult
 │   ├── items.py             # generate_loot(), create_starter_weapon(), rarity rolls
 │   ├── shop.py              # 21 purchasable items across 5 categories, get_shop_item(), create_item_from_shop()
+│   ├── font_manager.py      # Universal Unicode Font Cascade & Normalizer (Fraktur, Hangul, CJK, Emoji, zero tofu)
 │   ├── hunt_image.py        # Pillow renderer — 16:9 Combat Cards (Victory & Defeat) for /hunt
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer — High-res Dimensional Inventory image with equipment visuals
 │   ├── shop_image.py        # Pillow renderer — High-res Hunter Shop image with vector catalogue & treasury
+│   ├── leaderboard_image.py # Pillow renderer — High-res System Hall of Fame with real names & podium
+│   ├── duel.py              # Pure combat simulation engine for PvP arena duels
+│   ├── duel_image.py        # Pillow renderer — 920x580 High-def Duel Card with VS clash, WON/LOST banners
 │   └── formatting.py        # All Telegram message formatting (hunt results, inventory, equip, fallback profile, etc.)
 └── handlers/
     ├── __init__.py
@@ -39,6 +43,8 @@ solo-leveling-bot/
     ├── hunt.py              # /hunt — visual combat card (Victory/Defeat) via reply_photo (15min cooldown)
     ├── inventory.py         # /inventory — browse items in PM, dynamic tabs, 1-tap gear equip, shop
     ├── shop.py              # /shop — visual Hunter Shop cards, 5 departments, in-place purchases
+    ├── leaderboard.py       # /leaderboard — visual System Hall of Fame with interactive category tabs
+    ├── duel.py              # /duel — group reply PvP duel challenge, accept/decline buttons, image resolution
     ├── equip.py             # (Deprecated) Forwarding wrapper delegating to handlers.inventory
     ├── claim.py             # /claim — daily reward (24h cooldown), level-scaled XP+Gold
     └── help.py              # /help — command list + how to play guide
@@ -118,6 +124,9 @@ Prices range from 15💰 (iron ore) to 5000💰 (Dragon's Fang). Accessible via 
 - **`/hunt` renders a visual Combat Card** — `game/hunt_image.py` renders a high-definition 16:9 banner Combat Card (800x450 px) using Pillow (two-column layout: monster target card left with HP bar, hunter status; outcome banner right showing Victory or Defeat, damage dealt/taken, EXP bounty, gold reward, loot drop, level/rank ups, or defeat tactical briefing). Rendered as pristine 24-bit PNG with zero compression blur or animation latency. Executed via `asyncio.to_thread()`, sent via `reply_photo` with text fallback.
 - **`/inventory` renders a dynamic image card** — `game/inventory_image.py` renders an 860x1060 PNG Dimensional Storage Window showcasing active equipment loadout (weapon, armor, accessory) with glowing vector artwork, rarity auras, stat badges, and storage matrix items; tab switching and 1-tap equipping dynamically update the image in-place via `edit_message_media`! When invoked in a group or supergroup, sends a notification card with an `[🎒 Open Inventory in Bot PM]` deep-link button (`t.me/<bot>?start=inventory`).
 - **`/shop` renders a dynamic visual shop card** — `game/shop_image.py` renders an 860x1060 PNG System Exchange Depot Window showcasing the Hunter's Available Treasury, 5 department categories (Weapons, Armor, Accessories, Consumables, Materials), vector equipment artwork, stat chips, and real-time affordability indicators (`READY TO PURCHASE` vs. `NEED X G MORE`); purchasing updates the image in-place with real-time acquisition notices! When invoked in a group or supergroup, sends a notification card with a `[🛒 Open Hunter Shop in Bot PM]` deep-link button (`t.me/<bot>?start=shop`).
+- **`/leaderboard` renders an interactive visual Hall of Fame card** — `game/leaderboard_image.py` renders an 860x1140 PNG System Leaderboard HUD card featuring podium highlights (#1 Gold Crown, #2 Silver, #3 Bronze), #4-#10 elite rankings, and a personal rank standing footer card. Strictly displays players' real First Name and Last Name (never @username). Inline keyboard tabs (`lb_power`, `lb_level`, `lb_wealth`, `lb_victories`) dynamically re-sort hunters and update the card in-place via `edit_message_media`.
+- **`/duel` renders a high-definition PvP Arena card** — `game/duel_image.py` renders a 920x580 PNG Combat Resolution Card showing Challenger vs Opponent side-by-side with avatars, illuminated rank rings, combat breakdown, central glowing "VS" clash emblem, and prominent "VICTORY • WON" (emerald/gold) and "DEFEATED • LOST" (crimson) banners. Executed in group chats strictly by replying to another hunter's message.
+- **Universal Font Cascade & Normalizer** — `game/font_manager.py` cleans fancy font generator Unicode (Fraktur, Script, Small Caps, Circled) and dynamically cascades glyphs across Windows global fonts (Korean Malgun Gothic / Batang, Japanese Meiryo / Yu Gothic, Chinese YaHei, Arial / Segoe UI, Segoe UI Symbol) to prevent missing glyph "tofu" boxes (`□`).
 - **`.env` contains real credentials** — never commit, always gitignored
 
 ## Known Issues / TODOs
@@ -125,6 +134,6 @@ Prices range from 15💰 (iron ore) to 5000💰 (Dragon's Fang). Accessible via 
 - Cooldowns are in-memory only — they reset when the bot restarts
 - No error handling for Telegram API rate limits during heavy concurrent usage
 - The startup loading uses `forward_message` to read channel messages (creates temp copies then deletes them) — could be optimized
-- No `/leaderboard`, `/battle`, `/duel`, `/guild` yet — see `idea.md` "Future Expansion" section
+- No `/battle`, `/guild` yet — see `idea.md` "Future Expansion" section
 - Consumables can be bought in the shop but there's no `/use` command to consume them yet
 - No item selling/discard mechanism

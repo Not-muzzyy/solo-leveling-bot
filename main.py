@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from config import BOT_TOKEN, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim, shop
+from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -62,6 +62,8 @@ def main() -> None:
     app.add_handler(CommandHandler("inventory", inventory.handle))
     app.add_handler(CommandHandler("equip", inventory.handle))  # Backward-compatible shortcut
     app.add_handler(CommandHandler("shop", shop.handle))
+    app.add_handler(CommandHandler("leaderboard", leaderboard.handle))
+    app.add_handler(CommandHandler("duel", duel.handle))
     app.add_handler(CommandHandler("help", help.handle))
     app.add_handler(CommandHandler("claim", claim.handle))
 
@@ -70,6 +72,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^inv_"))
     app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^shop_"))
     app.add_handler(CallbackQueryHandler(inventory.buy_callback, pattern="^buy_"))
+    app.add_handler(CallbackQueryHandler(leaderboard.callback, pattern="^lb_"))
+    app.add_handler(CallbackQueryHandler(duel.callback, pattern="^duel_"))
 
     # ── Run ───────────────────────────────────────────────
     logger.info("Starting bot polling...")

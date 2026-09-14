@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS, RARITY_EMOJI
+from game.font_manager import get_font_cascade, clean_and_normalize_name
 from models import Hunter, Item
 from game.shop import SHOP_ITEMS, get_shop_items_by_type
 
@@ -342,10 +343,9 @@ def render_shop_image(
     _draw_diamond(draw, 50, h_y1 + 24, size=4, fill=HUD_CYAN)
     draw.text((62, h_y1 + 14), "[ LICENSED HUNTER ]", font=fonts["small_bold"], fill=HUD_CYAN)
 
-    h_name = hunter.hunter_name
-    if len(h_name) > 22:
-        h_name = h_name[:20] + "..."
-    draw.text((50, h_y1 + 36), h_name, font=fonts["name"], fill=TEXT_WHITE)
+    h_name = hunter.display_full_name if hasattr(hunter, "display_full_name") and hunter.display_full_name else hunter.hunter_name
+    cascade_shop = get_font_cascade(20, is_bold=True)
+    cascade_shop.draw_text(draw, (50, h_y1 + 36), h_name, fill=TEXT_WHITE, max_w=vault_x - 70)
 
     r_col = RANK_COLORS.get(hunter.rank, GOLD_COLOR)
     draw.text((50, h_y1 + 64), f"Rank: {hunter.rank}-Rank  •  Level {hunter.level}  •  Combat Power: {hunter.power:,}", font=fonts["small_bold"], fill=r_col)

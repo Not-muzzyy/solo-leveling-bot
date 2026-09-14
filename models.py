@@ -36,6 +36,36 @@ class Hunter:
     total_hunts: int = 0
     victories: int = 0
     defeats: int = 0
+    duel_wins: int = 0
+    duel_losses: int = 0
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    @property
+    def display_full_name(self) -> str:
+        """Return the hunter's real First Name + Last Name, avoiding usernames and normalizing fancy fonts."""
+        from game.font_manager import clean_and_normalize_name
+        fn = (self.first_name or "").strip()
+        ln = (self.last_name or "").strip()
+        if fn and ln:
+            raw = f"{fn} {ln}"
+        elif fn:
+            raw = fn
+        elif ln:
+            raw = ln
+        else:
+            raw = (self.hunter_name or f"Hunter #{self.user_id}").strip()
+        return clean_and_normalize_name(raw)
+
+    @property
+    def combat_power(self) -> int:
+        """Alias for power stat to represent total combat power."""
+        return self.power
+
+    @property
+    def exp(self) -> int:
+        """Alias for xp."""
+        return self.xp
 
     def recalculate_power(self) -> None:
         """Recalculate total power from base stats."""
@@ -195,3 +225,30 @@ class HuntResult:
     ranked_up: bool = False
     new_rank: Optional[str] = None
     gold_lost: int = 0
+
+
+@dataclass
+class DuelResult:
+    """The outcome of a PvP duel encounter between two hunters."""
+
+    challenger: Hunter
+    opponent: Hunter
+    winner: Hunter
+    loser: Hunter
+    winner_is_challenger: bool
+    challenger_damage_dealt: int
+    opponent_damage_dealt: int
+    challenger_hp_left: int
+    opponent_hp_left: int
+    challenger_max_hp: int
+    opponent_max_hp: int
+    challenger_crits: int = 0
+    opponent_crits: int = 0
+    total_rounds: int = 1
+    winner_xp_gained: int = 0
+    winner_gold_gained: int = 0
+    loser_xp_gained: int = 0
+    winner_leveled_up: bool = False
+    winner_new_level: Optional[int] = None
+    winner_ranked_up: bool = False
+    winner_new_rank: Optional[str] = None

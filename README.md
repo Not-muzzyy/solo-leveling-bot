@@ -39,6 +39,27 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - **Live In-Place Purchases**: Tapping buy instantly executes transactions, deposits gear, and updates the image card in-place with real-time acquisition notices!
 - **Group Chat Protection**: Deep-links to Bot PM (`t.me/<bot>?start=shop`) when invoked in groups to ensure secure transactions.
 
+### 🏆 Visual System Leaderboard (`/leaderboard`)
+- **High-Resolution Hall of Fame Card (`860 × 1140` px)** rendered dynamically via Pillow with Solo Leveling HUD aesthetics.
+- **Strict Real-Name Privacy**: Displays players strictly using their **First Name and Last Name** (never exposing usernames or `@handles`).
+- **Podium Styling & Elite Hierarchy**:
+  - **#1 Champion**: Royal Gold Crown, glowing gold border, and gold score highlights.
+  - **#2 Silver & #3 Bronze Medals**: Distinct metallic vector badges and stat cards.
+  - **#4 to #10 Elite Hierarchy**: Sleek zebra-striped rows with rank badges and right-aligned metrics.
+- **Personal Standing Tracker**: A dedicated cyan-bordered footer card displays the viewing hunter's real-time global rank, stats, and score.
+- **Dynamic Category Tabs**: Switch instantly between **⚡ Combat Power**, **🏆 Hunter Level**, **💰 Treasury Wealth**, and **⚔️ Gate Victories** with live image updates in-place.
+
+### ⚔️ Visual PvP Arena Duels (`/duel`)
+- **Group-Exclusive Reply Challenges**: Issue an arena duel challenge by simply **replying** to any Hunter's message in a group with `/duel`.
+- **Opponent Security Verification**: Generates an invitation card with interactive inline buttons: `[ ⚔️ Accept Duel ]` and `[ ❌ Decline ]`. Only the challenged hunter can accept or decline (unauthorized clicks trigger an instant alert).
+- **High-Definition Combat Resolution Card (`920 × 580` px)**:
+  - **Dual Fighter Panels**: Challenger (left) vs Opponent (right), each displaying circular player avatars (PFP) with illuminated rank rings, real First & Last names, Rank badges, Level, Combat Power, equipped gear, and live remaining HP bars.
+  - **Central Clashing "VS" Emblem**: Glowing cyan energy beam with round counter.
+  - **Prominent Outcome Banners**:
+    - **👑 VICTORY • WON**: Glowing emerald/gold banner with spoils (+XP, +Gold, level-up celebration).
+    - **💀 DEFEATED • LOST**: Glowing crimson banner with consolation combat training XP.
+  - **Multi-Font Fallback & Native Vectors**: Universal font cascade ensures 0 tofu boxes (`□`) for any fancy Unicode characters, CJK scripts, or emojis.
+
 ### 💰 Daily Hunter Allowance (`/claim`)
 - Claim daily rewards once every 24 hours.
 - Rewards dynamically scale with the Hunter's level to accelerate progression.
@@ -59,6 +80,8 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | `/hunt` | PM & Groups | Slay gate monsters & earn loot via visual Combat Cards (15m cooldown) |
 | `/inventory` | PM & Groups | Open visual Dimensional Storage with 1-tap equip & shop (redirects to PM in groups) |
 | `/shop` | PM & Groups | Open visual Hunter Shop & Exchange Depot (redirects to PM in groups) |
+| `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |
+| `/duel` | Groups (Reply) | Challenge another Hunter to a PvP Arena duel with visual resolution |
 | `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
 
