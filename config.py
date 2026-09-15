@@ -9,6 +9,8 @@ load_dotenv()
 
 # ── Telegram ──────────────────────────────────────────────
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+API_ID: int = int(os.getenv("API_ID", "0"))
+API_HASH: str = os.getenv("API_HASH", "")
 DATA_CHANNEL_ID: int = int(os.getenv("DATA_CHANNEL_ID", "0"))
 
 # ── Ranks (ordered) ──────────────────────────────────────
@@ -144,3 +146,7 @@ TITLES: dict[str, str] = {
     "100_hunts": "Relentless",
     "defeat_streak_5": "Unyielding",
 }
+
+# ── Guilds ──────────────────────────────────────────────
+GUILD_MAX_MEMBERS = 15
+GUILD_XP_BONUS = 0.10  # +10% XP for guild members while hunting

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from channel_db import ChannelDB
 from game.formatting import format_not_registered
@@ -21,28 +21,22 @@ from handlers.inventory import _shop_category_keyboard
 logger = logging.getLogger(__name__)
 
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /shop command. Directs to PM if called inside a group chat."""
-    user = update.effective_user
-    chat = update.effective_chat
+    user = message.from_user
+    chat = message.chat
     if not user or not chat:
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
 
     # 1. Group / Supergroup chat detection
     is_group = chat.type in ["group", "supergroup"]
 
     if is_group:
-        bot_user = context.bot.username
-        if not bot_user:
-            try:
-                me = await context.bot.get_me()
-                bot_user = me.username
-            except Exception:
-                bot_user = "solo_leveling_hunter_bot"
-
+        me = await client.get_me()
+        bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=shop"
 
         if not hunter:
@@ -55,9 +49,9 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "Awaken first in Bot PM to gain access to the Hunter Shop."
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚡ Awaken in Bot PM", url=f"https://t.me/{bot_user}?start=shop")]
+                [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
             ])
-            await update.message.reply_text(gc_text, reply_markup=keyboard)
+            await message.reply_text(gc_text, reply_markup=keyboard)
             return
 
         # Attempt direct transmission to PM
@@ -69,7 +63,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
                 "Select a department below to browse items:"
             )
-            await context.bot.send_photo(
+            await client.send_photo(
                 chat_id=user.id,
                 photo=photo_buf,
                 caption=caption,
@@ -100,12 +94,12 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🛒 Open Hunter Shop in Bot PM", url=pm_url)]
         ])
-        await update.message.reply_text(gc_text, reply_markup=keyboard)
+        await message.reply_text(gc_text, reply_markup=keyboard)
         return
 
     # 2. Private Chat (PM) — render visual shop hub card
     if not hunter:
-        await update.message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered())
         return
 
     caption = (
@@ -116,7 +110,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
-        await update.message.reply_photo(
+        await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_shop_category_keyboard(),
@@ -130,4 +124,4 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"💰 Available Gold: {hunter.gold:,} G\n\n"
             "Select a category below to browse items:"
         )
-        await update.message.reply_text(text, reply_markup=_shop_category_keyboard())
+        await message.reply_text(text, reply_markup=_shop_category_keyboard())

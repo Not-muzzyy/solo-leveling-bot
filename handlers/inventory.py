@@ -12,8 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    Message,
+    CallbackQuery,
+)
 
 from channel_db import ChannelDB
 from config import RARITY_EMOJI, EQUIPPABLE_TYPES
@@ -178,28 +184,22 @@ def _format_shop_category(item_type: str, gold: int) -> str:
 
 # ── Handlers ──────────────────────────────────────────────
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /inventory command. Directs to PM if called in a group chat."""
-    user = update.effective_user
-    chat = update.effective_chat
+    user = message.from_user
+    chat = message.chat
     if not user or not chat:
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
 
     # 1. Group / Supergroup chat detection
     is_group = chat.type in ["group", "supergroup"]
 
     if is_group:
-        bot_user = context.bot.username
-        if not bot_user:
-            try:
-                me = await context.bot.get_me()
-                bot_user = me.username
-            except Exception:
-                bot_user = "solo_leveling_hunter_bot"
-
+        me = await client.get_me()
+        bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=inventory"
 
         if not hunter:
@@ -213,7 +213,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
             ])
-            await update.message.reply_text(gc_text, reply_markup=keyboard)
+            await message.reply_text(gc_text, reply_markup=keyboard)
             return
 
         inventory = await db.get_inventory(user.id)
@@ -223,7 +223,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
             caption = f"🎒 Dimensional Inventory — ⚔️ Weapons\n👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Gold: {hunter.gold:,} G"
-            await context.bot.send_photo(
+            await client.send_photo(
                 chat_id=user.id,
                 photo=photo_buf,
                 caption=caption,
@@ -254,12 +254,12 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎒 Open Inventory in Bot PM", url=pm_url)]
         ])
-        await update.message.reply_text(gc_text, reply_markup=keyboard)
+        await message.reply_text(gc_text, reply_markup=keyboard)
         return
 
     # 2. Private Chat (PM) — render dimensional inventory image card
     if not hunter:
-        await update.message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered())
         return
 
     inventory = await db.get_inventory(user.id)
@@ -267,7 +267,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
-        await update.message.reply_photo(
+        await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_inventory_keyboard(inventory, "weapon"),
@@ -275,18 +275,17 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as exc:
         logger.error("Failed to render inventory image, falling back to text: %s", exc, exc_info=True)
         text = format_inventory(inventory, hunter, "weapon")
-        await update.message.reply_text(
+        await message.reply_text(
             text, reply_markup=_inventory_keyboard(inventory, "weapon")
         )
 
 
-async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def tab_callback(client: Client, query: CallbackQuery) -> None:
     """Handle inventory tab button presses, equip shortcut, and shop navigation."""
-    query = update.callback_query
     await query.answer()
 
     user = query.from_user
-    chat = update.effective_chat
+    chat = query.message.chat if query.message else None
     if not user:
         return
 
@@ -295,7 +294,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.answer("⚠️ Please manage your inventory in Bot PM!", show_alert=True)
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
     if not hunter:
         await query.answer("You are not a registered Hunter!", show_alert=True)
@@ -331,7 +330,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             f"👤 Hunter: {hunter.hunter_name} ┊ 💪 Power: {hunter.power}\n\n"
             "Tap any item below to bind it to your Hunter:"
         )
-        if query.message.photo:
+        if query.message and query.message.photo:
             await query.edit_message_caption(caption=equip_caption, reply_markup=InlineKeyboardMarkup(buttons))
         else:
             await query.edit_message_text(equip_caption, reply_markup=InlineKeyboardMarkup(buttons))
@@ -346,7 +345,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, category)
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_media(
                     media=InputMediaPhoto(media=photo_buf, caption=caption),
                     reply_markup=_inventory_keyboard(inventory, category),
@@ -360,7 +359,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         except Exception as e:
             logger.error("Failed to render inventory image on tab switch: %s", e, exc_info=True)
             text = format_inventory(inventory, hunter, category)
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, category))
             else:
                 await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, category))
@@ -374,7 +373,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_media(
                     media=InputMediaPhoto(media=photo_buf, caption=caption),
                     reply_markup=_shop_category_keyboard(),
@@ -394,7 +393,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 f"💰 Available Gold: {hunter.gold:,} G\n\n"
                 "Select a category below to browse items:"
             )
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_caption(caption=text, reply_markup=_shop_category_keyboard())
             else:
                 await query.edit_message_text(text, reply_markup=_shop_category_keyboard())
@@ -409,7 +408,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, category)
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_media(
                     media=InputMediaPhoto(media=photo_buf, caption=caption),
                     reply_markup=_shop_items_keyboard(category),
@@ -423,7 +422,7 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         except Exception as e:
             logger.error("Failed to render shop category image: %s", e, exc_info=True)
             text = _format_shop_category(category, hunter.gold)
-            if query.message.photo:
+            if query.message and query.message.photo:
                 await query.edit_message_caption(
                     caption=text, reply_markup=_shop_items_keyboard(category)
                 )
@@ -433,11 +432,10 @@ async def tab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 )
 
 
-async def equip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def equip_callback(client: Client, query: CallbackQuery) -> None:
     """Handle 1-tap equipment changes directly inside the inventory."""
-    query = update.callback_query
     user = query.from_user
-    chat = update.effective_chat
+    chat = query.message.chat if query.message else None
     if not user:
         await query.answer()
         return
@@ -446,7 +444,7 @@ async def equip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.answer("⚠️ Please manage your equipment in Bot PM!", show_alert=True)
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
     if not hunter:
         await query.answer("You are not a registered Hunter!", show_alert=True)
@@ -514,7 +512,7 @@ async def equip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, return_cat, notice)
-        if query.message.photo:
+        if query.message and query.message.photo:
             await query.edit_message_media(
                 media=InputMediaPhoto(media=photo_buf, caption=caption),
                 reply_markup=_inventory_keyboard(inventory, return_cat),
@@ -528,17 +526,16 @@ async def equip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as e:
         logger.error("Failed to render inventory image on equip: %s", e, exc_info=True)
         text = format_inventory(inventory, hunter, return_cat, notice=notice)
-        if query.message.photo:
+        if query.message and query.message.photo:
             await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, return_cat))
         else:
             await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, return_cat))
 
 
-async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def buy_callback(client: Client, query: CallbackQuery) -> None:
     """Handle buy button presses from the shop."""
-    query = update.callback_query
     user = query.from_user
-    chat = update.effective_chat
+    chat = query.message.chat if query.message else None
     if not user:
         await query.answer()
         return
@@ -547,7 +544,7 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.answer("⚠️ Please use the Hunter Shop in Bot PM!", show_alert=True)
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
@@ -588,7 +585,7 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, cat, notice)
-        if query.message.photo:
+        if query.message and query.message.photo:
             await query.edit_message_media(
                 media=InputMediaPhoto(media=photo_buf, caption=caption),
                 reply_markup=_shop_items_keyboard(cat),
@@ -602,7 +599,7 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         logger.error("Failed to render shop purchase image: %s", e, exc_info=True)
         text = _format_shop_category(cat, hunter.gold)
-        if query.message.photo:
+        if query.message and query.message.photo:
             await query.edit_message_caption(
                 caption=text, reply_markup=_shop_items_keyboard(cat)
             )

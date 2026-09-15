@@ -7,8 +7,8 @@ Directs users to open the guide in private chat (PM) when invoked from a group c
 
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 
 HELP_TEXT = (
@@ -27,7 +27,22 @@ HELP_TEXT = (
     "/leaderboard — Visual System Hall of Fame (Power, Level, Wealth, Kills)\n"
     "/duel — Challenge another Hunter by replying to their message in a group\n"
     "/claim — Daily Hunter allowance (XP + Gold, 24h cooldown)\n"
+    "/guild — Manage your Hunter Guild (create, join, members, etc.)\n"
     "/help — Display this operational manual\n"
+    "\n"
+    "🏰 GUILD COMMANDS\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "/guild — Show guild help\n"
+    "/guild create <name> — Create a guild (500💰)\n"
+    "/guild join <name> — Join an existing guild\n"
+    "/guild leave — Leave your current guild\n"
+    "/guild info — View guild card (yours or by name)\n"
+    "/guild members — List guild members\n"
+    "/guild kick — Kick a member (reply to their message, owner only)\n"
+    "/guild disband — Delete your guild (owner only)\n"
+    "/guild edit <desc> — Edit description (owner only)\n\n"
+    "🎁 Guild members receive +10% XP on all hunts!\n"
+    "👥 Max members: 15 per guild\n"
     "\n"
     "🎮 CORE GAMEPLAY LOOP\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -39,6 +54,7 @@ HELP_TEXT = (
     "6️⃣ Show off your power & stats card with /profile\n"
     "7️⃣ Compete on the visual /leaderboard across power, level, wealth & kills\n"
     "8️⃣ Challenge rivals to PvP duels with /duel (by replying to their message)\n"
+    "9️⃣ Join or create a guild with /guild for +10% XP bonus!\n"
     "\n"
     "🔒 PRIVACY & GROUP NOTICES\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -71,30 +87,24 @@ def _help_pm_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /help command. Directs to PM if called inside a group chat."""
-    user = update.effective_user
-    chat = update.effective_chat
+    user = message.from_user
+    chat = message.chat
     if not user or not chat:
         return
 
     is_group = chat.type in ["group", "supergroup"]
 
     if is_group:
-        bot_user = context.bot.username
-        if not bot_user:
-            try:
-                me = await context.bot.get_me()
-                bot_user = me.username
-            except Exception:
-                bot_user = "solo_leveling_hunter_bot"
-
+        me = await client.get_me()
+        bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=help"
 
         # Attempt direct transmission to user's PM if they previously interacted in PM
         direct_sent = False
         try:
-            await context.bot.send_message(
+            await client.send_message(
                 chat_id=user.id,
                 text=HELP_TEXT,
                 reply_markup=_help_pm_keyboard(),
@@ -123,8 +133,8 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📖 Open Guide in Bot PM", url=pm_url)]
         ])
-        await update.message.reply_text(gc_text, reply_markup=keyboard)
+        await message.reply_text(gc_text, reply_markup=keyboard)
         return
 
     # Private Chat (PM) — send full guide with quick action buttons
-    await update.message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
+    await message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())

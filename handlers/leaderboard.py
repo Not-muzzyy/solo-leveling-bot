@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
-from telegram.error import BadRequest
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, CallbackQuery
+from pyrogram.errors import BadRequest
 
 from channel_db import ChannelDB
 from game.font_manager import clean_and_normalize_name
@@ -61,7 +61,7 @@ def _sort_hunters(hunters: list[Hunter], category: str) -> list[Hunter]:
 
 
 async def _resolve_missing_names(
-    context: ContextTypes.DEFAULT_TYPE,
+    client: Client,
     db: ChannelDB,
     hunters: list[Hunter],
 ) -> None:
@@ -69,7 +69,7 @@ async def _resolve_missing_names(
     for h in hunters:
         if not h.first_name:
             try:
-                chat = await context.bot.get_chat(h.user_id)
+                chat = await client.get_chat(h.user_id)
                 if chat and (chat.first_name or chat.last_name):
                     h.first_name = clean_and_normalize_name(chat.first_name)
                     h.last_name = clean_and_normalize_name(chat.last_name)
@@ -78,13 +78,13 @@ async def _resolve_missing_names(
                 logger.debug("Failed to fetch chat for user_id=%s: %s", h.user_id, exc)
 
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /leaderboard command."""
-    user = update.effective_user
+    user = message.from_user
     if not user:
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
 
     # Ensure caller's hunter profile has latest Telegram first & last name
     req_hunter = await db.get_hunter(user.id)
@@ -103,7 +103,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     all_hunters = await db.get_all_hunters()
     if not all_hunters:
-        await update.message.reply_text(
+        await message.reply_text(
             "╔══════════════════════════════╗\n"
             "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
             "║      HUNTER LEADERBOARD      ║\n"
@@ -117,7 +117,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     sorted_hunters = _sort_hunters(all_hunters, category)
 
     # Resolve names for top 10 hunters
-    await _resolve_missing_names(context, db, sorted_hunters[:10])
+    await _resolve_missing_names(client, db, sorted_hunters[:10])
 
     try:
         photo_buf = await asyncio.to_thread(
@@ -128,19 +128,18 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         cat_name = CATEGORY_TITLES.get(category, "Combat Power")
         caption = f"🏆 System Leaderboard — Top Hunters [{cat_name}]"
-        await update.message.reply_photo(
+        await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_leaderboard_keyboard(category),
         )
     except Exception as exc:
         logger.error("Failed to render leaderboard image: %s", exc, exc_info=True)
-        await update.message.reply_text("❌ System Error: Failed to render leaderboard. Please try again later.")
+        await message.reply_text("❌ System Error: Failed to render leaderboard. Please try again later.")
 
 
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def callback(client: Client, query: CallbackQuery) -> None:
     """Handle lb_<category> tab switching callbacks."""
-    query = update.callback_query
     if not query:
         return
 
@@ -153,16 +152,16 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if category not in CATEGORY_TITLES:
         category = "power"
 
-    user = update.effective_user
+    user = query.from_user
     user_id = user.id if user else 0
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
 
     all_hunters = await db.get_all_hunters()
     if not all_hunters:
         return
 
     sorted_hunters = _sort_hunters(all_hunters, category)
-    await _resolve_missing_names(context, db, sorted_hunters[:10])
+    await _resolve_missing_names(client, db, sorted_hunters[:10])
 
     try:
         photo_buf = await asyncio.to_thread(

@@ -6,11 +6,11 @@ Wires up all handlers and initializes the Telegram channel database.
 
 import logging
 
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+from pyrogram import Client, filters
 
-from config import BOT_TOKEN, DATA_CHANNEL_ID
+from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel
+from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -19,66 +19,77 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ── Client ────────────────────────────────────────────────
+app = Client(
+    "solo_leveling_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+)
 
-async def post_init(application) -> None:
+
+# ── Lifecycle ─────────────────────────────────────────────
+@app.on_start()
+async def on_start(client):
     """Initialize the channel database and populate cache on startup."""
     logger.info("Initializing Solo Leveling Bot...")
 
-    db = ChannelDB(application.bot, DATA_CHANNEL_ID)
+    db = ChannelDB(client, DATA_CHANNEL_ID)
     await db.initialize()
-    application.bot_data["db"] = db
+    client.db = db  # ponytail: attach DB to client for handler access
 
     logger.info("Bot initialized and ready!")
 
 
-def main() -> None:
-    """Build and run the bot application."""
+@app.on_stop()
+async def on_stop(client):
+    logger.info("Bot shutting down...")
+
+
+# ── Command Handlers ──────────────────────────────────────
+app.on_message(filters.command("start"))(start.handle)
+app.on_message(filters.command("profile"))(profile.handle)
+app.on_message(filters.command("hunt"))(hunt.handle)
+app.on_message(filters.command(["inventory", "equip"]))(inventory.handle)
+app.on_message(filters.command("shop"))(shop.handle)
+app.on_message(filters.command("leaderboard"))(leaderboard.handle)
+app.on_message(filters.command("duel"))(duel.handle)
+app.on_message(filters.command("help"))(help.handle)
+app.on_message(filters.command("claim"))(claim.handle)
+app.on_message(filters.command("guild"))(guild.handle)
+
+# ── Inline Button Callbacks ───────────────────────────────
+app.on_callback_query(filters.regex(r"^equip_"))(inventory.equip_callback)
+app.on_callback_query(filters.regex(r"^inv_"))(inventory.tab_callback)
+app.on_callback_query(filters.regex(r"^shop_"))(inventory.tab_callback)
+app.on_callback_query(filters.regex(r"^buy_"))(inventory.buy_callback)
+app.on_callback_query(filters.regex(r"^lb_"))(leaderboard.callback)
+app.on_callback_query(filters.regex(r"^duel_"))(duel.callback)
+
+
+# ── Run ───────────────────────────────────────────────────
+if __name__ == "__main__":
     if not BOT_TOKEN or BOT_TOKEN == "your_bot_token_here":
-        print("❌ ERROR: Set your BOT_TOKEN in the .env file!")
+        print("ERROR: Set your BOT_TOKEN in the .env file!")
         print("   1. Talk to @BotFather on Telegram")
         print("   2. Create a bot with /newbot")
         print("   3. Copy the token to .env")
-        return
+        raise SystemExit(1)
+
+    if not API_ID or API_ID == 0:
+        print("ERROR: Set your API_ID in the .env file!")
+        print("   1. Go to https://my.telegram.org")
+        print("   2. Create an application")
+        print("   3. Copy API_ID and API_HASH to .env")
+        raise SystemExit(1)
 
     if not DATA_CHANNEL_ID or DATA_CHANNEL_ID == 0:
-        print("❌ ERROR: Set your DATA_CHANNEL_ID in the .env file!")
+        print("ERROR: Set your DATA_CHANNEL_ID in the .env file!")
         print("   1. Create a private Telegram channel")
         print("   2. Add the bot as admin")
         print("   3. Get the channel ID (format: -100xxxxxxxxxx)")
         print("   4. Paste it in .env as DATA_CHANNEL_ID")
-        return
+        raise SystemExit(1)
 
-    app = (
-        ApplicationBuilder()
-        .token(BOT_TOKEN)
-        .post_init(post_init)
-        .build()
-    )
-
-    # ── Command Handlers ──────────────────────────────────
-    app.add_handler(CommandHandler("start", start.handle))
-    app.add_handler(CommandHandler("profile", profile.handle))
-    app.add_handler(CommandHandler("hunt", hunt.handle))
-    app.add_handler(CommandHandler("inventory", inventory.handle))
-    app.add_handler(CommandHandler("equip", inventory.handle))  # Backward-compatible shortcut
-    app.add_handler(CommandHandler("shop", shop.handle))
-    app.add_handler(CommandHandler("leaderboard", leaderboard.handle))
-    app.add_handler(CommandHandler("duel", duel.handle))
-    app.add_handler(CommandHandler("help", help.handle))
-    app.add_handler(CommandHandler("claim", claim.handle))
-
-    # ── Inline Button Callbacks ───────────────────────────
-    app.add_handler(CallbackQueryHandler(inventory.equip_callback, pattern="^equip_"))
-    app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^inv_"))
-    app.add_handler(CallbackQueryHandler(inventory.tab_callback, pattern="^shop_"))
-    app.add_handler(CallbackQueryHandler(inventory.buy_callback, pattern="^buy_"))
-    app.add_handler(CallbackQueryHandler(leaderboard.callback, pattern="^lb_"))
-    app.add_handler(CallbackQueryHandler(duel.callback, pattern="^duel_"))
-
-    # ── Run ───────────────────────────────────────────────
     logger.info("Starting bot polling...")
-    app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
+    app.run()

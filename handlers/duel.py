@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.enums import ParseMode
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
 
 from channel_db import ChannelDB
 from game.formatting import format_not_registered
@@ -29,13 +30,12 @@ from game.duel_image import render_duel_card
 logger = logging.getLogger(__name__)
 
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /duel command."""
-    user = update.effective_user
-    chat = update.effective_chat
-    message = update.message
+    user = message.from_user
+    chat = message.chat
 
-    if not user or not chat or not message:
+    if not user or not chat:
         return
 
     # 1. Enforce Group Chat Only (No Duels in PM)
@@ -44,7 +44,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "⚔️ <b>HUNTER PVP ARENA</b>\n\n"
             "Duels can only be initiated in <b>Group Chats</b>!\n\n"
             "To challenge a rival Hunter, reply to any of their messages in a group with <code>/duel</code>.",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -53,7 +53,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(
             "⚠️ <b>Challenge Target Required!</b>\n\n"
             "To challenge another Hunter to a duel, <b>reply</b> to one of their messages in this group with <code>/duel</code>!",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -64,7 +64,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(
             "🤖 <b>Automaton Target Invalid!</b>\n\n"
             "You cannot challenge a System Automaton / Bot to a duel!",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -73,11 +73,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(
             "⚔️ <b>Self-Challenge Prohibited!</b>\n\n"
             "You cannot duel yourself. Reply to a worthy rival Hunter's message to issue a challenge!",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
 
     # 5. Check Registration of Challenger
     challenger_hunter = await db.get_hunter(user.id)
@@ -92,7 +92,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(
             f"⚠️ <b>Target Not Awakened!</b>\n\n"
             f"<b>{opp_name}</b> has not awakened as a Hunter yet. They must start their journey with /start first!",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -118,12 +118,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ]
     ])
 
-    await message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def callback(client: Client, query: CallbackQuery) -> None:
     """Handle duel acceptance or decline button callbacks."""
-    query = update.callback_query
     if not query or not query.data:
         return
 
@@ -146,7 +145,7 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.answer("❌ Only the challenged Hunter can accept or decline this duel!", show_alert=True)
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
     challenger = await db.get_hunter(challenger_id)
     opponent = await db.get_hunter(opponent_id)
 
@@ -159,7 +158,7 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.edit_message_text(
             f"🏳️ <b>DUEL DECLINED</b>\n\n"
             f"<b>{o_name}</b> has declined the duel challenge from <b>{c_name}</b>.",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -170,7 +169,7 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "⚔️ <b>DUEL IN PROGRESS...</b>\n\n"
             f"<b>{c_name}</b> and <b>{o_name}</b> have entered the Arena!\n"
             "The System is computing combat resolution...",
-            parse_mode="HTML",
+            parse_mode=ParseMode.HTML,
         )
 
         if not challenger or not opponent:
@@ -183,19 +182,19 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # 4. Retrieve Profile Photos (if available)
         c_pfp_bytes = None
         try:
-            c_photos = await context.bot.get_user_profile_photos(user_id=challenger_id, limit=1)
+            c_photos = await client.get_user_profile_photos(challenger_id, limit=1)
             if c_photos and c_photos.total_count > 0 and c_photos.photos:
-                f = await context.bot.get_file(c_photos.photos[0][-1].file_id)
-                c_pfp_bytes = bytes(await f.download_as_bytearray())
+                f = await client.get_file(c_photos.photos[0][-1].file_id)
+                c_pfp_bytes = bytes(await f.download())
         except Exception as err:
             logger.debug("Could not fetch challenger pfp: %s", err)
 
         o_pfp_bytes = None
         try:
-            o_photos = await context.bot.get_user_profile_photos(user_id=opponent_id, limit=1)
+            o_photos = await client.get_user_profile_photos(opponent_id, limit=1)
             if o_photos and o_photos.total_count > 0 and o_photos.photos:
-                f = await context.bot.get_file(o_photos.photos[0][-1].file_id)
-                o_pfp_bytes = bytes(await f.download_as_bytearray())
+                f = await client.get_file(o_photos.photos[0][-1].file_id)
+                o_pfp_bytes = bytes(await f.download())
         except Exception as err:
             logger.debug("Could not fetch opponent pfp: %s", err)
 
@@ -229,9 +228,8 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
             await query.message.reply_photo(
                 photo=photo_buf,
-                filename="duel_result.png",
                 caption=caption,
-                parse_mode="HTML",
+                parse_mode=ParseMode.HTML,
             )
         except Exception as exc:
             logger.error("Failed to render duel card: %s", exc, exc_info=True)
@@ -242,5 +240,5 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"💥 Challenger Damage: {result.challenger_damage_dealt:,}\n"
                 f"💥 Opponent Damage: {result.opponent_damage_dealt:,}\n"
                 f"🎁 Spoils: +{result.winner_xp_gained} XP, +{result.winner_gold_gained} Gold",
-                parse_mode="HTML",
+                parse_mode=ParseMode.HTML,
             )

@@ -1,7 +1,7 @@
 # ⚔️ Solo Leveling Hunter RPG Bot
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![python-telegram-bot](https://img.shields.io/badge/PTB-v22.8-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://python-telegram-bot.org)
+[![kurigram](https://img.shields.io/badge/kurigram-v2.2.25+-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://github.com/Mayuri-Chan/kurigram)
 [![Pillow](https://img.shields.io/badge/Pillow-Graphics-FF6F00?style=for-the-badge)](https://python-pillow.org)
 [![License](https://img.shields.io/badge/License-MIT-green.style=for-the-badge)](LICENSE)
 
@@ -39,6 +39,20 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - **Live In-Place Purchases**: Tapping buy instantly executes transactions, deposits gear, and updates the image card in-place with real-time acquisition notices!
 - **Group Chat Protection**: Deep-links to Bot PM (`t.me/<bot>?start=shop`) when invoked in groups to ensure secure transactions.
 
+### 🏰 Hunter Guild System (`/guild`)
+- **Create & Manage Guilds**: Establish your own Hunter Guild for a 500💰 investment.
+- **Guild XP Bonus**: All guild members receive **+10% XP** on every hunt.
+- **Visual Guild Card (`860 × 720` px)**: High-resolution guild roster with shield icon, member stats, and total guild power.
+- **Full Guild Management**:
+  - `/guild create <name>` — Create a guild (1 per user, max 15 members)
+  - `/guild join <name>` — Join an existing guild
+  - `/guild leave` — Leave your current guild
+  - `/guild info` — View guild card with member roster
+  - `/guild members` — List all guild members with stats
+  - `/guild kick` — Kick a member (owner only, reply to their message)
+  - `/guild disband` — Delete your guild (owner only)
+  - `/guild edit <desc>` — Edit guild description (owner only)
+
 ### 🏆 Visual System Leaderboard (`/leaderboard`)
 - **High-Resolution Hall of Fame Card (`860 × 1140` px)** rendered dynamically via Pillow with Solo Leveling HUD aesthetics.
 - **Strict Real-Name Privacy**: Displays players strictly using their **First Name and Last Name** (never exposing usernames or `@handles`).
@@ -66,7 +80,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 
 ### 🗄️ Serverless Telegram Channel Database (`ChannelDB`)
 - No external SQLite, PostgreSQL, or MongoDB server required.
-- All player data and inventories persist safely in a **private Telegram channel** as JSON message payloads.
+- All player data, inventories, and guilds persist safely in a **private Telegram channel** as JSON message payloads.
 - High-speed in-memory caching with per-user asynchronous locks prevents race conditions while maintaining sub-millisecond read times.
 
 ---
@@ -83,6 +97,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |
 | `/duel` | Groups (Reply) | Challenge another Hunter to a PvP Arena duel with visual resolution |
 | `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
+| `/guild` | PM & Groups | Manage your Hunter Guild (create, join, members, info, etc.) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
 
 ---
@@ -108,6 +123,11 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - **INT (Intelligence)**: Boosts magical defense and special event outcomes.
 - **PER (Perception)**: Enhances critical strike chance and loot discovery rates.
 
+### 🏰 Guild Benefits
+- **+10% XP Bonus**: All guild members receive a flat 10% XP boost on every hunt.
+- **Max Members**: 15 hunters per guild.
+- **Unique Names**: Each guild must have a unique name.
+
 ---
 
 ## 🚀 Installation & Setup
@@ -115,6 +135,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 ### 1. Prerequisites
 - **Python 3.11+** installed on your system.
 - A **Telegram Bot Token** from [@BotFather](https://t.me/BotFather).
+- A **Telegram API ID & Hash** from [my.telegram.org](https://my.telegram.org) (required for kurigram userbot+bot mode).
 - A **Private Telegram Channel** to serve as your database.
 
 ### 2. Clone Repository
@@ -148,13 +169,15 @@ cp .env.example .env
 Open `.env` and fill in your values:
 ```env
 BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+API_ID=12345678
+API_HASH=your_api_hash_here
 DATA_CHANNEL_ID=-1001234567890
 ```
 
-> **How to get your `DATA_CHANNEL_ID`:**
-> 1. Create a private Telegram channel (e.g., `Hunter Database`).
-> 2. Add your bot into the channel as an **Administrator** with permission to *Post Messages* and *Edit Messages*.
-> 3. Forward any message from the channel to [@userinfobot](https://t.me/userinfobot) to get the ID (must start with `-100`).
+> **How to get your credentials:**
+> 1. **BOT_TOKEN**: Talk to [@BotFather](https://t.me/BotFather) on Telegram, create a bot with `/newbot`, and copy the token.
+> 2. **API_ID & API_HASH**: Go to [my.telegram.org](https://my.telegram.org), create an application, and copy the API_ID and API_HASH.
+> 3. **DATA_CHANNEL_ID**: Create a private Telegram channel, add your bot as an **Administrator** with permission to *Post Messages* and *Edit Messages*, then forward any message from the channel to [@userinfobot](https://t.me/userinfobot) to get the ID (must start with `-100`).
 
 ### 6. Run the Bot
 ```powershell
@@ -169,10 +192,10 @@ python main.py
 solo-leveling-bot/
 ├── .env.example             # Configuration template
 ├── .gitignore               # Ignored files (secrets, cache, venvs)
-├── requirements.txt         # Dependencies (python-telegram-bot, Pillow, python-dotenv)
+├── requirements.txt         # Dependencies (kurigram, Pillow, python-dotenv)
 ├── main.py                  # Entry point — registers handlers, initializes DB
-├── config.py                # Game balances: ranks, rarities, XP curves, shop items
-├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult
+├── config.py                # Game balances: ranks, rarities, XP curves, shop items, guild settings
+├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild
 ├── channel_db.py            # Telegram channel database with in-memory caching
 ├── game/
 │   ├── hunter.py            # Hunter creation, XP gain, level/rank up calculations
@@ -184,6 +207,8 @@ solo-leveling-bot/
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer: Dimensional Storage image with equipment artwork
 │   ├── shop_image.py        # Pillow renderer: High-res Hunter Shop image with vector catalogue
+│   ├── guild_image.py       # Pillow renderer: Guild Card with member roster & stats
+│   ├── font_manager.py      # Universal Unicode font cascade for zero-tofu rendering
 │   └── formatting.py        # Plain-text formatting with Unicode box-drawing
 └── handlers/
     ├── start.py             # /start & deep-link router (inventory, shop, help)
@@ -191,7 +216,9 @@ solo-leveling-bot/
     ├── hunt.py              # /hunt — visual combat resolution card
     ├── inventory.py         # /inventory — image storage, 1-tap equip & shop
     ├── shop.py              # /shop — visual exchange depot image cards
-    ├── equip.py             # Backward-compatible redirect to inventory
+    ├── leaderboard.py       # /leaderboard — visual Hall of Fame with category tabs
+    ├── duel.py              # /duel — PvP arena with visual resolution card
+    ├── guild.py             # /guild — create, join, leave, info, kick, disband, edit
     ├── claim.py             # /claim — daily reward (24h cooldown)
     └── help.py              # /help — operational manual
 ```

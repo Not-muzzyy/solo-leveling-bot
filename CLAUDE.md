@@ -5,17 +5,17 @@
 **Solo Leveling Hunter RPG Bot** — A Telegram group-based RPG bot inspired by Solo Leveling's Hunter System. Players become Hunters, fight monsters, collect gear, level up, and compete.
 
 - **Language**: Python 3.11+
-- **Framework**: `python-telegram-bot` v22.8 (fully async, `ApplicationBuilder` pattern)
+- **Framework**: `kurigram` v2.2.25+ (Pyrogram fork, MTProto API, fully async, decorator pattern)
 - **Database**: **Telegram Channel** — a private channel stores all game data as JSON messages (no SQLite/Postgres)
-- **Config**: `python-dotenv` loading `.env` (contains `BOT_TOKEN` and `DATA_CHANNEL_ID`)
+- **Config**: `python-dotenv` loading `.env` (contains `BOT_TOKEN`, `API_ID`, `API_HASH`, and `DATA_CHANNEL_ID`)
 
 ## Project Structure
 
 ```
 solo-leveling-bot/
-├── .env                     # BOT_TOKEN + DATA_CHANNEL_ID (secrets, gitignored)
+├── .env                     # BOT_TOKEN + API_ID + API_HASH + DATA_CHANNEL_ID (secrets, gitignored)
 ├── .gitignore
-├── requirements.txt         # python-telegram-bot==22.8, python-dotenv, Pillow>=10.0.0
+├── requirements.txt         # kurigram>=2.2.25, python-dotenv, Pillow>=10.0.0
 ├── idea.md                  # Original game design document
 ├── main.py                  # Entry point — registers handlers, initializes DB, runs polling
 ├── config.py                # All game constants: ranks, rarities, XP curve, cooldowns, item/monster name parts
@@ -66,22 +66,22 @@ Instead of a traditional database, all data lives in a **private Telegram channe
 
 ### Handler Pattern
 
-All handlers follow this pattern (python-telegram-bot v22.x):
+All handlers follow this pattern (kurigram / Pyrogram fork):
 ```python
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    db: ChannelDB = context.bot_data["db"]   # Access DB from bot_data
-    hunter = await db.get_hunter(user.id)     # Read from cache
+async def handle(client: Client, message: Message) -> None:
+    db: ChannelDB = client.db            # Access DB from client attribute
+    hunter = await db.get_hunter(user.id) # Read from cache
     # ... game logic ...
-    await db.save_all(user.id)                # Flush to channel
-    await update.message.reply_text(result)   # Send response
+    await db.save_all(user.id)            # Flush to channel
+    await message.reply_text(result)      # Send response
 ```
 
 ### Inline Keyboards & Callbacks
 
-- Inventory tabs: `CallbackQueryHandler` with pattern `^inv_` for category switching
-- Shop navigation: `CallbackQueryHandler` with pattern `^shop_` for shop categories
-- Buy items: `CallbackQueryHandler` with pattern `^buy_` for purchases
-- Equip items: `CallbackQueryHandler` with pattern `^equip_` handled in `handlers/inventory.py` (1-tap gear binding with live stat diffs without leaving inventory)
+- Inventory tabs: `on_callback_query` with `filters.regex(r"^inv_")` for category switching
+- Shop navigation: `on_callback_query` with `filters.regex(r"^shop_")` for shop categories
+- Buy items: `on_callback_query` with `filters.regex(r"^buy_")` for purchases
+- Equip items: `on_callback_query` with `filters.regex(r"^equip_")` handled in `handlers/inventory.py` (1-tap gear binding with live stat diffs without leaving inventory)
 
 Callbacks are registered in `main.py` and routed to handler functions.
 
@@ -115,9 +115,9 @@ Prices range from 15💰 (iron ore) to 5000💰 (Dragon's Fang). Accessible via 
 
 ## Key Technical Notes
 
-- **All handlers are async** — `python-telegram-bot` v22.x requires `async def` handlers
+- **All handlers are async** — kurigram requires `async def` handlers
 - **Message formatting uses plain Unicode** — NOT MarkdownV2. This avoids escaping issues with special characters
-- **ChannelDB.initialize()** runs in `post_init` callback of `ApplicationBuilder` — loads all data before bot starts polling
+- **ChannelDB.initialize()** runs in `on_start()` lifecycle hook — loads all data before bot starts polling
 - **The `Inventory` class** manages item IDs internally via `_next_id` counter
 - **Hunter stats** use `str_stat` and `int_stat` to avoid shadowing Python builtins `str` and `int`
 - **`/profile` renders an image** — `game/profile_image.py` renders an 860x1180 PNG Status Window using Pillow (including user's Telegram PFP avatar with rank-colored ring and First+Last name), executed via `asyncio.to_thread()`, sent via `reply_photo` with text fallback

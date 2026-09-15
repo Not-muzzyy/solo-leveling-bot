@@ -40,6 +40,7 @@ class Hunter:
     duel_losses: int = 0
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    guild_id: Optional[int] = None  # guild_id they belong to (= owner_id if owner)
 
     @property
     def display_full_name(self) -> str:
@@ -252,3 +253,42 @@ class DuelResult:
     winner_new_level: Optional[int] = None
     winner_ranked_up: bool = False
     winner_new_rank: Optional[str] = None
+
+
+@dataclass
+class Guild:
+    """Represents a Hunter Guild — social grouping with up to 15 members."""
+
+    guild_id: int          # unique ID = owner's user_id
+    name: str
+    owner_id: int
+    members: list[int] = field(default_factory=list)  # user_ids, max 15
+    description: str = ""
+    created_at: float = 0.0
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-safe dictionary."""
+        return {
+            "type": "guild",
+            "guild_id": self.guild_id,
+            "name": self.name,
+            "owner_id": self.owner_id,
+            "members": self.members,
+            "description": self.description,
+            "created_at": self.created_at,
+        }
+
+    def to_json(self) -> str:
+        """Serialize to compact JSON string."""
+        return json.dumps(self.to_dict(), separators=(",", ":"))
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Guild:
+        """Deserialize from dictionary."""
+        data.pop("type", None)
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, text: str) -> Guild:
+        """Deserialize from JSON string."""
+        return cls.from_dict(json.loads(text))

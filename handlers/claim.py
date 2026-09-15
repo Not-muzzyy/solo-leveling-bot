@@ -11,8 +11,8 @@ import logging
 import random
 import time
 
-from telegram import Update
-from telegram.ext import ContextTypes
+from pyrogram import Client
+from pyrogram.types import Message
 
 from channel_db import ChannelDB
 from game.hunter import add_xp
@@ -53,23 +53,23 @@ def _format_cooldown(remaining: int) -> str:
     )
 
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle(client: Client, message: Message) -> None:
     """Handle the /claim command — daily reward."""
-    user = update.effective_user
+    user = message.from_user
     if not user:
         return
 
-    db: ChannelDB = context.bot_data["db"]
+    db: ChannelDB = client.db
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await update.message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered())
         return
 
     # Check 24h cooldown
     remaining = _check_cooldown(user.id)
     if remaining is not None:
-        await update.message.reply_text(_format_cooldown(remaining))
+        await message.reply_text(_format_cooldown(remaining))
         return
 
     # Set cooldown
@@ -111,5 +111,5 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lines.append("")
     lines.append("「 Come back tomorrow for more, Hunter. 」")
 
-    await update.message.reply_text("\n".join(lines))
+    await message.reply_text("\n".join(lines))
     logger.info(f"Daily claim by {hunter.hunter_name}: +{xp_reward} XP, +{gold_reward} Gold")

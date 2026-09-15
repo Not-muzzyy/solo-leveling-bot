@@ -23,6 +23,8 @@ Create a new Hunter.
 - Give starting Gold
 - Set Level 1
 
+✅ **Implemented**
+
 ---
 
 ### `/profile`
@@ -42,6 +44,8 @@ Show:
 - Titles
 
 The profile should be visually impressive and suitable for showing off in groups.
+
+✅ **Implemented** — High-resolution 860×1180 visual Status Card with PFP avatar, rank ring, stat bars, and equipment loadout.
 
 ---
 
@@ -64,6 +68,8 @@ Possible results:
 
 Hunts should become progressively harder as the player levels up.
 
+✅ **Implemented** — 16:9 Combat Banner (800×450 px) with Victory/Defeat layouts, monster card, damage stats, loot drops, and 15-minute cooldown.
+
 ---
 
 ### `/inventory`
@@ -85,6 +91,8 @@ Example:
 
 `Common → Uncommon → Rare → Epic → Legendary → Mythic`
 
+✅ **Implemented** — 860×1060 visual Dimensional Storage Card with category tabs, 1-tap equip buttons, and shop deep-link. Group chats get PM redirect for security.
+
 ---
 
 ### `/equip`
@@ -101,6 +109,8 @@ Equipping gear should affect:
 
 The command should immediately show the player's updated stats.
 
+✅ **Implemented** — Integrated into `/inventory` via 1-tap inline equip buttons. No separate command needed.
+
 ---
 
 ## Core Gameplay Loop
@@ -116,12 +126,14 @@ Gain XP + Gold + Loot
    ↓
 /inventory
    ↓
-/equip
+/equip (via inventory buttons)
    ↓
 Become Stronger
    ↓
 /hunt again
 ```
+
+✅ **Fully implemented**
 
 ---
 
@@ -136,12 +148,16 @@ Once the MVP works, expand the system with:
 - `/arena`
 - `/duel`
 
+✅ `/duel` **Implemented** — Group-exclusive PvP with visual 920×580 resolution card, accept/decline buttons, and HP bars.
+
 ### Dungeons
 
 - `/gate`
 - `/dungeon`
 - `/raid`
 - `/party`
+
+❌ Not yet implemented
 
 ### Multiplayer
 
@@ -153,6 +169,8 @@ Once the MVP works, expand the system with:
 - Bounties
 - Revenge system
 
+❌ Not yet implemented
+
 ### Social
 
 - `/leaderboard`
@@ -160,6 +178,10 @@ Once the MVP works, expand the system with:
 - `/guild`
 - `/guildwar`
 - `/wanted`
+
+✅ `/leaderboard` **Implemented** — 860×1140 visual Hall of Fame with podium, category tabs (Power/Level/Wealth/Victories), and personal rank tracker.
+
+✅ `/guild` **Implemented** — Full guild system: create, join, leave, info, members, kick, disband, edit. 860×720 visual guild card. +10% XP bonus for members. Max 15 members per guild.
 
 ### Endgame
 
@@ -169,6 +191,18 @@ Once the MVP works, expand the system with:
 - World bosses
 - Legendary quests
 - Seasonal rankings
+
+❌ Not yet implemented
+
+---
+
+## Tech Stack
+
+- **Language**: Python 3.11+
+- **Framework**: `kurigram` v2.2.25+ (Pyrogram fork, MTProto API, fully async, decorator pattern)
+- **Database**: Telegram Channel (private channel stores all game data as JSON messages)
+- **Graphics**: Pillow (high-res visual cards for all major commands)
+- **Config**: `python-dotenv` loading `.env` (contains `BOT_TOKEN`, `API_ID`, `API_HASH`, and `DATA_CHANNEL_ID`)
 
 ---
 
