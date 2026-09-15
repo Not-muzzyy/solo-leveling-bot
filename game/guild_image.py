@@ -2,7 +2,7 @@
 game/guild_image.py — Solo Leveling Visual Guild Card Renderer.
 
 Generates a stylized, high-resolution RPG Guild Card image using Pillow,
-showcasing the guild name, owner, members, and stats.
+showcasing the guild name, owner, top 5 hunters, and remaining members.
 """
 
 from __future__ import annotations
@@ -17,9 +17,9 @@ from config import GUILD_MAX_MEMBERS, RANKS
 from game.font_manager import get_font_cascade, clean_and_normalize_name
 from models import Guild, Hunter
 
-# Canvas dimensions (860 x 720)
+# Canvas dimensions (860 x 820)
 WIDTH = 860
-HEIGHT = 720
+HEIGHT = 820
 
 # Color Palette (Solo Leveling Abyssal Blue HUD)
 BG_TOP = (7, 11, 24)
@@ -66,6 +66,8 @@ def _get_fonts():
     return {
         "guild_name": _load_font(bold, 36),
         "subtitle": _load_font(bold, 14),
+        "section_header": _load_font(bold, 13),
+        "owner_name": _load_font(bold, 18),
         "member_name": _load_font(bold, 15),
         "member_stat": _load_font(regular, 13),
         "stat_value": _load_font(bold, 18),
@@ -74,6 +76,8 @@ def _get_fonts():
         "body_bold": _load_font(bold, 13),
         "footer": _load_font(bold, 12),
         "small": _load_font(regular, 11),
+        "small_bold": _load_font(bold, 11),
+        "rank_badge": _load_font(bold, 12),
     }
 
 
@@ -109,7 +113,6 @@ def _draw_tech_border(draw: ImageDraw.ImageDraw, x1, y1, x2, y2) -> None:
 
 
 def _draw_shield_icon(draw: ImageDraw.ImageDraw, cx, cy, size=18, fill=GUILD_PURPLE) -> None:
-    """Draw a vector shield icon."""
     pts = [
         (cx, cy - size),
         (cx + int(size * 0.8), cy - int(size * 0.5)),
@@ -121,40 +124,129 @@ def _draw_shield_icon(draw: ImageDraw.ImageDraw, cx, cy, size=18, fill=GUILD_PUR
     draw.polygon(pts, fill=fill, outline=(200, 130, 255), width=1)
 
 
-def _draw_member_row(
+def _draw_crown_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 10, fill=GOLD_COLOR) -> None:
+    w = size
+    h = int(size * 0.75)
+    pts = [
+        (cx - w, cy + h), (cx - w, cy - h // 2), (cx - w // 2, cy),
+        (cx, cy - h), (cx + w // 2, cy), (cx + w, cy - h // 2), (cx + w, cy + h),
+    ]
+    draw.polygon(pts, fill=fill, outline=(255, 235, 120), width=1)
+    draw.ellipse([cx - 2, cy - h - 2, cx + 2, cy - h + 2], fill=(255, 255, 255))
+
+
+def _draw_section_header(draw: ImageDraw.ImageDraw, fonts: dict, y: int, text: str, icon_color=HUD_CYAN) -> int:
+    """Draw a section header line. Returns y after the header."""
+    draw.line([(60, y), (WIDTH - 60, y)], fill=(30, 50, 80, 150), width=1)
+    y += 8
+    draw.text((60, y), text, font=fonts["section_header"], fill=icon_color)
+    return y + 22
+
+
+def _draw_owner_card(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict,
+    hunter: Hunter,
+    y: int,
+) -> int:
+    """Draw the prominent guild owner card. Returns y after the card."""
+    h_card = 56
+    # Gold-bordered owner card
+    draw.rounded_rectangle([40, y, WIDTH - 40, y + h_card], radius=10, fill=(28, 24, 12, 240), outline=GOLD_COLOR, width=2)
+
+    # Crown icon
+    _draw_crown_icon(draw, 72, y + 20, size=10, fill=GOLD_COLOR)
+
+    # OWNER badge
+    draw.rounded_rectangle([92, y + 8, 160, y + 28], radius=4, fill=(48, 38, 14), outline=GOLD_COLOR, width=1)
+    draw.text((126, y + 10), "OWNER", font=fonts["small_bold"], fill=GOLD_COLOR, anchor="mt")
+
+    # Name
+    cascade = get_font_cascade(18, is_bold=True)
+    cascade.draw_text(draw, (92, y + 30), hunter.display_full_name, fill=TEXT_WHITE, max_w=350)
+
+    # Rank badge
+    rank_color = RANK_COLORS.get(hunter.rank, GOLD_COLOR)
+    rank_text = f"[{hunter.rank}-RANK]"
+    draw.text((92, y + 30), "", font=fonts["body"], fill=TEXT_WHITE)  # placeholder for cascade
+    tb_r = fonts["rank_badge"].getbbox(rank_text)
+    rw = tb_r[2] - tb_r[0]
+    rank_x = 92 + cascade.get_width(hunter.display_full_name, max_w=350) + 14
+    draw.text((rank_x, y + 33), rank_text, font=fonts["rank_badge"], fill=rank_color)
+    draw.text((rank_x + rw + 10, y + 33), f"Lv.{hunter.level}", font=fonts["small"], fill=TEXT_MUTED)
+
+    # Power right-aligned
+    power_str = f"⚡ {hunter.power:,}"
+    tb_p = fonts["stat_value"].getbbox(power_str)
+    pw = tb_p[2] - tb_p[0]
+    draw.text((WIDTH - 60 - pw, y + 14), power_str, font=fonts["stat_value"], fill=GOLD_COLOR)
+
+    # Stats summary
+    stats_str = f"STR {hunter.str_stat}  •  AGI {hunter.agi}  •  VIT {hunter.vit}  •  INT {hunter.int_stat}  •  PER {hunter.per}"
+    draw.text((WIDTH - 60, y + 40), stats_str, font=fonts["small"], fill=TEXT_DIM, anchor="rt")
+
+    return y + h_card + 10
+
+
+def _draw_top5_row(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict,
+    x: int,
+    y: int,
+    rank_pos: int,
+    hunter: Hunter,
+    width: int = 740,
+) -> int:
+    """Draw a top 5 member row with rank position badge. Returns y offset."""
+    row_h = 38
+
+    # Row background with subtle highlight
+    draw.rounded_rectangle([x, y, x + width, y + row_h], radius=6, fill=(18, 28, 48, 200), outline=(35, 55, 85, 120))
+
+    # Position badge (#1, #2, etc.)
+    badge_colors = {
+        1: GOLD_COLOR, 2: (226, 232, 240), 3: (217, 119, 6),
+        4: HUD_CYAN, 5: HUD_CYAN,
+    }
+    badge_color = badge_colors.get(rank_pos, HUD_CYAN)
+    draw.rounded_rectangle([x + 6, y + 6, x + 42, y + row_h - 6], radius=4, fill=(*badge_color, 50), outline=(*badge_color, 180))
+    draw.text((x + 24, y + 9), f"#{rank_pos}", font=fonts["small_bold"], fill=badge_color, anchor="mt")
+
+    # Name
+    name_x = x + 54
+    cascade = get_font_cascade(14, is_bold=True)
+    cascade.draw_text(draw, (name_x, y + 5), hunter.display_full_name, fill=TEXT_WHITE, max_w=320)
+
+    # Rank + Level
+    rank_color = RANK_COLORS.get(hunter.rank, TEXT_MUTED)
+    rank_text = f"[{hunter.rank}]"
+    draw.text((x + width - 10, y + 5), f"Lv.{hunter.level}", font=fonts["small"], fill=TEXT_MUTED, anchor="rt")
+    draw.text((x + width - 10, y + 20), f"⚡ {hunter.power:,}", font=fonts["small_bold"], fill=HUD_CYAN, anchor="rt")
+
+    # Rank badge after name
+    name_w = cascade.get_width(hunter.display_full_name, max_w=320)
+    draw.text((name_x + name_w + 8, y + 7), rank_text, font=fonts["small"], fill=rank_color)
+
+    return y + row_h + 4
+
+
+def _draw_compact_row(
     draw: ImageDraw.ImageDraw,
     fonts: dict,
     x: int,
     y: int,
     hunter: Hunter,
-    is_owner: bool,
-    width: int = 350,
+    width: int = 740,
 ) -> int:
-    """Draw a single member row. Returns y offset for next row."""
+    """Draw a compact member row for remaining members. Returns y offset."""
+    row_h = 30
+    draw.rounded_rectangle([x, y, x + width, y + row_h], radius=4, fill=(16, 24, 40, 150))
+
     rank_color = RANK_COLORS.get(hunter.rank, TEXT_MUTED)
-    role_icon = "👑" if is_owner else "⚔️"
-    role_text = "OWNER" if is_owner else "MEMBER"
+    draw.text((x + 10, y + 4), hunter.display_full_name, font=fonts["member_name"], fill=TEXT_WHITE, max_w=300)
+    draw.text((x + width - 10, y + 4), f"Lv.{hunter.level} [{hunter.rank}]  ⚡{hunter.power:,}", font=fonts["small"], fill=TEXT_MUTED, anchor="rt")
 
-    # Row background
-    draw.rounded_rectangle([x, y, x + width, y + 36], radius=6, fill=(20, 30, 50, 180), outline=(35, 55, 85, 120))
-
-    # Role badge
-    role_bg = GOLD_COLOR if is_owner else HUD_CYAN
-    draw.rounded_rectangle([x + 6, y + 6, x + 68, y + 30], radius=4, fill=(*role_bg, 60), outline=(*role_bg, 150))
-    draw.text((x + 37, y + 8), role_text, font=fonts["small"], fill=role_bg, anchor="mt")
-
-    # Name
-    name = clean_and_normalize_name(hunter.display_full_name)
-    draw.text((x + 80, y + 4), name, font=fonts["member_name"], fill=TEXT_WHITE)
-
-    # Rank + Level
-    rank_label = f"Lv.{hunter.level} {hunter.rank}"
-    draw.text((x + width - 10, y + 4), rank_label, font=fonts["member_stat"], fill=rank_color, anchor="rt")
-
-    # Power
-    draw.text((x + 80, y + 20), f"Power: {hunter.power:,}", font=fonts["small"], fill=TEXT_DIM)
-
-    return y + 42
+    return y + row_h + 3
 
 
 def render_guild_image(
@@ -162,7 +254,7 @@ def render_guild_image(
     members: list[Hunter],
     total_power: int,
 ) -> io.BytesIO:
-    """Render the guild card image."""
+    """Render the guild card image with owner, top 5, and remaining members."""
     img = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
     _draw_gradient_background(img)
     draw = ImageDraw.Draw(img)
@@ -171,12 +263,12 @@ def render_guild_image(
     # Outer tech border
     _draw_tech_border(draw, 20, 20, WIDTH - 20, HEIGHT - 20)
 
-    # Title area — shield icon + guild name
+    # ── Title area ──
     _draw_shield_icon(draw, 80, 65, size=24, fill=GUILD_PURPLE)
     draw.text((115, 45), guild.name, font=fonts["guild_name"], fill=TEXT_WHITE)
     draw.text((115, 88), "HUNTER GUILD", font=fonts["subtitle"], fill=HUD_CYAN)
 
-    # Stats bar
+    # ── Stats bar ──
     stats_y = 120
     stats = [
         (f"{len(guild.members)}/{GUILD_MAX_MEMBERS}", "MEMBERS"),
@@ -185,35 +277,62 @@ def render_guild_image(
     ]
     stat_x = 60
     for val, label in stats:
-        # Stat card background
         draw.rounded_rectangle([stat_x, stats_y, stat_x + 180, stats_y + 52], radius=6, fill=(18, 28, 48, 200), outline=(35, 55, 85, 100))
         draw.text((stat_x + 90, stats_y + 8), val, font=fonts["stat_value"], fill=GOLD_COLOR, anchor="mt")
         draw.text((stat_x + 90, stats_y + 32), label, font=fonts["stat_label"], fill=TEXT_MUTED, anchor="mt")
         stat_x += 200
 
-    # Description
-    desc_y = 190
+    # ── Description ──
+    desc_y = 185
     if guild.description:
         draw.text((60, desc_y), f"📝 {guild.description}", font=fonts["body"], fill=TEXT_MUTED)
-        desc_y += 30
+        desc_y += 28
 
-    # Members header
-    members_y = desc_y + 10
-    draw.line([(60, members_y), (WIDTH - 60, members_y)], fill=(30, 50, 80, 150), width=1)
-    members_y += 10
-    draw.text((60, members_y), "📋 GUILD ROSTER", font=fonts["subtitle"], fill=HUD_CYAN)
-    members_y += 25
+    # ── Sort members: owner first, then by power ──
+    owner = None
+    others = []
+    for h in members:
+        if h.user_id == guild.owner_id:
+            owner = h
+        else:
+            others.append(h)
+    others.sort(key=lambda h: -h.power)
 
-    # Member list
-    for h in sorted(members, key=lambda x: (x.user_id != guild.owner_id, -x.power)):
-        if members_y > HEIGHT - 60:
-            break
-        is_owner = h.user_id == guild.owner_id
-        members_y = _draw_member_row(draw, fonts, 60, members_y, h, is_owner, width=WIDTH - 120)
+    top5 = others[:5]
+    remaining = others[5:]
 
-    # Footer
+    # ── Owner Card ──
+    y = desc_y + 6
+    if owner:
+        y = _draw_owner_card(draw, fonts, owner, y)
+
+    # ── Top 5 Section ──
+    if top5:
+        y = _draw_section_header(draw, fonts, y, "🏆 TOP 5 HUNTERS", icon_color=GOLD_COLOR)
+
+        # Top 5 container
+        container_top = y
+        container_h = len(top5) * 42 + 8
+        draw.rounded_rectangle([40, container_top, WIDTH - 40, container_top + container_h], radius=8, fill=CARD_BG, outline=HUD_CYAN, width=1)
+
+        y = container_top + 6
+        for i, h in enumerate(top5):
+            y = _draw_top5_row(draw, fonts, 50, y, i + 1, h, width=WIDTH - 100)
+
+        y = container_top + container_h + 8
+
+    # ── Remaining Members ──
+    if remaining:
+        y = _draw_section_header(draw, fonts, y, "📋 OTHER MEMBERS")
+
+        for h in remaining:
+            if y > HEIGHT - 60:
+                break
+            y = _draw_compact_row(draw, fonts, 60, y, h, width=WIDTH - 120)
+
+    # ── Footer ──
     draw.text(
-        (WIDTH // 2, HEIGHT - 40),
+        (WIDTH // 2, HEIGHT - 36),
         "「 A Guild grows stronger with every Hunter that joins. 」",
         font=fonts["footer"],
         fill=TEXT_DIM,

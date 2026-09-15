@@ -42,13 +42,17 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 ### 🏰 Hunter Guild System (`/guild`)
 - **Create & Manage Guilds**: Establish your own Hunter Guild for a 500💰 investment.
 - **Guild XP Bonus**: All guild members receive **+10% XP** on every hunt.
-- **Visual Guild Card (`860 × 720` px)**: High-resolution guild roster with shield icon, member stats, and total guild power.
+- **Visual Guild Card (`860 × 720` px)**: High-resolution guild roster with owner card, top 5 hunters, and remaining members.
+- **Guild Leaderboard (`/guild top`)**: Top 10 guilds ranked by Total Power, Average Level, Total Gold, or Member Count — with interactive category tabs.
+- **Guild Wars (`/guild war`)**: Challenge another guild to a 1v1 bracket war. Winner gets gold, XP, and war_score. Loser loses XP and war_score. Visual challenge, status, and result cards.
 - **Full Guild Management**:
   - `/guild create <name>` — Create a guild (1 per user, max 15 members)
   - `/guild join <name>` — Join an existing guild
   - `/guild leave` — Leave your current guild
-  - `/guild info` — View guild card with member roster
+  - `/guild info` — View guild card with owner, top 5, and member roster
   - `/guild members` — List all guild members with stats
+  - `/guild top` — Top 10 guilds leaderboard with category tabs
+  - `/guild war <name>` — Challenge another guild to war (owner only)
   - `/guild kick` — Kick a member (owner only, reply to their message)
   - `/guild disband` — Delete your guild (owner only)
   - `/guild edit <desc>` — Edit guild description (owner only)
@@ -78,6 +82,12 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - Claim daily rewards once every 24 hours.
 - Rewards dynamically scale with the Hunter's level to accelerate progression.
 
+### 🎁 Guild Gift System (`/gift`)
+- **Gift Items**: Transfer any unequipped inventory item to a guildmate with `/gift item <id>` (reply to their message).
+- **Gift Gold**: Send gold directly to a guildmate with `/gift gold <amount>` (reply to their message).
+- **Guild-Only**: Both sender and receiver must be in the same guild.
+- **No Limits**: Gift as many items and as much gold as you want — trust your guild!
+
 ### 🗄️ Serverless Telegram Channel Database (`ChannelDB`)
 - No external SQLite, PostgreSQL, or MongoDB server required.
 - All player data, inventories, and guilds persist safely in a **private Telegram channel** as JSON message payloads.
@@ -97,7 +107,8 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |
 | `/duel` | Groups (Reply) | Challenge another Hunter to a PvP Arena duel with visual resolution |
 | `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
-| `/guild` | PM & Groups | Manage your Hunter Guild (create, join, members, info, etc.) |
+| `/guild` | PM & Groups | Manage your Hunter Guild (create, join, top, info, etc.) |
+| `/gift` | PM & Groups | Gift items or gold to guildmates (reply to their message) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
 
 ---
@@ -207,7 +218,9 @@ solo-leveling-bot/
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer: Dimensional Storage image with equipment artwork
 │   ├── shop_image.py        # Pillow renderer: High-res Hunter Shop image with vector catalogue
-│   ├── guild_image.py       # Pillow renderer: Guild Card with member roster & stats
+│   ├── guild_image.py       # Pillow renderer: Guild Card with owner, top 5, and roster
+│   ├── guild_leaderboard_image.py # Pillow renderer: Guild Leaderboard HUD card
+│   ├── guild_war_image.py   # Pillow renderer: War challenge, status, and result cards
 │   ├── font_manager.py      # Universal Unicode font cascade for zero-tofu rendering
 │   └── formatting.py        # Plain-text formatting with Unicode box-drawing
 └── handlers/
@@ -218,7 +231,8 @@ solo-leveling-bot/
     ├── shop.py              # /shop — visual exchange depot image cards
     ├── leaderboard.py       # /leaderboard — visual Hall of Fame with category tabs
     ├── duel.py              # /duel — PvP arena with visual resolution card
-    ├── guild.py             # /guild — create, join, leave, info, kick, disband, edit
+    ├── guild.py             # /guild — create, join, leave, info, top, war, kick, disband, edit
+    ├── guild_war.py         # /guild war — guild-vs-guild war system with visual cards
     ├── claim.py             # /claim — daily reward (24h cooldown)
     └── help.py              # /help — operational manual
 ```

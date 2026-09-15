@@ -10,7 +10,7 @@ from pyrogram import Client, filters
 
 from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild
+from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild, guild_war
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -57,6 +57,7 @@ app.on_message(filters.command("duel"))(duel.handle)
 app.on_message(filters.command("help"))(help.handle)
 app.on_message(filters.command("claim"))(claim.handle)
 app.on_message(filters.command("guild"))(guild.handle)
+app.on_message(filters.command("gift"))(guild.handle_gift)
 
 # ── Inline Button Callbacks ───────────────────────────────
 app.on_callback_query(filters.regex(r"^equip_"))(inventory.equip_callback)
@@ -64,6 +65,8 @@ app.on_callback_query(filters.regex(r"^inv_"))(inventory.tab_callback)
 app.on_callback_query(filters.regex(r"^shop_"))(inventory.tab_callback)
 app.on_callback_query(filters.regex(r"^buy_"))(inventory.buy_callback)
 app.on_callback_query(filters.regex(r"^lb_"))(leaderboard.callback)
+app.on_callback_query(filters.regex(r"^glb_"))(guild.guild_leaderboard_callback)
+app.on_callback_query(filters.regex(r"^war_"))(guild_war.war_callback)
 app.on_callback_query(filters.regex(r"^duel_"))(duel.callback)
 
 

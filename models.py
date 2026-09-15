@@ -41,6 +41,8 @@ class Hunter:
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     guild_id: Optional[int] = None  # guild_id they belong to (= owner_id if owner)
+    guild_war_wins: int = 0
+    guild_war_losses: int = 0
 
     @property
     def display_full_name(self) -> str:
@@ -145,6 +147,13 @@ class Inventory:
         self._next_id += 1
         self.items.append(item)
         return item
+
+    def remove_item(self, item_id: int) -> Optional[Item]:
+        """Remove and return an item by ID, or None if not found."""
+        for i, item in enumerate(self.items):
+            if item.id == item_id:
+                return self.items.pop(i)
+        return None
 
     def get_item(self, item_id: int) -> Optional[Item]:
         """Find item by ID."""
@@ -265,6 +274,9 @@ class Guild:
     members: list[int] = field(default_factory=list)  # user_ids, max 15
     description: str = ""
     created_at: float = 0.0
+    war_score: int = 0     # persistent war points, affects leaderboard ranking
+    war_wins: int = 0      # total wars won
+    war_losses: int = 0    # total wars lost
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-safe dictionary."""
@@ -276,6 +288,9 @@ class Guild:
             "members": self.members,
             "description": self.description,
             "created_at": self.created_at,
+            "war_score": self.war_score,
+            "war_wins": self.war_wins,
+            "war_losses": self.war_losses,
         }
 
     def to_json(self) -> str:
@@ -286,6 +301,10 @@ class Guild:
     def from_dict(cls, data: dict) -> Guild:
         """Deserialize from dictionary."""
         data.pop("type", None)
+        # backward compat: defaults for missing war fields
+        data.setdefault("war_score", 0)
+        data.setdefault("war_wins", 0)
+        data.setdefault("war_losses", 0)
         return cls(**data)
 
     @classmethod

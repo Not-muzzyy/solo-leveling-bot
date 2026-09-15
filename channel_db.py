@@ -369,6 +369,10 @@ class ChannelDB:
         """Get all cached hunters."""
         return [entry.hunter for entry in self._cache.values()]
 
+    async def get_all_guilds(self) -> list[Guild]:
+        """Get all cached guilds."""
+        return list(self._guild_cache.values())
+
     async def get_inventory(self, user_id: int) -> Optional[Inventory]:
         """Get inventory from cache."""
         entry = self._cache.get(user_id)

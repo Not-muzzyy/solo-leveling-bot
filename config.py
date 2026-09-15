@@ -150,3 +150,11 @@ TITLES: dict[str, str] = {
 # ── Guilds ──────────────────────────────────────────────
 GUILD_MAX_MEMBERS = 15
 GUILD_XP_BONUS = 0.10  # +10% XP for guild members while hunting
+
+# ── Guild War Constants ──────────────────────────────────
+GUILD_WAR_GOLD_REWARD = 200     # gold per member for winner
+GUILD_WAR_BASE_XP = 100         # XP for all fighters
+GUILD_WAR_WIN_BONUS_XP = 50     # extra XP per individual duel win
+GUILD_WAR_WIN_SCORE = 50        # war_score gained by winner guild
+GUILD_WAR_LOSS_SCORE = 30       # war_score lost by loser guild
+GUILD_WAR_XP_PENALTY = 30       # XP lost by loser guild members
