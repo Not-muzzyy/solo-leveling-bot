@@ -117,6 +117,7 @@ class Item:
     @classmethod
     def from_dict(cls, data: dict) -> Item:
         """Deserialize from dictionary."""
+        data.setdefault("type", "weapon")
         return cls(**data)
 
     def stat_summary(self) -> str:
