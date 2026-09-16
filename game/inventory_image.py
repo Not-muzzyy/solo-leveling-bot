@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import io
 import math
-import os
 from typing import Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS, EQUIPPABLE_TYPES
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
@@ -60,30 +59,6 @@ CARD_BG = SURFACE_BASE
 CARD_BORDER = SURFACE_BORDER
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Attempt to load one of the specified TrueType fonts, falling back to default."""
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = []
-    for name in font_names:
-        candidates.append(os.path.join(win_fonts, name))
-        candidates.append(name)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     """Retrieve styled fonts for different text hierarchies."""
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
@@ -91,18 +66,18 @@ def _get_fonts():
     mono = ["consola.ttf", "consolab.ttf", "cour.ttf"]
 
     return {
-        "title": _load_font(bold, 24),
-        "subtitle": _load_font(bold, 15),
-        "header_tag": _load_font(bold, 13),
-        "name": _load_font(bold, 21),
-        "rank": _load_font(bold, 15),
-        "item_name": _load_font(bold, 18),
-        "body_bold": _load_font(bold, 14),
-        "body": _load_font(regular, 14),
-        "small_bold": _load_font(bold, 12),
-        "small": _load_font(regular, 12),
-        "mono": _load_font(mono, 12),
-        "footer": _load_font(bold, 13),
+        "title": load_font(bold, 24),
+        "subtitle": load_font(bold, 15),
+        "header_tag": load_font(bold, 13),
+        "name": load_font(bold, 21),
+        "rank": load_font(bold, 15),
+        "item_name": load_font(bold, 18),
+        "body_bold": load_font(bold, 14),
+        "body": load_font(regular, 14),
+        "small_bold": load_font(bold, 12),
+        "small": load_font(regular, 12),
+        "mono": load_font(mono, 12),
+        "footer": load_font(bold, 13),
     }
 
 

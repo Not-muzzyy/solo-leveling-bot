@@ -19,7 +19,7 @@ from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
@@ -53,30 +53,6 @@ WIDTH = 860
 HEIGHT = 1180
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Attempt to load one of the specified TrueType fonts, falling back to default."""
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = []
-    for name in font_names:
-        candidates.append(os.path.join(win_fonts, name))
-        candidates.append(name)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     """Retrieve styled fonts for different text hierarchies with Hallmark typography pairing."""
     bold_candidates = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
@@ -84,20 +60,20 @@ def _get_fonts():
     mono_candidates = ["consola.ttf", "consolab.ttf", "cour.ttf"]
 
     return {
-        "title": _load_font(bold_candidates, 30),
-        "subtitle": _load_font(bold_candidates, 17),
-        "header_tag": _load_font(bold_candidates, 13),
-        "name": _load_font(bold_candidates, 34),
-        "name_small": _load_font(bold_candidates, 26),
-        "rank": _load_font(bold_candidates, 17),
-        "body_bold": _load_font(bold_candidates, 15),
-        "body": _load_font(regular_candidates, 14),
-        "stat_val": _load_font(bold_candidates, 16),
-        "stat_label": _load_font(bold_candidates, 14),
-        "small": _load_font(regular_candidates, 12),
-        "small_bold": _load_font(bold_candidates, 12),
-        "mono": _load_font(mono_candidates, 13),
-        "footer": _load_font(bold_candidates, 14),
+        "title": load_font(bold_candidates, 30),
+        "subtitle": load_font(bold_candidates, 17),
+        "header_tag": load_font(bold_candidates, 13),
+        "name": load_font(bold_candidates, 34),
+        "name_small": load_font(bold_candidates, 26),
+        "rank": load_font(bold_candidates, 17),
+        "body_bold": load_font(bold_candidates, 15),
+        "body": load_font(regular_candidates, 14),
+        "stat_val": load_font(bold_candidates, 16),
+        "stat_label": load_font(bold_candidates, 14),
+        "small": load_font(regular_candidates, 12),
+        "small_bold": load_font(bold_candidates, 12),
+        "mono": load_font(mono_candidates, 13),
+        "footer": load_font(bold_candidates, 14),
     }
 
 

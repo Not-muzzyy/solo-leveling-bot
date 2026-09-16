@@ -17,13 +17,12 @@ from __future__ import annotations
 
 import io
 import math
-import os
 from typing import Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
@@ -71,30 +70,6 @@ TEXT_MUTED = INK_SECONDARY
 TEXT_DIM = INK_MUTED
 CARD_BG = SURFACE_BASE
 CARD_BORDER = SURFACE_BORDER
-
-
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load system font with fallbacks."""
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = []
-    for name in font_names:
-        candidates.append(os.path.join(win_fonts, name))
-        candidates.append(name)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
 
 
 # ── Vector Icon Helpers (Guaranteed 0 Tofu Boxes) ─────────────────────────────
@@ -264,13 +239,13 @@ def render_duel_card(
     draw = ImageDraw.Draw(base)
 
     # 2. Top Header Bar
-    font_header = _load_font(["segoeuib.ttf", "arialbd.ttf"], 13)
-    font_sub = _load_font(["segoeui.ttf", "arial.ttf"], 11)
-    font_bold = _load_font(["segoeuib.ttf", "arialbd.ttf"], 13)
-    font_stat_val = _load_font(["segoeuib.ttf", "arialbd.ttf"], 14)
-    font_vs = _load_font(["impact.ttf", "segoeuib.ttf", "arialbd.ttf"], 36)
-    font_outcome_title = _load_font(["segoeuib.ttf", "arialbd.ttf", "impact.ttf"], 22)
-    font_outcome_sub = _load_font(["segoeuib.ttf", "arialbd.ttf"], 12)
+    font_header = load_font(["segoeuib.ttf", "arialbd.ttf"], 13)
+    font_sub = load_font(["segoeui.ttf", "arial.ttf"], 11)
+    font_bold = load_font(["segoeuib.ttf", "arialbd.ttf"], 13)
+    font_stat_val = load_font(["segoeuib.ttf", "arialbd.ttf"], 14)
+    font_vs = load_font(["impact.ttf", "segoeuib.ttf", "arialbd.ttf"], 36)
+    font_outcome_title = load_font(["segoeuib.ttf", "arialbd.ttf", "impact.ttf"], 22)
+    font_outcome_sub = load_font(["segoeuib.ttf", "arialbd.ttf"], 12)
 
     # Top border line with cyan glow
     draw.line([(30, 45), (WIDTH - 30, 45)], fill=HUD_CYAN, width=2)
@@ -349,7 +324,7 @@ def render_duel_card(
 
         # Rank Pill
         rank_text = f"RANK {hunter.rank}"
-        f_badge = _load_font(["segoeuib.ttf", "arialbd.ttf"], 11)
+        f_badge = load_font(["segoeuib.ttf", "arialbd.ttf"], 11)
         r_bb = f_badge.getbbox(rank_text)
         r_w = (r_bb[2] - r_bb[0]) + 16
         r_x = cx - 75 - r_w // 2
@@ -389,8 +364,8 @@ def render_duel_card(
         weap_name = weap.name if weap else "Standard Dagger"
         arm_name = arm.name if arm else "Hunter Uniform"
 
-        f_eq = _load_font(["segoeui.ttf", "arial.ttf"], 11)
-        f_eq_bold = _load_font(["segoeuib.ttf", "arialbd.ttf"], 10)
+        f_eq = load_font(["segoeui.ttf", "arial.ttf"], 11)
+        f_eq_bold = load_font(["segoeuib.ttf", "arialbd.ttf"], 10)
 
         # Weapon line
         draw.rounded_rectangle([x1 + 22, eq_y + 5, x1 + 68, eq_y + 17], radius=3, fill=(28, 44, 75))

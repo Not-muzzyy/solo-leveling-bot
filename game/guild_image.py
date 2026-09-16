@@ -8,13 +8,12 @@ showcasing the guild name, owner, top 5 hunters, and remaining members.
 from __future__ import annotations
 
 import io
-import os
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import GUILD_MAX_MEMBERS, RANKS
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from models import Guild, Hunter
 
 # Canvas dimensions (860 x 820)
@@ -43,41 +42,24 @@ RANK_COLORS = {
 }
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = [os.path.join(win_fonts, n) for n in font_names] + list(font_names)
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     regular = ["segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf"]
     return {
-        "guild_name": _load_font(bold, 36),
-        "subtitle": _load_font(bold, 14),
-        "section_header": _load_font(bold, 13),
-        "owner_name": _load_font(bold, 18),
-        "member_name": _load_font(bold, 15),
-        "member_stat": _load_font(regular, 13),
-        "stat_value": _load_font(bold, 18),
-        "stat_label": _load_font(regular, 12),
-        "body": _load_font(regular, 13),
-        "body_bold": _load_font(bold, 13),
-        "footer": _load_font(bold, 12),
-        "small": _load_font(regular, 11),
-        "small_bold": _load_font(bold, 11),
-        "rank_badge": _load_font(bold, 12),
+        "guild_name": load_font(bold, 36),
+        "subtitle": load_font(bold, 14),
+        "section_header": load_font(bold, 13),
+        "owner_name": load_font(bold, 18),
+        "member_name": load_font(bold, 15),
+        "member_stat": load_font(regular, 13),
+        "stat_value": load_font(bold, 18),
+        "stat_label": load_font(regular, 12),
+        "body": load_font(regular, 13),
+        "body_bold": load_font(bold, 13),
+        "footer": load_font(bold, 12),
+        "small": load_font(regular, 11),
+        "small_bold": load_font(bold, 11),
+        "rank_badge": load_font(bold, 12),
     }
 
 
