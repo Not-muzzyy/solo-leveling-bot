@@ -87,8 +87,8 @@ def _get_fonts():
         "title": _load_font(bold_candidates, 30),
         "subtitle": _load_font(bold_candidates, 17),
         "header_tag": _load_font(bold_candidates, 13),
-        "name": _load_font(bold_candidates, 26),
-        "name_small": _load_font(bold_candidates, 20),
+        "name": _load_font(bold_candidates, 34),
+        "name_small": _load_font(bold_candidates, 26),
         "rank": _load_font(bold_candidates, 17),
         "body_bold": _load_font(bold_candidates, 15),
         "body": _load_font(regular_candidates, 14),
@@ -273,8 +273,8 @@ def render_profile_image(
     raw_name = full_name.strip() if full_name and full_name.strip() else hunter.hunter_name
     primary_name = clean_and_normalize_name(raw_name)
 
-    cascade_name = get_font_cascade(26, is_bold=True)
-    cascade_name_small = get_font_cascade(20, is_bold=True)
+    cascade_name = get_font_cascade(34, is_bold=True)
+    cascade_name_small = get_font_cascade(26, is_bold=True)
     bb_name = cascade_name.getbbox(primary_name)
     w_name = bb_name[2] - bb_name[0]
     name_cascade = cascade_name_small if w_name > max_text_w else cascade_name
