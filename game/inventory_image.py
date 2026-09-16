@@ -18,49 +18,46 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS, EQUIPPABLE_TYPES
 from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.design_tokens import (
+    CANVAS_TOP,
+    CANVAS_BOTTOM,
+    SURFACE_BASE,
+    SURFACE_ELEVATED,
+    SURFACE_ACCENT,
+    SURFACE_BORDER,
+    SURFACE_BORDER_LIGHT,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    INK_MUTED,
+    INK_CYAN,
+    INK_SKY,
+    INK_GOLD,
+    INK_GREEN,
+    RANK_COLORS,
+    RARITY_COLORS,
+    draw_atmospheric_canvas,
+    draw_hud_corners,
+    draw_diamond,
+    draw_coin_icon,
+)
 from models import Hunter, Inventory, Item
 
 # Canvas dimensions (860 x 1060)
 WIDTH = 860
 HEIGHT = 1060
 
-# Color Palette (Solo Leveling Abyssal Blue HUD)
-BG_TOP = (7, 11, 24)
-BG_BOTTOM = (3, 6, 15)
-HUD_CYAN = (0, 229, 255)
+HUD_CYAN = INK_CYAN
+HUD_SKY = INK_SKY
 HUD_BLUE = (37, 99, 235)
-HUD_SKY = (56, 189, 248)
 ALERT_RED = (239, 68, 68)
-GOLD_COLOR = (250, 204, 21)
-GREEN_COLOR = (34, 197, 94)
+GOLD_COLOR = INK_GOLD
+GREEN_COLOR = INK_GREEN
 PURPLE_COLOR = (168, 85, 247)
-TEXT_WHITE = (248, 250, 252)
-TEXT_MUTED = (148, 163, 184)
-TEXT_DIM = (71, 85, 105)
-CARD_BG = (13, 20, 36, 235)
-CARD_BORDER = (30, 58, 102)
-
-RANK_COLORS = {
-    "E": (148, 163, 184),
-    "D": (34, 197, 94),
-    "C": (56, 189, 248),
-    "B": (168, 85, 247),
-    "A": (244, 63, 94),
-    "S": (251, 191, 36),
-    "SS": (245, 158, 11),
-    "SSS": (239, 68, 68),
-    "National Level": (236, 72, 153),
-    "Monarch": (192, 132, 252),
-}
-
-RARITY_COLORS = {
-    "Common": (148, 163, 184),
-    "Uncommon": (34, 197, 94),
-    "Rare": (56, 189, 248),
-    "Epic": (168, 85, 247),
-    "Legendary": (251, 191, 36),
-    "Mythic": (239, 68, 68),
-}
+TEXT_WHITE = INK_PRIMARY
+TEXT_MUTED = INK_SECONDARY
+TEXT_DIM = INK_MUTED
+CARD_BG = SURFACE_BASE
+CARD_BORDER = SURFACE_BORDER
 
 
 def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -110,24 +107,17 @@ def _get_fonts():
 
 
 def _draw_gradient_background(img: Image.Image) -> None:
-    """Draw vertical dark tech gradient with subtle cyan & purple vignette."""
-    draw = ImageDraw.Draw(img)
+    """Draw Hallmark atmospheric canvas ground with radial bloom."""
     w, h = img.size
-    for y in range(h):
-        ratio = y / h
-        r = int(BG_TOP[0] * (1 - ratio) + BG_BOTTOM[0] * ratio)
-        g = int(BG_TOP[1] * (1 - ratio) + BG_BOTTOM[1] * ratio)
-        b = int(BG_TOP[2] * (1 - ratio) + BG_BOTTOM[2] * ratio)
-        draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    # Top center ambient cyan glow
-    glow_draw.ellipse([w // 2 - 300, -60, w // 2 + 300, 240], fill=(0, 180, 255, 30))
-    # Bottom ambient purple glow
-    glow_draw.ellipse([w // 2 - 250, h - 250, w // 2 + 250, h + 80], fill=(139, 92, 246, 24))
-    glow = glow.filter(ImageFilter.GaussianBlur(40))
-    img.alpha_composite(glow)
+    draw_atmospheric_canvas(
+        img,
+        top_color=CANVAS_TOP,
+        bottom_color=CANVAS_BOTTOM,
+        bloom_cx=w // 2,
+        bloom_cy=150,
+        bloom_color=(0, 200, 255, 26),
+        bloom_radius=280,
+    )
 
 
 def _draw_diamond(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 5, fill=(0, 229, 255)) -> None:

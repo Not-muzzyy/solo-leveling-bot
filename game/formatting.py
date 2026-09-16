@@ -130,6 +130,7 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         f"│ 🗡️ Hunts: {hunter.total_hunts:>9}          │",
         f"│ 📈 Win Rate: {win_rate:>7}          │",
         f"│ ✅ Wins: {hunter.victories:>4}  💀 Losses: {hunter.defeats:>4} │",
+        f"│ ⚔️ Duels: {hunter.duel_wins:>3}W - {hunter.duel_losses:<3}L        │",
         "└──────────────────────────────┘",
         "",
         "「 The System sees all, Hunter. 」",

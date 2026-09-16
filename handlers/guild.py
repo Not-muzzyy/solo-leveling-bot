@@ -22,6 +22,7 @@ import asyncio
 import logging
 import time
 from pyrogram import Client
+from pyrogram.enums import ParseMode
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from pyrogram.errors import BadRequest
 
@@ -116,7 +117,7 @@ async def handle(client: Client, message: Message) -> None:
             return
 
         if await db.guild_name_exists(guild_name):
-            await message.reply_text(f"❌ A guild named **{guild_name}** already exists!", parse_mode="markdown")
+            await message.reply_text(f"❌ A guild named **{guild_name}** already exists!", parse_mode=ParseMode.MARKDOWN)
             return
 
         # Check gold
@@ -143,7 +144,7 @@ async def handle(client: Client, message: Message) -> None:
             f"👑 Owner: {hunter.display_full_name}\n"
             f"👥 Members: 1/{GUILD_MAX_MEMBERS}\n\n"
             f"Use /guild info to view your guild.",
-            parse_mode="markdown",
+            parse_mode=ParseMode.MARKDOWN,
         )
         logger.info(f"Guild created: {guild_name} by {hunter.hunter_name}")
         return
@@ -162,7 +163,7 @@ async def handle(client: Client, message: Message) -> None:
 
         guild = await db.get_guild_by_name(guild_name)
         if not guild:
-            await message.reply_text(f"❌ No guild named **{guild_name}** found.", parse_mode="markdown")
+            await message.reply_text(f"❌ No guild named **{guild_name}** found.", parse_mode=ParseMode.MARKDOWN)
             return
 
         if len(guild.members) >= GUILD_MAX_MEMBERS:
@@ -175,7 +176,7 @@ async def handle(client: Client, message: Message) -> None:
                 f"🏰 You have joined **{guild.name}**!\n\n"
                 f"👥 Members: {len(guild.members)}/{GUILD_MAX_MEMBERS}\n"
                 f"🎁 You now receive +10% XP on hunts!",
-                parse_mode="markdown",
+                parse_mode=ParseMode.MARKDOWN,
             )
         else:
             await message.reply_text("❌ Failed to join guild. Try again.")
@@ -193,7 +194,7 @@ async def handle(client: Client, message: Message) -> None:
             return
 
         await db.remove_guild_member(guild.guild_id, user.id)
-        await message.reply_text(f"🚪 You have left **{guild.name}**.", parse_mode="markdown")
+        await message.reply_text(f"🚪 You have left **{guild.name}**.", parse_mode=ParseMode.MARKDOWN)
         return
 
     # ── /guild info [name] ────────────────────────────────
@@ -306,7 +307,7 @@ async def handle(client: Client, message: Message) -> None:
             return
 
         await db.remove_guild_member(guild.guild_id, target.id)
-        await message.reply_text(f"👢 {target.first_name} has been kicked from **{guild.name}**.", parse_mode="markdown")
+        await message.reply_text(f"👢 {target.first_name} has been kicked from **{guild.name}**.", parse_mode=ParseMode.MARKDOWN)
         return
 
     # ── /guild disband ────────────────────────────────────
@@ -322,7 +323,7 @@ async def handle(client: Client, message: Message) -> None:
 
         guild_name = guild.name
         await db.delete_guild(guild.guild_id)
-        await message.reply_text(f"🏰 **{guild_name}** has been disbanded.", parse_mode="markdown")
+        await message.reply_text(f"🏰 **{guild_name}** has been disbanded.", parse_mode=ParseMode.MARKDOWN)
         return
 
     # ── /guild edit <desc> ────────────────────────────────
@@ -478,7 +479,7 @@ async def handle_gift(client: Client, message: Message) -> None:
             f"🎁 **{sender.display_full_name}** gifted **{amount:,}💰** to **{recipient.display_full_name}**!\n\n"
             f"Your balance: {sender.gold:,}💰\n"
             f"Their balance: {recipient.gold:,}💰",
-            parse_mode="markdown",
+            parse_mode=ParseMode.MARKDOWN,
         )
         logger.info(f"Gold gift: {sender.hunter_name} -> {recipient.hunter_name}: {amount} gold")
         return
@@ -547,7 +548,7 @@ async def handle_gift(client: Client, message: Message) -> None:
             f"🎁 **{sender.display_full_name}** gifted **{rarity_emoji} {removed.name}** to **{recipient.display_full_name}**!\n\n"
             f"Item: {removed.stat_summary()}\n"
             f"Type: {removed.type.title()} | Rarity: {removed.rarity}",
-            parse_mode="markdown",
+            parse_mode=ParseMode.MARKDOWN,
         )
         logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
         return

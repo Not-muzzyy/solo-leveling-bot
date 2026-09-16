@@ -13,6 +13,16 @@ API_ID: int = int(os.getenv("API_ID", "0"))
 API_HASH: str = os.getenv("API_HASH", "")
 DATA_CHANNEL_ID: int = int(os.getenv("DATA_CHANNEL_ID", "0"))
 
+# ── Superadmin / Bot Owner ─────────────────────────────────
+OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
+SUPERADMIN_IDS: list[int] = [
+    int(x.strip())
+    for x in os.getenv("SUPERADMIN_IDS", "").split(",")
+    if x.strip().isdigit()
+]
+if OWNER_ID and OWNER_ID not in SUPERADMIN_IDS:
+    SUPERADMIN_IDS.append(OWNER_ID)
+
 # ── Ranks (ordered) ──────────────────────────────────────
 RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS", "National Level", "Monarch"]
 

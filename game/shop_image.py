@@ -17,6 +17,28 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS, RARITY_EMOJI
 from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.design_tokens import (
+    CANVAS_TOP,
+    CANVAS_BOTTOM,
+    SURFACE_BASE,
+    SURFACE_ELEVATED,
+    SURFACE_ACCENT,
+    SURFACE_BORDER,
+    SURFACE_BORDER_LIGHT,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    INK_MUTED,
+    INK_CYAN,
+    INK_SKY,
+    INK_GOLD,
+    INK_GREEN,
+    RANK_COLORS,
+    RARITY_COLORS,
+    draw_atmospheric_canvas,
+    draw_hud_corners,
+    draw_diamond,
+    draw_coin_icon,
+)
 from models import Hunter, Item
 from game.shop import SHOP_ITEMS, get_shop_items_by_type
 
@@ -24,43 +46,18 @@ from game.shop import SHOP_ITEMS, get_shop_items_by_type
 WIDTH = 860
 HEIGHT = 1060
 
-# Color Palette (Solo Leveling Abyssal Blue HUD)
-BG_TOP = (7, 11, 24)
-BG_BOTTOM = (3, 6, 15)
-HUD_CYAN = (0, 229, 255)
+HUD_CYAN = INK_CYAN
 HUD_BLUE = (37, 99, 235)
-HUD_SKY = (56, 189, 248)
+HUD_SKY = INK_SKY
 ALERT_RED = (239, 68, 68)
-GOLD_COLOR = (250, 204, 21)
-GREEN_COLOR = (34, 197, 94)
+GOLD_COLOR = INK_GOLD
+GREEN_COLOR = INK_GREEN
 PURPLE_COLOR = (168, 85, 247)
-TEXT_WHITE = (248, 250, 252)
-TEXT_MUTED = (148, 163, 184)
-TEXT_DIM = (71, 85, 105)
-CARD_BG = (13, 20, 36, 235)
-CARD_BORDER = (30, 58, 102)
-
-RANK_COLORS = {
-    "E": (148, 163, 184),
-    "D": (34, 197, 94),
-    "C": (56, 189, 248),
-    "B": (168, 85, 247),
-    "A": (244, 63, 94),
-    "S": (251, 191, 36),
-    "SS": (245, 158, 11),
-    "SSS": (239, 68, 68),
-    "National Level": (236, 72, 153),
-    "Monarch": (192, 132, 252),
-}
-
-RARITY_COLORS = {
-    "Common": (148, 163, 184),
-    "Uncommon": (34, 197, 94),
-    "Rare": (56, 189, 248),
-    "Epic": (168, 85, 247),
-    "Legendary": (251, 191, 36),
-    "Mythic": (239, 68, 68),
-}
+TEXT_WHITE = INK_PRIMARY
+TEXT_MUTED = INK_SECONDARY
+TEXT_DIM = INK_MUTED
+CARD_BG = SURFACE_BASE
+CARD_BORDER = SURFACE_BORDER
 
 CATEGORIES = [
     ("weapon", "WEAPONS"),
@@ -117,25 +114,17 @@ def _get_fonts():
 
 
 def _draw_gradient_background(img: Image.Image) -> None:
-    """Draw vertical dark tech gradient with subtle gold and cyan vignette."""
-    draw = ImageDraw.Draw(img)
+    """Draw Hallmark atmospheric canvas ground with warm gold radial bloom for the exchange depot."""
     w, h = img.size
-    for y in range(h):
-        ratio = y / h
-        r = int(BG_TOP[0] * (1 - ratio) + BG_BOTTOM[0] * ratio)
-        g = int(BG_TOP[1] * (1 - ratio) + BG_BOTTOM[1] * ratio)
-        b = int(BG_TOP[2] * (1 - ratio) + BG_BOTTOM[2] * ratio)
-        draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    # Top center ambient gold & cyan glow
-    glow_draw.ellipse([w // 2 - 320, -80, w // 2 + 320, 240], fill=(250, 204, 21, 24))
-    glow_draw.ellipse([w // 2 - 200, -40, w // 2 + 200, 180], fill=(0, 229, 255, 20))
-    # Bottom ambient cyan glow
-    glow_draw.ellipse([w // 2 - 250, h - 220, w // 2 + 250, h + 80], fill=(37, 99, 235, 22))
-    glow = glow.filter(ImageFilter.GaussianBlur(40))
-    img.alpha_composite(glow)
+    draw_atmospheric_canvas(
+        img,
+        top_color=CANVAS_TOP,
+        bottom_color=CANVAS_BOTTOM,
+        bloom_cx=w // 2,
+        bloom_cy=140,
+        bloom_color=(250, 204, 21, 24),
+        bloom_radius=280,
+    )
 
 
 def _draw_diamond(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 5, fill=HUD_CYAN) -> None:
@@ -339,6 +328,10 @@ def render_shop_image(
     h_y2 = 192
     draw.rounded_rectangle([32, h_y1, WIDTH - 32, h_y2], radius=10, fill=CARD_BG, outline=CARD_BORDER, width=1)
 
+    # Treasury Vault Card on Right
+    vault_w = 260
+    vault_x = WIDTH - 32 - vault_w - 14
+
     # Hunter Info Left
     _draw_diamond(draw, 50, h_y1 + 24, size=4, fill=HUD_CYAN)
     draw.text((62, h_y1 + 14), "[ LICENSED HUNTER ]", font=fonts["small_bold"], fill=HUD_CYAN)
@@ -351,8 +344,6 @@ def render_shop_image(
     draw.text((50, h_y1 + 64), f"Rank: {hunter.rank}-Rank  •  Level {hunter.level}  •  Combat Power: {hunter.power:,}", font=fonts["small_bold"], fill=r_col)
 
     # Treasury Vault Card on Right
-    vault_w = 260
-    vault_x = WIDTH - 32 - vault_w - 14
     draw.rounded_rectangle([vault_x, h_y1 + 10, vault_x + vault_w, h_y2 - 10], radius=8, fill=(28, 24, 14, 240), outline=GOLD_COLOR, width=1)
     _draw_diamond(draw, vault_x + 18, h_y1 + 26, size=4, fill=GOLD_COLOR)
     draw.text((vault_x + 28, h_y1 + 18), "AVAILABLE TREASURY", font=fonts["small_bold"], fill=GOLD_COLOR)

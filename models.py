@@ -86,9 +86,13 @@ class Hunter:
 
     @classmethod
     def from_dict(cls, data: dict) -> Hunter:
-        """Deserialize from dictionary."""
-        data.pop("type", None)
-        return cls(**data)
+        """Deserialize from dictionary with safe field filtering."""
+        import dataclasses
+        d = dict(data)
+        d.pop("type", None)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
 
     @classmethod
     def from_json(cls, text: str) -> Hunter:
@@ -116,8 +120,13 @@ class Item:
 
     @classmethod
     def from_dict(cls, data: dict) -> Item:
-        """Deserialize from dictionary."""
-        return cls(**data)
+        """Deserialize from dictionary with safe field filtering."""
+        import dataclasses
+        d = dict(data)
+        d.pop("type", None)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
 
     def stat_summary(self) -> str:
         """Return a compact stat string like '+5 ATK, +3 DEF'."""
@@ -299,13 +308,17 @@ class Guild:
 
     @classmethod
     def from_dict(cls, data: dict) -> Guild:
-        """Deserialize from dictionary."""
-        data.pop("type", None)
+        """Deserialize from dictionary with safe field filtering."""
+        import dataclasses
+        d = dict(data)
+        d.pop("type", None)
         # backward compat: defaults for missing war fields
-        data.setdefault("war_score", 0)
-        data.setdefault("war_wins", 0)
-        data.setdefault("war_losses", 0)
-        return cls(**data)
+        d.setdefault("war_score", 0)
+        d.setdefault("war_wins", 0)
+        d.setdefault("war_losses", 0)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
 
     @classmethod
     def from_json(cls, text: str) -> Guild:
