@@ -18,42 +18,48 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
 from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.design_tokens import (
+    CANVAS_TOP,
+    CANVAS_BOTTOM,
+    SURFACE_BASE,
+    SURFACE_ELEVATED,
+    SURFACE_ACCENT,
+    SURFACE_BORDER,
+    SURFACE_BORDER_LIGHT,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    INK_MUTED,
+    INK_CYAN,
+    INK_SKY,
+    INK_GOLD,
+    INK_GREEN,
+    RANK_COLORS,
+    draw_atmospheric_canvas,
+    draw_hud_corners,
+    draw_diamond,
+    draw_coin_icon,
+    draw_crown_icon,
+)
 from models import Hunter
 
 # Canvas dimensions (860 x 1140)
 WIDTH = 860
 HEIGHT = 1140
 
-# Color Palette (Solo Leveling Abyssal Blue HUD)
-BG_TOP = (7, 11, 24)
-BG_BOTTOM = (3, 6, 15)
-HUD_CYAN = (0, 229, 255)
+HUD_CYAN = INK_CYAN
 HUD_BLUE = (37, 99, 235)
-HUD_SKY = (56, 189, 248)
+HUD_SKY = INK_SKY
 ALERT_RED = (239, 68, 68)
-GOLD_COLOR = (250, 204, 21)
+GOLD_COLOR = INK_GOLD
 SILVER_COLOR = (226, 232, 240)
 BRONZE_COLOR = (217, 119, 6)
-GREEN_COLOR = (34, 197, 94)
+GREEN_COLOR = INK_GREEN
 PURPLE_COLOR = (168, 85, 247)
-TEXT_WHITE = (248, 250, 252)
-TEXT_MUTED = (148, 163, 184)
-TEXT_DIM = (71, 85, 105)
-CARD_BG = (13, 20, 36, 235)
-CARD_BORDER = (30, 58, 102)
-
-RANK_COLORS = {
-    "E": (148, 163, 184),
-    "D": (34, 197, 94),
-    "C": (56, 189, 248),
-    "B": (168, 85, 247),
-    "A": (244, 63, 94),
-    "S": (251, 191, 36),
-    "SS": (245, 158, 11),
-    "SSS": (239, 68, 68),
-    "National Level": (236, 72, 153),
-    "Monarch": (192, 132, 252),
-}
+TEXT_WHITE = INK_PRIMARY
+TEXT_MUTED = INK_SECONDARY
+TEXT_DIM = INK_MUTED
+CARD_BG = SURFACE_BASE
+CARD_BORDER = SURFACE_BORDER
 
 CATEGORIES = [
     ("power", "COMBAT POWER"),
@@ -111,25 +117,17 @@ def _get_fonts():
 
 
 def _draw_gradient_background(img: Image.Image) -> None:
-    """Draw vertical dark tech gradient with subtle ambient radial glow."""
-    draw = ImageDraw.Draw(img)
+    """Draw Hallmark atmospheric canvas ground with radial bloom for the Hall of Fame."""
     w, h = img.size
-    for y in range(h):
-        ratio = y / h
-        r = int(BG_TOP[0] * (1 - ratio) + BG_BOTTOM[0] * ratio)
-        g = int(BG_TOP[1] * (1 - ratio) + BG_BOTTOM[1] * ratio)
-        b = int(BG_TOP[2] * (1 - ratio) + BG_BOTTOM[2] * ratio)
-        draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    # Top ambient gold and cyan aura
-    glow_draw.ellipse([w // 2 - 300, -80, w // 2 + 300, 220], fill=(250, 204, 21, 25))
-    glow_draw.ellipse([w // 2 - 200, -40, w // 2 + 200, 160], fill=(0, 229, 255, 20))
-    # Bottom ambient cyan glow
-    glow_draw.ellipse([w // 2 - 250, h - 220, w // 2 + 250, h + 80], fill=(37, 99, 235, 22))
-    glow = glow.filter(ImageFilter.GaussianBlur(40))
-    img.alpha_composite(glow)
+    draw_atmospheric_canvas(
+        img,
+        top_color=CANVAS_TOP,
+        bottom_color=CANVAS_BOTTOM,
+        bloom_cx=w // 2,
+        bloom_cy=140,
+        bloom_color=(250, 204, 21, 24),
+        bloom_radius=280,
+    )
 
 
 def _draw_diamond(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 4, fill=HUD_CYAN) -> None:
@@ -197,6 +195,7 @@ def render_leaderboard_image(
     category: str = "power",
     viewing_hunter: Optional[Hunter] = None,
     requesting_user_id: Optional[int] = None,
+    current_user_id: Optional[int] = None,
 ) -> io.BytesIO:
     """
     Generate a high-definition static RPG Leaderboard Card.
@@ -204,6 +203,9 @@ def render_leaderboard_image(
     Highlights Top 3 podium, Ranks #4-#10, and user's personal rank card.
     Returns in-memory BytesIO buffer of the PNG file.
     """
+    if requesting_user_id is None and current_user_id is not None:
+        requesting_user_id = current_user_id
+
     # Allow passing viewing_hunter in 2nd position or category in 2nd position
     if isinstance(category, Hunter):
         viewing_hunter, category = category, "power"

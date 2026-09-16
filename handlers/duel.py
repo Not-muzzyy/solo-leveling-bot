@@ -26,6 +26,7 @@ from channel_db import ChannelDB
 from game.formatting import format_not_registered
 from game.duel import simulate_duel
 from game.duel_image import render_duel_card
+from game.photo_helper import fetch_user_pfp_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -179,24 +180,9 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         c_inv = await db.get_inventory(challenger_id)
         o_inv = await db.get_inventory(opponent_id)
 
-        # 4. Retrieve Profile Photos (if available)
-        c_pfp_bytes = None
-        try:
-            c_photos = await client.get_user_profile_photos(challenger_id, limit=1)
-            if c_photos and c_photos.total_count > 0 and c_photos.photos:
-                f = await client.get_file(c_photos.photos[0][-1].file_id)
-                c_pfp_bytes = bytes(await f.download())
-        except Exception as err:
-            logger.debug("Could not fetch challenger pfp: %s", err)
-
-        o_pfp_bytes = None
-        try:
-            o_photos = await client.get_user_profile_photos(opponent_id, limit=1)
-            if o_photos and o_photos.total_count > 0 and o_photos.photos:
-                f = await client.get_file(o_photos.photos[0][-1].file_id)
-                o_pfp_bytes = bytes(await f.download())
-        except Exception as err:
-            logger.debug("Could not fetch opponent pfp: %s", err)
+        # 4. Retrieve Profile Photos (if available) via MTProto
+        c_pfp_bytes = await fetch_user_pfp_bytes(client, challenger_id)
+        o_pfp_bytes = await fetch_user_pfp_bytes(client, opponent_id)
 
         # 5. Simulate Combat
         result = simulate_duel(challenger, c_inv, opponent, o_inv)

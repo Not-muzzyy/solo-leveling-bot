@@ -74,7 +74,7 @@ class ChannelDB:
             chat = await self.bot.get_chat(self.channel_id)
 
             if chat.pinned_message:
-                self._index_msg_id = chat.pinned_message.message_id
+                self._index_msg_id = chat.pinned_message.id
                 try:
                     raw = chat.pinned_message.text
                     full_index = json.loads(raw)
@@ -102,10 +102,33 @@ class ChannelDB:
         # Populate cache from channel messages
         await self._load_all_hunters()
         await self._load_all_guilds()
-        # Build user→guild map from cached hunters
+
+        # Build user→guild map and synchronize hunter <-> guild relationships
+        self._user_guild_map.clear()
+
+        # 1. Map all confirmed guild members to their guild and ensure cached hunter has guild_id set
+        for guild in self._guild_cache.values():
+            for uid in guild.members:
+                self._user_guild_map[uid] = guild.guild_id
+                entry = self._cache.get(uid)
+                if entry and entry.hunter.guild_id != guild.guild_id:
+                    entry.hunter.guild_id = guild.guild_id
+
+        # 2. Check cached hunters: reconcile orphaned or desynchronized guild IDs
         for uid, entry in self._cache.items():
-            if entry.hunter.guild_id:
-                self._user_guild_map[uid] = entry.hunter.guild_id
+            gid = entry.hunter.guild_id
+            if gid:
+                guild = self._guild_cache.get(gid)
+                if not guild:
+                    # Guild does not exist anymore; clear orphaned ID
+                    entry.hunter.guild_id = None
+                elif uid not in guild.members:
+                    if len(guild.members) < 15:
+                        guild.members.append(uid)
+                        self._user_guild_map[uid] = gid
+                    else:
+                        entry.hunter.guild_id = None
+
         logger.info(f"ChannelDB initialized. {len(self._cache)} hunters, {len(self._guild_cache)} guilds cached.")
 
     async def _create_index_message(self) -> None:
@@ -115,12 +138,12 @@ class ChannelDB:
             chat_id=self.channel_id,
             text=json.dumps(index_data, separators=(",", ":")),
         )
-        self._index_msg_id = msg.message_id
+        self._index_msg_id = msg.id
         self._index = {}
         try:
             await self.bot.pin_chat_message(
                 chat_id=self.channel_id,
-                message_id=msg.message_id,
+                message_id=msg.id,
                 disable_notification=True,
             )
         except RPCError as e:
@@ -159,42 +182,18 @@ class ChannelDB:
         hunter_msg_id = mapping["hunter_msg_id"]
         inv_msg_id = mapping["inv_msg_id"]
 
-        # Forward to self to read content (copy_message returns the text)
-        # Actually, we use the trick of forwarding to the same channel
-        # and reading, then deleting. But a simpler approach:
-        # Use bot.forward_message to a temp read — but we can't read forwarded
-        # text directly from the API response.
-        #
-        # Best approach: copy the message, read it, delete the copy.
         try:
-            copied = await self.bot.copy_message(
-                chat_id=self.channel_id,
-                from_chat_id=self.channel_id,
-                message_id=hunter_msg_id,
-            )
-            # copy_message returns MessageId, not Message with text.
-            # We need forward_message instead, which returns Message with text.
-            hunter_fwd = await self.bot.forward_message(
-                chat_id=self.channel_id,
-                from_chat_id=self.channel_id,
-                message_id=hunter_msg_id,
-            )
-            hunter = Hunter.from_json(hunter_fwd.text)
+            hunter_msg = await self.bot.get_messages(self.channel_id, hunter_msg_id)
+            if not hunter_msg or not hunter_msg.text:
+                logger.warning(f"Could not read hunter message {hunter_msg_id} for user {user_id}")
+                return
+            hunter = Hunter.from_json(hunter_msg.text)
 
-            inv_fwd = await self.bot.forward_message(
-                chat_id=self.channel_id,
-                from_chat_id=self.channel_id,
-                message_id=inv_msg_id,
-            )
-            inventory = Inventory.from_json(inv_fwd.text)
-
-            # Delete the forwarded copies to keep channel clean
-            try:
-                await self.bot.delete_message(self.channel_id, copied.message_id)
-                await self.bot.delete_message(self.channel_id, hunter_fwd.message_id)
-                await self.bot.delete_message(self.channel_id, inv_fwd.message_id)
-            except TelegramError:
-                pass  # Non-critical
+            inv_msg = await self.bot.get_messages(self.channel_id, inv_msg_id)
+            if not inv_msg or not inv_msg.text:
+                logger.warning(f"Could not read inventory message {inv_msg_id} for user {user_id}")
+                return
+            inventory = Inventory.from_json(inv_msg.text)
 
             self._cache[user_id] = CacheEntry(
                 hunter=hunter,
@@ -212,17 +211,10 @@ class ChannelDB:
         for name_key, mapping in self._guild_index.items():
             guild_msg_id = mapping["guild_msg_id"]
             try:
-                fwd = await self.bot.forward_message(
-                    chat_id=self.channel_id,
-                    from_chat_id=self.channel_id,
-                    message_id=guild_msg_id,
-                )
-                guild = Guild.from_json(fwd.text)
-                try:
-                    await self.bot.delete_message(self.channel_id, fwd.message_id)
-                except RPCError:
-                    pass
-                self._guild_cache[guild.guild_id] = guild
+                msg = await self.bot.get_messages(self.channel_id, guild_msg_id)
+                if msg and msg.text:
+                    guild = Guild.from_json(msg.text)
+                    self._guild_cache[guild.guild_id] = guild
             except Exception as e:
                 logger.error(f"Failed to load guild '{name_key}': {e}")
 
@@ -238,9 +230,11 @@ class ChannelDB:
             )
 
             # 2. Update guild index
-            self._guild_index[guild.name.lower()] = {
-                "guild_msg_id": guild_msg.message_id,
+            name_key = guild.name.strip().lower()
+            self._guild_index[name_key] = {
+                "guild_msg_id": guild_msg.id,
                 "owner_id": guild.owner_id,
+                "guild_id": guild.guild_id,
             }
             await self._update_index_message()
 
@@ -248,6 +242,9 @@ class ChannelDB:
             self._guild_cache[guild.guild_id] = guild
             for uid in guild.members:
                 self._user_guild_map[uid] = guild.guild_id
+                entry = self._cache.get(uid)
+                if entry:
+                    entry.hunter.guild_id = guild.guild_id
             logger.info(f"Created guild: {guild.name} (ID: {guild.guild_id})")
 
     async def save_guild(self, guild_id: int) -> None:
@@ -256,8 +253,13 @@ class ChannelDB:
         if not guild:
             return
 
-        name_key = guild.name.lower()
+        name_key = guild.name.strip().lower()
         mapping = self._guild_index.get(name_key)
+        if not mapping:
+            for k, m in self._guild_index.items():
+                if m.get("guild_id") == guild_id or m.get("owner_id") == guild.owner_id:
+                    mapping = m
+                    break
         if not mapping:
             return
 
@@ -276,25 +278,52 @@ class ChannelDB:
         return self._guild_cache.get(guild_id)
 
     async def get_guild_by_name(self, name: str) -> Optional[Guild]:
-        """Look up guild by name."""
-        name_key = name.lower()
+        """Look up guild by name (case-insensitive)."""
+        name_key = name.strip().lower()
+        # Direct lookup across cached guilds first
+        for g in self._guild_cache.values():
+            if g.name.strip().lower() == name_key:
+                return g
+        # Fallback to index mapping
         mapping = self._guild_index.get(name_key)
-        if not mapping:
-            return None
-        # Find guild in cache by owner_id from mapping
-        owner_id = mapping["owner_id"]
-        return self._guild_cache.get(owner_id)
+        if mapping:
+            gid = mapping.get("guild_id", mapping.get("owner_id"))
+            if gid in self._guild_cache:
+                return self._guild_cache[gid]
+        return None
 
     async def get_user_guild(self, user_id: int) -> Optional[Guild]:
-        """Get the guild a user belongs to."""
+        """Get the guild a user belongs to with resilient multi-tier lookup."""
+        # 1. Check user->guild map
         guild_id = self._user_guild_map.get(user_id)
-        if guild_id:
-            return self._guild_cache.get(guild_id)
+        if guild_id and guild_id in self._guild_cache:
+            return self._guild_cache[guild_id]
+
+        # 2. Check cached hunter's guild_id
+        entry = self._cache.get(user_id)
+        if entry and entry.hunter.guild_id and entry.hunter.guild_id in self._guild_cache:
+            self._user_guild_map[user_id] = entry.hunter.guild_id
+            return self._guild_cache[entry.hunter.guild_id]
+
+        # 3. Check membership in any cached guild
+        for g in self._guild_cache.values():
+            if user_id in g.members:
+                self._user_guild_map[user_id] = g.guild_id
+                if entry:
+                    entry.hunter.guild_id = g.guild_id
+                return g
+
         return None
 
     async def guild_name_exists(self, name: str) -> bool:
         """Check if a guild name is already taken."""
-        return name.lower() in self._guild_index
+        name_key = name.strip().lower()
+        if name_key in self._guild_index:
+            return True
+        for g in self._guild_cache.values():
+            if g.name.strip().lower() == name_key:
+                return True
+        return False
 
     async def add_guild_member(self, guild_id: int, user_id: int) -> bool:
         """Add a member to a guild. Returns False if guild full or not found."""
@@ -334,19 +363,23 @@ class ChannelDB:
         if not guild:
             return
 
-        name_key = guild.name.lower()
-        mapping = self._guild_index.get(name_key)
+        name_key = guild.name.strip().lower()
+        mapping = self._guild_index.pop(name_key, None)
+        if not mapping:
+            for k, m in list(self._guild_index.items()):
+                if m.get("guild_id") == guild_id or m.get("owner_id") == guild.owner_id:
+                    mapping = self._guild_index.pop(k, None)
+                    break
 
         # 1. Delete channel message
-        if mapping:
+        if mapping and "guild_msg_id" in mapping:
             try:
-                await self.bot.delete_message(self.channel_id, mapping["guild_msg_id"])
+                await self.bot.delete_messages(self.channel_id, mapping["guild_msg_id"])
             except RPCError:
                 pass
-            del self._guild_index[name_key]
 
         # 2. Clear all members' guild_id
-        for uid in guild.members:
+        for uid in list(guild.members):
             entry = self._cache.get(uid)
             if entry:
                 entry.hunter.guild_id = None
@@ -354,7 +387,7 @@ class ChannelDB:
             self._user_guild_map.pop(uid, None)
 
         # 3. Remove from cache
-        del self._guild_cache[guild_id]
+        self._guild_cache.pop(guild_id, None)
         await self._update_index_message()
         logger.info(f"Deleted guild: {guild.name} (ID: {guild_id})")
 
@@ -387,13 +420,20 @@ class ChannelDB:
     ) -> None:
         """
         Register a new hunter:
-        1. Send hunter JSON message
-        2. Create inventory with starter item, send inventory JSON message
-        3. Update index message
-        4. Populate cache
+        1. Equip starter item on hunter
+        2. Send hunter JSON message
+        3. Send inventory JSON message
+        4. Update index message
+        5. Populate cache
         """
         async with self._global_lock:
             user_id = hunter.user_id
+
+            # Create inventory and equip the starter weapon before sending
+            inventory = Inventory(user_id=user_id)
+            inventory.add_item(starter_item)
+            starter_item.is_equipped = True
+            hunter.weapon_id = starter_item.id
 
             # 1. Send hunter data
             hunter_msg = await self.bot.send_message(
@@ -401,14 +441,7 @@ class ChannelDB:
                 text=hunter.to_json(),
             )
 
-            # 2. Create inventory with starter item
-            inventory = Inventory(user_id=user_id)
-            inventory.add_item(starter_item)
-
-            # Equip the starter weapon
-            starter_item.is_equipped = True
-            hunter.weapon_id = starter_item.id
-
+            # 2. Send inventory data
             inv_msg = await self.bot.send_message(
                 chat_id=self.channel_id,
                 text=inventory.to_json(),
@@ -416,31 +449,31 @@ class ChannelDB:
 
             # 3. Update index
             self._index[str(user_id)] = {
-                "hunter_msg_id": hunter_msg.message_id,
-                "inv_msg_id": inv_msg.message_id,
+                "hunter_msg_id": hunter_msg.id,
+                "inv_msg_id": inv_msg.id,
             }
             await self._update_index_message()
-
-            # Also save the hunter again since weapon_id was set
-            await self.bot.edit_message_text(
-                chat_id=self.channel_id,
-                message_id=hunter_msg.message_id,
-                text=hunter.to_json(),
-            )
 
             # 4. Cache
             self._cache[user_id] = CacheEntry(
                 hunter=hunter,
                 inventory=inventory,
-                hunter_msg_id=hunter_msg.message_id,
-                inventory_msg_id=inv_msg.message_id,
+                hunter_msg_id=hunter_msg.id,
+                inventory_msg_id=inv_msg.id,
             )
             logger.info(f"Created hunter: {hunter.hunter_name} (ID: {user_id})")
 
-    async def save_hunter(self, user_id: int | Hunter) -> None:
+    async def save_hunter(self, user_or_id: int | Hunter) -> None:
         """Flush cached hunter data to channel."""
-        if hasattr(user_id, "user_id"):
-            user_id = user_id.user_id
+        if isinstance(user_or_id, Hunter):
+            user_id = user_or_id.user_id
+            if user_id in self._cache:
+                self._cache[user_id].hunter = user_or_id
+        elif hasattr(user_or_id, "user_id"):
+            user_id = user_or_id.user_id
+        else:
+            user_id = user_or_id
+
         entry = self._cache.get(user_id)
         if not entry:
             return

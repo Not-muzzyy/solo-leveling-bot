@@ -46,8 +46,8 @@ async def handle(client: Client, message: Message) -> None:
             await db.save_hunter(user.id)
 
         if is_help_deeplink:
-            from handlers.help import HELP_TEXT, _help_pm_keyboard
-            await message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
+            from handlers.help import handle as handle_help
+            await handle_help(client, message)
             return
         if is_shop_deeplink:
             from game.shop_image import render_shop_image
@@ -103,10 +103,10 @@ async def handle(client: Client, message: Message) -> None:
     await message.reply_text(format_welcome(hunter))
     logger.info(f"New hunter created: {hunter.hunter_name} (ID: {user.id})")
 
-    # If awakened via help deep-link, immediately show the Hunter Guide
+    # If awakened via help deep-link, immediately show the visual Hunter Guide
     if is_help_deeplink:
-        from handlers.help import HELP_TEXT, _help_pm_keyboard
-        await message.reply_text(HELP_TEXT, reply_markup=_help_pm_keyboard())
+        from handlers.help import handle as handle_help
+        await handle_help(client, message)
         return
 
     # If awakened via shop deep-link, immediately show the Hunter Shop

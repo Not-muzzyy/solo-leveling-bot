@@ -4,15 +4,30 @@
 
 # Environment & Secrets (NEVER COMMIT)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# Python Cache & Bytecode
+# Python Cache, Bytecode & Build Artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Virtual Environments
 .venv/
@@ -22,16 +37,42 @@ env/
 env.bak/
 venv.bak/
 
-# Local databases
+# Telegram Sessions, Databases & Credentials
 *.db
 *.sqlite3
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
 
-# Temporary & Scratch Files
+# Temporary, Logs & Scratch Files
 scratch/
-*.tmp
+logs/
 *.log
+*.tmp
+*.temp
+nohup.out
 
-# IDE & Editors
+# Test & Debug Artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local Test Render Outputs (Dynamic Pillow Image Dumps in root)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
+
+# Agent, Tooling & IDE Configurations
+.agents/
+.gemini/
+.claude/
+.cursor/
+.windsurf/
 .vscode/
 .idea/
 *.swp
@@ -40,4 +81,10 @@ scratch/
 
 # Operating System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini

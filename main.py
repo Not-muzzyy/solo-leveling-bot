@@ -10,7 +10,7 @@ from pyrogram import Client, filters
 
 from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild, guild_war
+from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild, guild_war, admin
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -35,8 +35,8 @@ async def on_start(client):
     logger.info("Initializing Solo Leveling Bot...")
 
     db = ChannelDB(client, DATA_CHANNEL_ID)
-    await db.initialize()
     client.db = db  # ponytail: attach DB to client for handler access
+    await db.initialize()
 
     logger.info("Bot initialized and ready!")
 
@@ -58,6 +58,14 @@ app.on_message(filters.command("help"))(help.handle)
 app.on_message(filters.command("claim"))(claim.handle)
 app.on_message(filters.command("guild"))(guild.handle)
 app.on_message(filters.command("gift"))(guild.handle_gift)
+
+# ── Superadmin / Owner Command Handlers ───────────────────
+app.on_message(filters.command(["admin", "superadmin"]))(admin.handle_admin_help)
+app.on_message(filters.command(["addgold", "addcoins"]))(admin.handle_add_gold)
+app.on_message(filters.command(["setgold", "setcoins"]))(admin.handle_set_gold)
+app.on_message(filters.command(["addxp", "addep"]))(admin.handle_add_xp)
+app.on_message(filters.command("setlevel"))(admin.handle_set_level)
+app.on_message(filters.command("inspect"))(admin.handle_inspect)
 
 # ── Inline Button Callbacks ───────────────────────────────
 app.on_callback_query(filters.regex(r"^equip_"))(inventory.equip_callback)

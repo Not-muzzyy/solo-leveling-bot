@@ -24,41 +24,53 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
 from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.design_tokens import (
+    CANVAS_TOP,
+    CANVAS_BOTTOM,
+    SURFACE_BASE,
+    SURFACE_ELEVATED,
+    SURFACE_ACCENT,
+    SURFACE_BORDER,
+    SURFACE_BORDER_LIGHT,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    INK_MUTED,
+    INK_CYAN,
+    INK_SKY,
+    INK_GOLD,
+    INK_RED,
+    INK_RED_DARK,
+    INK_GREEN,
+    INK_GREEN_DARK,
+    RANK_COLORS,
+    draw_atmospheric_canvas,
+    draw_hud_corners,
+    draw_diamond,
+    draw_lightning_icon,
+    draw_crown_icon,
+    draw_skull_icon,
+    draw_swords_icon,
+    draw_rounded_gauge,
+)
 from models import Hunter, Inventory, Item, DuelResult
 
 # Dimensions
 WIDTH = 920
 HEIGHT = 580
 
-# Color Palette
-BG_DARK = (7, 11, 22)
-BG_BOTTOM = (3, 5, 12)
-HUD_CYAN = (0, 229, 255)
+HUD_CYAN = INK_CYAN
 HUD_BLUE = (37, 99, 235)
-HUD_SKY = (56, 189, 248)
-ALERT_RED = (239, 68, 68)
-ALERT_DARK_RED = (60, 16, 24)
-GOLD_COLOR = (250, 204, 21)
-GREEN_COLOR = (34, 197, 94)
-GREEN_DARK = (14, 48, 28)
-TEXT_WHITE = (248, 250, 252)
-TEXT_MUTED = (148, 163, 184)
-TEXT_DIM = (71, 85, 105)
-CARD_BG = (12, 19, 36, 235)
-CARD_BORDER = (30, 58, 102)
-
-RANK_COLORS = {
-    "E": (148, 163, 184),
-    "D": (34, 197, 94),
-    "C": (56, 189, 248),
-    "B": (168, 85, 247),
-    "A": (244, 63, 94),
-    "S": (251, 191, 36),
-    "SS": (245, 158, 11),
-    "SSS": (239, 68, 68),
-    "National Level": (236, 72, 153),
-    "Monarch": (192, 132, 252),
-}
+HUD_SKY = INK_SKY
+ALERT_RED = INK_RED
+ALERT_DARK_RED = INK_RED_DARK
+GOLD_COLOR = INK_GOLD
+GREEN_COLOR = INK_GREEN
+GREEN_DARK = INK_GREEN_DARK
+TEXT_WHITE = INK_PRIMARY
+TEXT_MUTED = INK_SECONDARY
+TEXT_DIM = INK_MUTED
+CARD_BG = SURFACE_BASE
+CARD_BORDER = SURFACE_BORDER
 
 
 def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -238,22 +250,18 @@ def render_duel_card(
     Render a high-definition 920 × 580 px Duel Combat Resolution Card.
     Returns BytesIO containing PNG bytes.
     """
-    # 1. Base Canvas & Gradient Background
+    # 1. Base Canvas & Atmospheric Radial Bloom
     base = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
+    draw_atmospheric_canvas(
+        base,
+        top_color=CANVAS_TOP,
+        bottom_color=CANVAS_BOTTOM,
+        bloom_cx=WIDTH // 2,
+        bloom_cy=HEIGHT // 2,
+        bloom_color=(0, 229, 255, 24),
+        bloom_radius=280,
+    )
     draw = ImageDraw.Draw(base)
-
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(BG_DARK[0] * (1 - ratio) + BG_BOTTOM[0] * ratio)
-        g = int(BG_DARK[1] * (1 - ratio) + BG_BOTTOM[1] * ratio)
-        b = int(BG_DARK[2] * (1 - ratio) + BG_BOTTOM[2] * ratio)
-        draw.line([(0, y), (WIDTH, y)], fill=(r, g, b, 255))
-
-    # Grid / Geometric lines accent
-    for gx in range(40, WIDTH, 80):
-        draw.line([(gx, 0), (gx, HEIGHT)], fill=(20, 35, 65, 35), width=1)
-    for gy in range(40, HEIGHT, 80):
-        draw.line([(0, gy), (WIDTH, gy)], fill=(20, 35, 65, 35), width=1)
 
     # 2. Top Header Bar
     font_header = _load_font(["segoeuib.ttf", "arialbd.ttf"], 13)
