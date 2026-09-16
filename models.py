@@ -123,10 +123,11 @@ class Item:
         """Deserialize from dictionary with safe field filtering."""
         import dataclasses
         d = dict(data)
+        item_type = d.get("type", "weapon")
         d.pop("type", None)
-        d.setdefault("type", "weapon")
         valid_fields = {f.name for f in dataclasses.fields(cls)}
         filtered = {k: v for k, v in d.items() if k in valid_fields}
+        filtered.setdefault("type", item_type)
         return cls(**filtered)
 
     def stat_summary(self) -> str:
