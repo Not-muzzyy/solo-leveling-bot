@@ -120,15 +120,6 @@ async def handle(client: Client, message: Message) -> None:
         bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=help"
 
-        # Attempt direct visual transmission to user's PM
-        direct_sent = await send_help_card_to_chat(client, user.id)
-
-        status_msg = (
-            "✨ The Hunter System manual has been dispatched directly to your PM!"
-            if direct_sent
-            else "🔒 Tap the button below to open the visual Hunter operational manual in PM."
-        )
-
         gc_text = (
             "╔══════════════════════════════╗\n"
             "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
@@ -137,7 +128,7 @@ async def handle(client: Client, message: Message) -> None:
             f"👤 Hunter {user.first_name},\n"
             "To prevent chat clutter and keep group channels clear,\n"
             "the visual Hunter System manual opens in Private Messages (PM).\n\n"
-            f"{status_msg}"
+            "🔒 Tap the button below to open the visual Hunter operational manual in PM."
         )
 
         keyboard = InlineKeyboardMarkup([

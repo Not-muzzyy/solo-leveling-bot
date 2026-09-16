@@ -69,14 +69,34 @@ class ChannelDB:
         logger.info("Initializing ChannelDB...")
 
         try:
-            # Try to get pinned message via getChatPinnedMessage approach:
-            # We'll send a test and look for pinned, or just create fresh
             chat = await self.bot.get_chat(self.channel_id)
 
-            if chat.pinned_message:
-                self._index_msg_id = chat.pinned_message.id
-                try:
+            pinned_id = chat.pinned_message.id if chat.pinned_message else None
+            # If not reported in chat.pinned_message, search early messages for existing index
+            if not pinned_id:
+                early_msgs = await self.bot.get_messages(self.channel_id, list(range(1, 15)))
+                for m in early_msgs:
+                    if m and m.text and '"type":"index"' in m.text:
+                        pinned_id = m.id
+                        try:
+                            await self.bot.pin_chat_message(self.channel_id, m.id, disable_notification=True)
+                        except Exception:
+                            pass
+                        break
+
+            if pinned_id:
+                self._index_msg_id = pinned_id
+                # Explicitly fetch the message text to avoid empty pinned_message cache
+                pinned_msg = await self.bot.get_messages(self.channel_id, pinned_id)
+                raw = ""
+                if pinned_msg and pinned_msg.text and '"type"' in pinned_msg.text:
+                    raw = pinned_msg.text
+                elif chat.pinned_message and chat.pinned_message.text:
                     raw = chat.pinned_message.text
+                elif pinned_msg and pinned_msg.text:
+                    raw = pinned_msg.text
+
+                try:
                     full_index = json.loads(raw)
                     full_index.pop("type", None)
                     self._guild_index = full_index.pop("guild_names", {})
@@ -84,16 +104,62 @@ class ChannelDB:
                     logger.info(
                         f"Loaded index with {len(self._index)} hunters, {len(self._guild_index)} guilds."
                     )
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as exc:
                     logger.warning(
-                        "Pinned message is not valid index JSON. Creating new index."
+                        f"Pinned message {pinned_id} is not valid JSON ({exc}). Re-creating index..."
                     )
                     self._index = {}
-                    await self._update_index_message()
+                    self._index_msg_id = None
+                    await self._create_index_message()
             else:
                 # First run: create index message
                 logger.info("No pinned message found. Creating index...")
                 await self._create_index_message()
+
+            # Recovery scan: If index is empty, scan channel messages 1 to 100 to self-heal
+            if not self._index:
+                logger.info("Index is empty. Performing channel scan to discover existing hunters...")
+                recovered_hunters = {}
+                recovered_invs = {}
+                recovered_guilds = {}
+                for batch_start in range(1, 101, 50):
+                    batch_msgs = await self.bot.get_messages(self.channel_id, list(range(batch_start, batch_start + 50)))
+                    for bm in batch_msgs:
+                        if not bm or not bm.text:
+                            continue
+                        try:
+                            b_data = json.loads(bm.text)
+                        except Exception:
+                            continue
+                        m_type = b_data.get("type")
+                        if m_type == "inventory":
+                            u = b_data.get("user_id")
+                            if u:
+                                recovered_invs[str(u)] = bm.id
+                        elif m_type == "guild":
+                            g_name = b_data.get("name", "").strip().lower()
+                            if g_name:
+                                recovered_guilds[g_name] = {
+                                    "guild_msg_id": bm.id,
+                                    "owner_id": b_data.get("owner_id"),
+                                    "guild_id": b_data.get("guild_id"),
+                                }
+                        elif "user_id" in b_data and "level" in b_data:
+                            u = b_data.get("user_id")
+                            if u:
+                                recovered_hunters[str(u)] = bm.id
+
+                for u_str, h_mid in recovered_hunters.items():
+                    if u_str in recovered_invs:
+                        self._index[u_str] = {
+                            "hunter_msg_id": h_mid,
+                            "inv_msg_id": recovered_invs[u_str],
+                        }
+                if recovered_guilds:
+                    self._guild_index.update(recovered_guilds)
+                if self._index or self._guild_index:
+                    logger.info(f"Self-healed index: recovered {len(self._index)} hunters, {len(self._guild_index)} guilds.")
+                    await self._update_index_message()
 
         except RPCError as e:
             logger.error(f"Failed to initialize ChannelDB: {e}")
@@ -152,6 +218,7 @@ class ChannelDB:
     async def _update_index_message(self) -> None:
         """Update the pinned index message with current mappings."""
         if not self._index_msg_id:
+            await self._create_index_message()
             return
 
         data = {"type": "index", "guild_names": self._guild_index, **self._index}
@@ -162,8 +229,14 @@ class ChannelDB:
                 text=json.dumps(data, separators=(",", ":")),
             )
         except RPCError as e:
-            # "Message is not modified" is fine — means data is already up to date
-            if "not modified" not in str(e).lower():
+            err_str = str(e).lower()
+            if "not modified" in err_str:
+                return
+            if "message_id_invalid" in err_str or "message not found" in err_str:
+                logger.warning(f"Index message {self._index_msg_id} invalid/deleted. Re-creating...")
+                await self._create_index_message()
+                await self._update_index_message()
+            else:
                 logger.error(f"Failed to update index: {e}")
 
     async def _load_all_hunters(self) -> None:
@@ -429,6 +502,16 @@ class ChannelDB:
         async with self._global_lock:
             user_id = hunter.user_id
 
+            # Guard against duplicate message creation
+            if user_id in self._cache:
+                logger.warning(f"Hunter {user_id} already exists in cache. Updating instead of duplicating.")
+                await self.save_hunter(hunter)
+                return
+            if str(user_id) in self._index:
+                logger.warning(f"Hunter {user_id} already in index. Re-loading instead of duplicating.")
+                await self._load_hunter_from_channel(user_id, self._index[str(user_id)])
+                return
+
             # Create inventory and equip the starter weapon before sending
             inventory = Inventory(user_id=user_id)
             inventory.add_item(starter_item)
@@ -486,7 +569,22 @@ class ChannelDB:
                     text=entry.hunter.to_json(),
                 )
             except RPCError as e:
-                if "not modified" not in str(e).lower():
+                err_str = str(e).lower()
+                if "not modified" in err_str:
+                    return
+                if "message_id_invalid" in err_str or "message not found" in err_str:
+                    logger.warning(f"Hunter message {entry.hunter_msg_id} was deleted/invalid. Re-posting hunter {user_id}...")
+                    new_msg = await self.bot.send_message(
+                        chat_id=self.channel_id,
+                        text=entry.hunter.to_json(),
+                    )
+                    entry.hunter_msg_id = new_msg.id
+                    if str(user_id) in self._index:
+                        self._index[str(user_id)]["hunter_msg_id"] = new_msg.id
+                    else:
+                        self._index[str(user_id)] = {"hunter_msg_id": new_msg.id, "inv_msg_id": entry.inventory_msg_id}
+                    await self._update_index_message()
+                else:
                     logger.error(f"Failed to save hunter {user_id}: {e}")
 
     async def save_inventory(self, user_id: int) -> None:
@@ -503,7 +601,22 @@ class ChannelDB:
                     text=entry.inventory.to_json(),
                 )
             except RPCError as e:
-                if "not modified" not in str(e).lower():
+                err_str = str(e).lower()
+                if "not modified" in err_str:
+                    return
+                if "message_id_invalid" in err_str or "message not found" in err_str:
+                    logger.warning(f"Inventory message {entry.inventory_msg_id} was deleted/invalid. Re-posting inventory {user_id}...")
+                    new_msg = await self.bot.send_message(
+                        chat_id=self.channel_id,
+                        text=entry.inventory.to_json(),
+                    )
+                    entry.inventory_msg_id = new_msg.id
+                    if str(user_id) in self._index:
+                        self._index[str(user_id)]["inv_msg_id"] = new_msg.id
+                    else:
+                        self._index[str(user_id)] = {"hunter_msg_id": entry.hunter_msg_id, "inv_msg_id": new_msg.id}
+                    await self._update_index_message()
+                else:
                     logger.error(f"Failed to save inventory {user_id}: {e}")
 
     async def save_all(self, user_id: int) -> None:
