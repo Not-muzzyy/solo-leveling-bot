@@ -120,19 +120,14 @@ class Item:
 
     @classmethod
     def from_dict(cls, data: dict) -> Item:
-<<<<<<< HEAD
-        """Deserialize from dictionary."""
-        data.setdefault("type", "weapon")
-        return cls(**data)
-=======
         """Deserialize from dictionary with safe field filtering."""
         import dataclasses
         d = dict(data)
         d.pop("type", None)
+        d.setdefault("type", "weapon")
         valid_fields = {f.name for f in dataclasses.fields(cls)}
         filtered = {k: v for k, v in d.items() if k in valid_fields}
         return cls(**filtered)
->>>>>>> 7de7d740992a90f42347d339f4f82fc58bf0f7cc
 
     def stat_summary(self) -> str:
         """Return a compact stat string like '+5 ATK, +3 DEF'."""
