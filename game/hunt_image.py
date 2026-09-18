@@ -12,13 +12,12 @@ Enhanced with Hallmark Atmospheric design principles:
 from __future__ import annotations
 
 import io
-import os
 from typing import Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
 from config import RANK_EMOJI, RARITY_EMOJI
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
@@ -56,43 +55,19 @@ WIDTH = 800
 HEIGHT = 450
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load system font with fallbacks."""
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = []
-    for name in font_names:
-        candidates.append(os.path.join(win_fonts, name))
-        candidates.append(name)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     """Hierarchy of crisp fonts for 16:9 combat result card."""
     bold_fonts = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     reg_fonts = ["segoeui.ttf", "arial.ttf", "calibri.ttf"]
     return {
-        "title_large": _load_font(bold_fonts, 28),
-        "title": _load_font(bold_fonts, 19),
-        "header": _load_font(bold_fonts, 16),
-        "sub": _load_font(bold_fonts, 13),
-        "body_bold": _load_font(bold_fonts, 14),
-        "body": _load_font(reg_fonts, 13),
-        "small_bold": _load_font(bold_fonts, 12),
-        "small": _load_font(reg_fonts, 11),
+        "title_large": load_font(bold_fonts, 28),
+        "title": load_font(bold_fonts, 19),
+        "header": load_font(bold_fonts, 16),
+        "sub": load_font(bold_fonts, 13),
+        "body_bold": load_font(bold_fonts, 14),
+        "body": load_font(reg_fonts, 13),
+        "small_bold": load_font(bold_fonts, 12),
+        "small": load_font(reg_fonts, 11),
     }
 
 

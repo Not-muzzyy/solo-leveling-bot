@@ -10,13 +10,18 @@ Fully aligned with the Hallmark Atmospheric Design System.
 from __future__ import annotations
 
 import io
+<<<<<<< HEAD
 import math
 import os
 from typing import Optional, Tuple
+=======
+from typing import Optional
+>>>>>>> d16e42167b7695c16c48f9e17ec6e3b12025c451
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import GUILD_MAX_MEMBERS, RANKS
+<<<<<<< HEAD
 from game.font_manager import get_font_cascade, clean_and_normalize_name
 from game.design_tokens import (
     CANVAS_TOP,
@@ -43,6 +48,9 @@ from game.design_tokens import (
     draw_diamond,
     draw_coin_icon,
 )
+=======
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
+>>>>>>> d16e42167b7695c16c48f9e17ec6e3b12025c451
 from models import Guild, Hunter
 
 # Canvas dimensions (High-DPI 860 x 960)
@@ -50,6 +58,7 @@ WIDTH = 860
 HEIGHT = 960
 
 
+<<<<<<< HEAD
 def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
     candidates = [os.path.join(win_fonts, n) for n in font_names] + list(font_names)
@@ -68,11 +77,15 @@ def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | Ima
 
 
 def _get_fonts() -> dict:
+=======
+def _get_fonts():
+>>>>>>> d16e42167b7695c16c48f9e17ec6e3b12025c451
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     regular = ["segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf"]
     mono = ["consola.ttf", "consolab.ttf", "cour.ttf"]
 
     return {
+<<<<<<< HEAD
         "header_tag": _load_font(bold, 12),
         "guild_name": _load_font(bold, 30),
         "guild_id_badge": _load_font(bold, 13),
@@ -89,6 +102,22 @@ def _get_fonts() -> dict:
         "small_bold": _load_font(bold, 11),
         "rank_badge": _load_font(bold, 12),
         "mono": _load_font(mono, 12),
+=======
+        "guild_name": load_font(bold, 36),
+        "subtitle": load_font(bold, 14),
+        "section_header": load_font(bold, 13),
+        "owner_name": load_font(bold, 18),
+        "member_name": load_font(bold, 15),
+        "member_stat": load_font(regular, 13),
+        "stat_value": load_font(bold, 18),
+        "stat_label": load_font(regular, 12),
+        "body": load_font(regular, 13),
+        "body_bold": load_font(bold, 13),
+        "footer": load_font(bold, 12),
+        "small": load_font(regular, 11),
+        "small_bold": load_font(bold, 11),
+        "rank_badge": load_font(bold, 12),
+>>>>>>> d16e42167b7695c16c48f9e17ec6e3b12025c451
     }
 
 

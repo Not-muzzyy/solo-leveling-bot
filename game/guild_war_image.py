@@ -10,12 +10,11 @@ Generates stylized, high-resolution RPG Guild War Cards using Pillow:
 from __future__ import annotations
 
 import io
-import os
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from models import Guild, Hunter
 
 # Canvas dimensions
@@ -47,40 +46,23 @@ RANK_COLORS = {
 }
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = [os.path.join(win_fonts, n) for n in font_names] + list(font_names)
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     regular = ["segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf"]
     return {
-        "title": _load_font(bold, 28),
-        "subtitle": _load_font(bold, 14),
-        "guild_name": _load_font(bold, 22),
-        "section": _load_font(bold, 13),
-        "body": _load_font(regular, 13),
-        "body_bold": _load_font(bold, 13),
-        "score_large": _load_font(bold, 24),
-        "score_medium": _load_font(bold, 16),
-        "small": _load_font(regular, 11),
-        "small_bold": _load_font(bold, 11),
-        "footer": _load_font(bold, 12),
-        "row_name": _load_font(bold, 13),
-        "row_stat": _load_font(regular, 12),
+        "title": load_font(bold, 28),
+        "subtitle": load_font(bold, 14),
+        "guild_name": load_font(bold, 22),
+        "section": load_font(bold, 13),
+        "body": load_font(regular, 13),
+        "body_bold": load_font(bold, 13),
+        "score_large": load_font(bold, 24),
+        "score_medium": load_font(bold, 16),
+        "small": load_font(regular, 11),
+        "small_bold": load_font(bold, 11),
+        "footer": load_font(bold, 12),
+        "row_name": load_font(bold, 13),
+        "row_stat": load_font(regular, 12),
     }
 
 

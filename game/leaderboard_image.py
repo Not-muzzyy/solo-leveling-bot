@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import io
 import math
-import os
 from typing import Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import RANKS
-from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.font_manager import get_font_cascade, clean_and_normalize_name, load_font
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
@@ -69,50 +68,26 @@ CATEGORIES = [
 ]
 
 
-def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Attempt to load one of the specified TrueType fonts, falling back to default."""
-    win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
-    candidates = []
-    for name in font_names:
-        candidates.append(os.path.join(win_fonts, name))
-        candidates.append(name)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
-    for name in font_names:
-        try:
-            return ImageFont.truetype(name, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
-
-
 def _get_fonts():
     """Hierarchy of fonts for leaderboard layout."""
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     regular = ["segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf"]
 
     return {
-        "title": _load_font(bold, 24),
-        "subtitle": _load_font(bold, 14),
-        "tag": _load_font(bold, 12),
-        "name_first": _load_font(bold, 20),
-        "name_podium": _load_font(bold, 17),
-        "name_row": _load_font(bold, 15),
-        "score_large": _load_font(bold, 20),
-        "score_medium": _load_font(bold, 16),
-        "score_small": _load_font(bold, 14),
-        "body_bold": _load_font(bold, 13),
-        "body": _load_font(regular, 13),
-        "small_bold": _load_font(bold, 11),
-        "small": _load_font(regular, 11),
-        "footer": _load_font(bold, 12),
+        "title": load_font(bold, 24),
+        "subtitle": load_font(bold, 14),
+        "tag": load_font(bold, 12),
+        "name_first": load_font(bold, 20),
+        "name_podium": load_font(bold, 17),
+        "name_row": load_font(bold, 15),
+        "score_large": load_font(bold, 20),
+        "score_medium": load_font(bold, 16),
+        "score_small": load_font(bold, 14),
+        "body_bold": load_font(bold, 13),
+        "body": load_font(regular, 13),
+        "small_bold": load_font(bold, 11),
+        "small": load_font(regular, 11),
+        "footer": load_font(bold, 12),
     }
 
 

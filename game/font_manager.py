@@ -67,6 +67,39 @@ def clean_and_normalize_name(name: Optional[str]) -> str:
     return normalized
 
 
+def load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Cross-platform font loader. Tries font_names against OS font directories."""
+    font_dirs = []
+    if sys.platform == "win32":
+        font_dirs.append(os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts")
+    else:
+        for d in ["/usr/share/fonts", "/usr/local/share/fonts",
+                  os.path.expanduser("~/.fonts"),
+                  "/usr/share/fonts/truetype", "/usr/share/fonts/truetype/dejavu",
+                  "/usr/share/fonts/truetype/liberation", "/usr/share/fonts/truetype/noto",
+                  "/usr/share/fonts/truetype/ubuntu"]:
+            if os.path.isdir(d):
+                font_dirs.append(d)
+
+    for name in font_names:
+        for d in font_dirs:
+            path = os.path.join(d, name)
+            if os.path.exists(path):
+                try:
+                    return ImageFont.truetype(path, size)
+                except Exception:
+                    pass
+        try:
+            return ImageFont.truetype(name, size)
+        except Exception:
+            continue
+
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
 class FontCascade:
     """
     Font hierarchy wrapper that seamlessly falls back across system fonts to render
@@ -76,48 +109,78 @@ class FontCascade:
     def __init__(self, size: int, is_bold: bool = True, primary_font_names: Optional[list[str]] = None):
         self.size = size
         self.is_bold = is_bold
-        win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
+
+        # Cross-platform font directories
+        font_dirs = []
+        if sys.platform == "win32":
+            win_fonts = os.environ.get("WINDIR", "C:\\Windows") + "\\Fonts"
+            font_dirs.append(win_fonts)
+        else:
+            # Linux / macOS
+            for d in [
+                "/usr/share/fonts",
+                "/usr/local/share/fonts",
+                os.path.expanduser("~/.fonts"),
+                "/usr/share/fonts/truetype",
+                "/usr/share/fonts/truetype/dejavu",
+                "/usr/share/fonts/truetype/liberation",
+                "/usr/share/fonts/truetype/noto",
+                "/usr/share/fonts/truetype/ubuntu",
+            ]:
+                if os.path.isdir(d):
+                    font_dirs.append(d)
 
         if not primary_font_names:
             primary_font_names = (
-                ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf"]
+                ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf", "NotoSans-Bold.ttf", "Ubuntu-R.ttf"]
                 if is_bold
-                else ["segoeui.ttf", "arial.ttf", "calibri.ttf"]
+                else ["segoeui.ttf", "arial.ttf", "calibri.ttf", "DejaVuSans.ttf", "LiberationSans-Regular.ttf", "NotoSans-Regular.ttf", "Ubuntu-R.ttf"]
             )
 
         # Global fallbacks covering Korean, Chinese, Japanese, Emojis, Symbols, and Cyrillic
-        fallback_names = [
-            "malgunbd.ttf" if is_bold else "malgun.ttf",  # Korean Hangul (Malgun Gothic)
-            "msyhbd.ttc" if is_bold else "msyh.ttc",      # Chinese CJK (Microsoft YaHei)
-            "simsun.ttc",                                 # East Asian CJK (SimSun)
-            "meiryo.ttc",                                 # Japanese (Meiryo)
-            "seguiemj.ttf",                               # Segoe UI Emoji & Symbols
-            "SegoeIcons.ttf",                             # Segoe Icons
-            "arial.ttf",                                  # Arial broad Unicode
-        ]
+        fallback_names = (
+            [
+                "malgunbd.ttf", "msyhbd.ttc", "simsun.ttc", "meiryo.ttc",
+                "seguiemj.ttf", "SegoeIcons.ttf", "arial.ttf",
+                "DejaVuSans.ttf", "LiberationSans-Regular.ttf", "NotoSans-Regular.ttf",
+            ]
+            if not is_bold
+            else [
+                "malgunbd.ttf", "msyhbd.ttc", "simsun.ttc", "meiryo.ttc",
+                "seguiemj.ttf", "SegoeIcons.ttf", "arial.ttf",
+                "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf", "NotoSans-Bold.ttf",
+            ]
+        )
 
         self.fonts: list[ImageFont.FreeTypeFont | ImageFont.ImageFont] = []
 
+        def _try_load(fname: str) -> Optional[ImageFont.FreeTypeFont]:
+            for d in font_dirs:
+                path = os.path.join(d, fname)
+                if os.path.exists(path):
+                    try:
+                        return ImageFont.truetype(path, size)
+                    except Exception:
+                        pass
+            return None
+
         # Load primary font
         for fname in primary_font_names:
-            candidate_path = os.path.join(win_fonts, fname)
-            if os.path.exists(candidate_path):
-                try:
-                    self.fonts.append(ImageFont.truetype(candidate_path, size))
-                    break
-                except Exception:
-                    pass
+            font = _try_load(fname)
+            if font:
+                self.fonts.append(font)
+                break
         if not self.fonts:
-            self.fonts.append(ImageFont.load_default())
+            try:
+                self.fonts.append(ImageFont.load_default(size=size))
+            except TypeError:
+                self.fonts.append(ImageFont.load_default())
 
         # Load fallback fonts
         for fname in fallback_names:
-            candidate_path = os.path.join(win_fonts, fname)
-            if os.path.exists(candidate_path):
-                try:
-                    self.fonts.append(ImageFont.truetype(candidate_path, size))
-                except Exception:
-                    pass
+            font = _try_load(fname)
+            if font:
+                self.fonts.append(font)
 
         # Cache the .notdef glyph bytes for each font to instantly detect missing glyphs
         self._notdef_bytes: list[bytes] = []
