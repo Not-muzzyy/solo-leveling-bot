@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from config import RARITY_EMOJI, RANK_EMOJI
 from models import Hunter, Item, HuntResult, Inventory
+from game.rich_text import escape_html, bold, italic, code, blockquote, system_lore, pre
 
 
 def _stat_bar(value: int, max_val: int = 50) -> str:
@@ -68,7 +69,7 @@ def _format_equip_line(label: str, icon: str, item) -> str:
 
 
 def format_profile(hunter: Hunter, inventory: Inventory) -> str:
-    """Format a hunter's profile card for display."""
+    """Format a hunter's profile card for display with rich HTML."""
 
     # Get equipped items
     weapon = inventory.get_equipped("weapon")
@@ -90,50 +91,49 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
 
     # Total items count
     total_items = len(inventory.items)
+    h_name = escape_html(hunter.hunter_name)
+    title_esc = escape_html(hunter.title)
+    rank_icon = RANK_EMOJI.get(hunter.rank, "❓")
+
+    def _equip_html(icon: str, item: Item | None) -> str:
+        if item:
+            r_icon = RARITY_EMOJI.get(item.rarity, "")
+            return f"• {icon} <b>{escape_html(item.name)}</b> {r_icon} (<code>{escape_html(item.stat_summary())}</code>)"
+        return f"• {icon} <i>— empty —</i>"
 
     lines = [
-        "╔══════════════════════════╗",
-        "║    ⚔️  H U N T E R  ⚔️    ║",
-        "║      S Y S T E M        ║",
-        "╚══════════════════════════╝",
+        "<b>╭━━━「 ⚔️ HUNTER STATUS MATRIX 」━━━╮</b>",
         "",
-        f"┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓",
-        f"┃  👤 {hunter.hunter_name}",
-        f"┃  🏅 {hunter.title}",
-        _rank_badge(hunter.rank),
-        f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛",
+        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b> {rank_icon}]",
+        f"🏅 <b>Title:</b> <i>{title_esc}</i>",
+        f"📊 <b>Level:</b> <code>{hunter.level}</code> ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code> (<code>+{total_equip}</code>)",
+        f"✨ <b>XP:</b> <code>{hunter.xp}/{hunter.xp_needed}</code>  {_progress_bar(hunter.xp, hunter.xp_needed)}",
+        f"❤️ <b>Vitality:</b> {_hp_bar(hunter.hp, hunter.max_hp)}",
         "",
-        f"  📊 Level {hunter.level}   ┊   💪 Power {hunter.power} (+{total_equip})",
+        "<blockquote>",
+        "📈 <b>Core Attributes:</b>",
+        f"• STR: <code>{hunter.str_stat:>3}</code>  {_stat_bar(hunter.str_stat)}",
+        f"• AGI: <code>{hunter.agi:>3}</code>  {_stat_bar(hunter.agi)}",
+        f"• VIT: <code>{hunter.vit:>3}</code>  {_stat_bar(hunter.vit)}",
+        f"• INT: <code>{hunter.int_stat:>3}</code>  {_stat_bar(hunter.int_stat)}",
+        f"• PER: <code>{hunter.per:>3}</code>  {_stat_bar(hunter.per)}",
         "",
-        f"  ✨ XP   {_progress_bar(hunter.xp, hunter.xp_needed)}",
-        f"          {hunter.xp} / {hunter.xp_needed}",
+        "⚔️ <b>Equipped Loadout:</b>",
+        _equip_html("🗡️", weapon),
+        _equip_html("🛡️", armor),
+        _equip_html("💍", accessory),
+        "</blockquote>",
         "",
-        f"  {_hp_bar(hunter.hp, hunter.max_hp)}",
+        "<blockquote>",
+        "📋 <b>Association Records:</b>",
+        f"• 💰 Gold: <code>{hunter.gold:,} G</code>",
+        f"• 🎒 Stored Items: <code>{total_items}</code>",
+        f"• 🗡️ Hunts: <code>{hunter.total_hunts}</code> (Win Rate: <code>{win_rate}</code>)",
+        f"• ⚔️ Duels: <code>{hunter.duel_wins}W - {hunter.duel_losses}L</code>",
+        "</blockquote>",
         "",
-        "┌─── 📈 STATS ─────────────────┐",
-        f"│ STR  {hunter.str_stat:>3}  {_stat_bar(hunter.str_stat)}  │",
-        f"│ AGI  {hunter.agi:>3}  {_stat_bar(hunter.agi)}  │",
-        f"│ VIT  {hunter.vit:>3}  {_stat_bar(hunter.vit)}  │",
-        f"│ INT  {hunter.int_stat:>3}  {_stat_bar(hunter.int_stat)}  │",
-        f"│ PER  {hunter.per:>3}  {_stat_bar(hunter.per)}  │",
-        "└──────────────────────────────┘",
-        "",
-        "┌─── ⚔️ EQUIPMENT ────────────┐",
-        _format_equip_line("Weapon", "🗡️", weapon),
-        _format_equip_line("Armor", "🛡️", armor),
-        _format_equip_line("Accessory", "💍", accessory),
-        "└──────────────────────────────┘",
-        "",
-        "┌─── 📋 SUMMARY ──────────────┐",
-        f"│ 💰 Gold: {hunter.gold:>10}          │",
-        f"│ 🎒 Items: {total_items:>9}          │",
-        f"│ 🗡️ Hunts: {hunter.total_hunts:>9}          │",
-        f"│ 📈 Win Rate: {win_rate:>7}          │",
-        f"│ ✅ Wins: {hunter.victories:>4}  💀 Losses: {hunter.defeats:>4} │",
-        f"│ ⚔️ Duels: {hunter.duel_wins:>3}W - {hunter.duel_losses:<3}L        │",
-        "└──────────────────────────────┘",
-        "",
-        "「 The System sees all, Hunter. 」",
+        "<blockquote><i>「 The System sees all, Hunter. 」</i></blockquote>",
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ]
 
     return "\n".join(lines)
@@ -141,31 +141,27 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
 
 def format_welcome(hunter: Hunter) -> str:
     """Format the dramatic welcome message for a new hunter."""
+    h_name = escape_html(hunter.hunter_name)
+    r_name = escape_html(hunter.rank)
     return (
-        f"⚡ SYSTEM NOTIFICATION ⚡\n"
-        f"\n"
-        f"A new Hunter has been detected.\n"
-        f"\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Hunter: {hunter.hunter_name}\n"
-        f"⭐ Rank: {hunter.rank}\n"
-        f"💪 Power: {hunter.power}\n"
-        f"\n"
-        f"📈 Starting Stats:\n"
-        f"├ STR: {hunter.str_stat}\n"
-        f"├ AGI: {hunter.agi}\n"
-        f"├ VIT: {hunter.vit}\n"
-        f"├ INT: {hunter.int_stat}\n"
-        f"└ PER: {hunter.per}\n"
-        f"\n"
-        f"⚔️ Weapon: Rusty Short Sword ⚪\n"
-        f"💰 Gold: {hunter.gold}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"\n"
-        f"「 The System has acknowledged you. 」\n"
-        f"\n"
-        f"Your journey begins now, Hunter.\n"
-        f"Use /hunt to slay your first monster."
+        "<b>╭━━━「 ⚡ SYSTEM AWAKENING NOTICE 」━━━╮</b>\n\n"
+        "<i>A new Hunter has been detected and registered by the System.</i>\n\n"
+        f"👤 <b>Hunter:</b> {h_name}\n"
+        f"⭐ <b>Rank:</b> <code>{r_name}-Rank</code>\n"
+        f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
+        "<blockquote>\n"
+        "<b>📈 Awakened Core Attributes:</b>\n"
+        f"• STR: <code>{hunter.str_stat}</code> ┊ AGI: <code>{hunter.agi}</code>\n"
+        f"• VIT: <code>{hunter.vit}</code> ┊ INT: <code>{hunter.int_stat}</code> ┊ PER: <code>{hunter.per}</code>\n"
+        "• Starter Weapon: 🗡️ <b>Rusty Short Sword</b> ⚪\n"
+        f"• Initial Treasury: 💰 <code>{hunter.gold:,} G</code>\n"
+        "</blockquote>\n\n"
+        "<blockquote>\n"
+        "<i>「 The System has acknowledged your awakening. 」</i>\n\n"
+        "Your journey begins now, Hunter.\n"
+        "Use <code>/hunt</code> to exterminate your first dungeon beast.\n"
+        "</blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
 
@@ -173,41 +169,45 @@ def format_hunt_victory(result: HuntResult) -> str:
     """Format a victorious hunt result."""
     monster = result.monster
     rank_icon = RANK_EMOJI.get(monster.rank, "")
+    m_name = escape_html(monster.name)
 
-    crit_text = " 💥 CRITICAL!" if result.critical_hit else ""
+    crit_text = " 💥 <b>CRITICAL!</b>" if result.critical_hit else ""
 
     lines = [
-        f"🗡️ HUNT INITIATED",
-        f"",
-        f"You encountered a「{monster.name}」(Lv.{monster.level}) {rank_icon}",
-        f"",
-        f"⚔️ Battle Result: ✅ VICTORY",
-        f"",
-        f"💥 Damage dealt: {result.damage_dealt}{crit_text}",
-        f"💔 Damage taken: {result.damage_taken}",
-        f"",
-        f"━━━ REWARDS ━━━",
-        f"✨ XP: +{result.xp_gained}",
-        f"💰 Gold: +{result.gold_gained}",
+        "<b>╭━━━「 ⚔️ GATE HUNT // VICTORY 」━━━╮</b>",
+        "",
+        f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
+        f"⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>",
+        "",
+        "<blockquote>",
+        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt}</code>{crit_text}",
+        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken}</code>",
+        "",
+        "<b>✨ EXPEDITION REWARDS:</b>",
+        f"• EXP Gained: ✨ <code>+{result.xp_gained:,} XP</code>",
+        f"• Gold Acquired: 💰 <code>+{result.gold_gained:,} G</code>",
     ]
 
     if result.item_drop:
         rarity_icon = RARITY_EMOJI.get(result.item_drop.rarity, "")
-        stats = result.item_drop.stat_summary()
-        lines.append(f"🎁 DROP: {result.item_drop.name} {rarity_icon} ({stats})")
+        stats = escape_html(result.item_drop.stat_summary())
+        drop_name = escape_html(result.item_drop.name)
+        lines.append(f"• 🎁 <b>Loot Drop:</b> [{result.item_drop.rarity}] <b>{drop_name}</b> {rarity_icon} (<i>{stats}</i>)")
 
     if result.leveled_up:
-        lines.append(f"")
-        lines.append(f"⚡ LEVEL UP! → Level {result.new_level}")
+        lines.append(f"• ⚡ <b>LEVEL UP!</b> → <b>Level {result.new_level}</b>")
 
     if result.ranked_up:
         new_rank_icon = RANK_EMOJI.get(result.new_rank, "")
-        lines.append(f"🔥 RANK UP! → {result.new_rank} {new_rank_icon}")
+        lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → <b>{result.new_rank}</b> {new_rank_icon}")
+
+    lines.append("</blockquote>")
 
     if result.special_event:
-        lines.append(f"")
-        lines.append(result.special_event)
+        lines.append("")
+        lines.append(f"<blockquote>{escape_html(result.special_event)}</blockquote>")
 
+    lines.append("<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>")
     return "\n".join(lines)
 
 
@@ -215,27 +215,29 @@ def format_hunt_defeat(result: HuntResult) -> str:
     """Format a hunt defeat result."""
     monster = result.monster
     rank_icon = RANK_EMOJI.get(monster.rank, "")
+    m_name = escape_html(monster.name)
 
     lines = [
-        f"🗡️ HUNT INITIATED",
-        f"",
-        f"You encountered a「{monster.name}」(Lv.{monster.level}) {rank_icon}",
-        f"",
-        f"⚔️ Battle Result: ☠️ DEFEAT",
-        f"",
-        f"💥 Damage dealt: {result.damage_dealt}",
-        f"💔 Damage taken: {result.damage_taken}",
-        f"",
-        f"━━━ PENALTIES ━━━",
-        f"💸 Gold lost: -{result.gold_lost}",
-        f"✨ XP gained: +{result.xp_gained} (consolation)",
-        f"",
-        f"Recover and try again, Hunter.",
+        "<b>╭━━━「 ☠️ GATE HUNT // CASUALTY 」━━━╮</b>",
+        "",
+        f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
+        f"⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>",
+        "",
+        "<blockquote>",
+        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt}</code>",
+        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken}</code>",
+        "",
+        "<b>💸 PENALTIES:</b>",
+        f"• Gold Lost: <code>-{result.gold_lost:,} G</code>",
+        f"• Consolation EXP: <code>+{result.xp_gained:,} XP</code>",
+        "</blockquote>",
+        "",
+        "<blockquote><i>Recover your vitality with <code>/use</code> or <code>/heal</code> and try again, Hunter.</i></blockquote>",
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ]
 
     if result.special_event:
-        lines.append(f"")
-        lines.append(result.special_event)
+        lines.insert(-1, f"<blockquote>{escape_html(result.special_event)}</blockquote>")
 
     return "\n".join(lines)
 
@@ -274,59 +276,64 @@ def format_inventory(
     total_items = len(inventory.items)
 
     lines = [
-        "╔══════════════════════════════╗",
-        "║   🎒 DIMENSIONAL INVENTORY   ║",
-        "║     System Storage Matrix    ║",
-        "╚══════════════════════════════╝",
+        f"<b>╭━━━「 🎒 DIMENSIONAL INVENTORY // {name.upper()} 」━━━╮</b>",
+        "",
     ]
 
     if hunter:
         lines.extend([
-            f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}",
-            f"💰 Gold: {hunter.gold:,} G ┊ 📦 Capacity: {total_items} items",
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 🏅 Rank <b>{hunter.rank}</b>",
+            f"💰 <b>Gold:</b> <code>{hunter.gold:,} G</code> ┊ 📦 <b>Capacity:</b> <code>{total_items} items</code>",
             "",
         ])
     else:
         lines.extend([
-            f"📦 Stored Items: {total_items}",
+            f"📦 <b>Stored Items:</b> <code>{total_items}</code>",
             "",
         ])
 
     if notice:
         lines.extend([
-            notice,
+            f"<blockquote><b>⚡ System Notice:</b> <i>{escape_html(notice)}</i></blockquote>",
             "",
         ])
 
     lines.extend([
-        f"┏━━ {icon} CATEGORY: {name.upper()} ({len(items)}) ━━┓",
+        "<blockquote>",
+        f"<b>{icon} CATEGORY: {name.upper()} ({len(items)})</b>",
         "",
     ])
 
     if not items:
         lines.extend([
-            "  「 Dimensional pocket empty. 」",
-            "  Defeat monsters via /hunt or browse",
-            "  the 🛒 Shop to collect gear & items!",
+            "<i>「 Dimensional pocket empty. 」</i>\n"
+            "• Defeat monsters via <code>/hunt</code> or browse\n"
+            "  the 🛒 Shop to collect gear &amp; items!",
+            "</blockquote>",
             "",
         ])
     else:
         for i, item in enumerate(items, 1):
             rarity_icon = RARITY_EMOJI.get(item.rarity, "⚪")
             status_tag = "⚡ [EQUIPPED]" if item.is_equipped else "📦 [IN STORAGE]"
-            stats = item.stat_summary()
+            stats = escape_html(item.stat_summary())
+            it_name = escape_html(item.name)
 
-            lines.append(f" {i}. {rarity_icon} {item.name} [{item.rarity}]")
-            lines.append(f"    ├ Status: {status_tag}")
-            lines.append(f"    └ Stats:  {stats}")
-            lines.append("")
+            lines.append(f"{i}. {rarity_icon} <b>{it_name}</b> [<b>{item.rarity}</b>]")
+            lines.append(f"   ├ Status: <code>{status_tag}</code>")
+            lines.append(f"   └ Stats:  <code>{stats}</code>")
+
+        lines.extend([
+            "</blockquote>",
+            "",
+        ])
 
     lines.extend([
-        "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛",
-        "💡 Quick Actions:",
+        "💡 <b>Directives:</b>",
         "• Tap tabs to switch categories",
         "• Tap ⚡ Equip buttons below to bind gear",
         "• Tap 🛒 Hunter Shop to buy new items",
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ])
 
     return "\n".join(lines)
@@ -335,15 +342,9 @@ def format_inventory(
 def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> str:
     """Format equipment change result with stat diff."""
     rarity_icon = RARITY_EMOJI.get(item.rarity, "")
+    i_name = escape_html(item.name)
 
-    lines = [
-        f"⚔️ EQUIPMENT CHANGED",
-        f"",
-        f"Equipped: {item.name} {rarity_icon}",
-        f"",
-        f"📊 Stat Changes:",
-    ]
-
+    stat_diffs = []
     if old_item:
         atk_diff = item.atk_bonus - old_item.atk_bonus
         def_diff = item.def_bonus - old_item.def_bonus
@@ -359,23 +360,35 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
             if diff != 0:
                 arrow = "⬆️" if diff > 0 else "⬇️"
                 sign = "+" if diff > 0 else ""
-                lines.append(f"  {stat_name}: {old_val} → {new_val} ({sign}{diff}) {arrow}")
+                stat_diffs.append(f"• <b>{stat_name}:</b> {old_val} → {new_val} (<code>{sign}{diff}</code>) {arrow}")
 
-        if all(d == 0 for d in [atk_diff, def_diff, hp_diff, spd_diff]):
-            lines.append("  No stat changes.")
+        if not stat_diffs:
+            stat_diffs.append("• <i>No stat alterations.</i>")
     else:
-        lines.append(f"  ATK: 0 → {item.atk_bonus} (+{item.atk_bonus}) ⬆️" if item.atk_bonus else "")
-        lines.append(f"  DEF: 0 → {item.def_bonus} (+{item.def_bonus}) ⬆️" if item.def_bonus else "")
-        lines.append(f"  HP: 0 → {item.hp_bonus} (+{item.hp_bonus}) ⬆️" if item.hp_bonus else "")
-        lines.append(f"  SPD: 0 → {item.spd_bonus} (+{item.spd_bonus}) ⬆️" if item.spd_bonus else "")
+        if item.atk_bonus:
+            stat_diffs.append(f"• <b>ATK:</b> 0 → {item.atk_bonus} (<code>+{item.atk_bonus}</code>) ⬆️")
+        if item.def_bonus:
+            stat_diffs.append(f"• <b>DEF:</b> 0 → {item.def_bonus} (<code>+{item.def_bonus}</code>) ⬆️")
+        if item.hp_bonus:
+            stat_diffs.append(f"• <b>HP:</b> 0 → {item.hp_bonus} (<code>+{item.hp_bonus}</code>) ⬆️")
+        if item.spd_bonus:
+            stat_diffs.append(f"• <b>SPD:</b> 0 → {item.spd_bonus} (<code>+{item.spd_bonus}</code>) ⬆️")
+        if not stat_diffs:
+            stat_diffs.append("• <i>Standard piece with no bonus attributes.</i>")
 
-    # Filter empty lines from conditional appends
-    lines = [l for l in lines if l is not None and l != ""]
+    diff_body = "\n".join(stat_diffs)
 
-    lines.append(f"")
-    lines.append(f"💪 Power: {hunter.power}")
-
-    return "\n".join(lines)
+    return (
+        "<b>╭━━━「 ⚔️ EQUIPMENT BINDING COMPLETE 」━━━╮</b>\n\n"
+        f"⚡ <b>Equipped:</b> <code>[{escape_html(item.rarity)}]</code> <b>{i_name}</b> {rarity_icon}\n"
+        f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
+        "<blockquote>"
+        "<b>Attribute Alterations:</b>\n"
+        f"{diff_body}\n"
+        "</blockquote>\n\n"
+        "<i>Gear soulbound to hunter status matrix.</i>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
 
 
 def format_cooldown(remaining_seconds: int) -> str:
@@ -383,28 +396,45 @@ def format_cooldown(remaining_seconds: int) -> str:
     minutes = remaining_seconds // 60
     seconds = remaining_seconds % 60
     return (
-        f"⏳ You are still recovering from your last hunt.\n"
-        f"\n"
-        f"⏱️ Ready in: {minutes}m {seconds:02d}s"
+        "<b>╭━━━「 ⏳ RECOVERY IN PROGRESS 」━━━╮</b>\n\n"
+        "<i>You are still catching your breath from your previous hunt.</i>\n\n"
+        "<blockquote>"
+        f"⏱️ <b>Ready In:</b> <code>{minutes}m {seconds:02d}s</code>\n"
+        "• Mana fatigue is dissipating. Please stand by before entering another gate.\n"
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
 
 def format_already_registered(hunter: Hunter) -> str:
     """Message when a user tries to /start again."""
+    h_name = escape_html(hunter.hunter_name)
     return (
-        f"⚠️ You are already a registered Hunter!\n"
-        f"\n"
-        f"👤 {hunter.hunter_name} — Rank {hunter.rank}, Level {hunter.level}\n"
-        f"\n"
-        f"Use /profile to view your stats.\n"
-        f"Use /hunt to slay monsters."
+        "<b>╭━━━「 ⚡ HUNTER SYSTEM CONNECTED 」━━━╮</b>\n\n"
+        f"👤 <b>Hunter:</b> {h_name}\n"
+        f"⭐ <b>Rank:</b> <b>{hunter.rank}-Rank</b> ┊ 📊 <b>Level:</b> <code>{hunter.level}</code>\n"
+        f"⚡ <b>Power:</b> <code>{hunter.power:,}</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
+        "<blockquote>"
+        "<b>Available Directives:</b>\n"
+        "• <code>/profile</code> — Status matrix & attributes\n"
+        "• <code>/hunt</code> — Enter dungeon gates\n"
+        "• <code>/inventory</code> — Manage equipped artifacts\n"
+        "• <code>/help</code> — Operational manual\n"
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
 
 def format_not_registered() -> str:
     """Message when unregistered user tries a command."""
     return (
-        f"❌ You are not a registered Hunter yet.\n"
-        f"\n"
-        f"Use /start to awaken as a Hunter!"
+        "<b>╭━━━「 ⚠️ SYSTEM AWAKENING REQUIRED 」━━━╮</b>\n\n"
+        "<i>The System detects no awakened mana signature for your identity.</i>\n\n"
+        "<blockquote>"
+        "<b>Status:</b> ❌ <b>Unawakened Citizen</b>\n"
+        "• To awaken as a Hunter and receive your starter gear, tap or type:\n"
+        "👉 <code>/start</code>\n"
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
+

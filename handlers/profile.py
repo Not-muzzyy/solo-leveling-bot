@@ -9,10 +9,11 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.types import Message
 
 from channel_db import ChannelDB
+from game.captions import build_profile_caption
 from game.formatting import format_profile, format_not_registered
 from game.photo_helper import fetch_user_pfp_image
 from game.profile_image import render_profile_image
@@ -30,7 +31,7 @@ async def handle(client: Client, message: Message) -> None:
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
         return
 
     inventory = await db.get_inventory(user.id)
@@ -58,8 +59,15 @@ async def handle(client: Client, message: Message) -> None:
             pfp_image,
             full_name,
         )
-        caption = f"⚔️ Hunter {hunter.hunter_name} | Rank {hunter.rank} | Lv. {hunter.level}"
-        await message.reply_photo(photo=photo_buf, caption=caption)
+        caption = build_profile_caption(hunter, inventory, full_name)
+        await message.reply_photo(
+            photo=photo_buf,
+            caption=caption,
+            parse_mode=enums.ParseMode.HTML,
+        )
     except Exception as exc:
         logger.error("Failed to render profile image, falling back to text: %s", exc, exc_info=True)
-        await message.reply_text(format_profile(hunter, inventory))
+        await message.reply_text(
+            format_profile(hunter, inventory),
+            parse_mode=enums.ParseMode.HTML,
+        )

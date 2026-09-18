@@ -11,12 +11,13 @@ import logging
 import random
 import time
 
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.types import Message
 
 from channel_db import ChannelDB
 from game.hunter import add_xp
 from game.formatting import format_not_registered
+from game.rich_text import escape_html
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,12 @@ def _format_cooldown(remaining: int) -> str:
     hours = remaining // 3600
     minutes = (remaining % 3600) // 60
     return (
-        f"⏳ You have already claimed your daily reward!\n"
-        f"\n"
-        f"⏱️ Next claim in: {hours}h {minutes:02d}m"
+        "<b>╭━━━「 ⏳ DAILY STIPEND COOLDOWN 」━━━╮</b>\n\n"
+        "<blockquote>"
+        "You have already collected your daily ration from the System.\n"
+        f"⏱️ <b>Next ration ready in:</b> <code>{hours}h {minutes:02d}m</code>"
+        "</blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
 
@@ -63,13 +67,13 @@ async def handle(client: Client, message: Message) -> None:
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
         return
 
     # Check 24h cooldown
     remaining = _check_cooldown(user.id)
     if remaining is not None:
-        await message.reply_text(_format_cooldown(remaining))
+        await message.reply_text(_format_cooldown(remaining), parse_mode=enums.ParseMode.HTML)
         return
 
     # Set cooldown
@@ -89,27 +93,31 @@ async def handle(client: Client, message: Message) -> None:
     await db.save_hunter(user.id)
 
     # Build message
-    lines = [
-        "🎁 DAILY REWARD CLAIMED",
-        "",
-        "━━━━━━━━━━━━━━━━━━",
-        f"✨ XP: +{xp_reward}",
-        f"💰 Gold: +{gold_reward}",
-        "━━━━━━━━━━━━━━━━━━",
-    ]
-
+    h_name = escape_html(hunter.hunter_name)
+    extra_lines = []
     if leveled_up:
-        lines.append("")
-        lines.append(f"⚡ LEVEL UP! → Level {hunter.level}")
-
+        extra_lines.append(f"⚡ <b>LEVEL UP!</b> Reached <b>Level {hunter.level}</b>")
     if new_rank:
-        lines.append(f"🔥 RANK UP! → {new_rank}")
+        extra_lines.append(f"🔥 <b>RANK ADVANCEMENT!</b> Awakened as <b>[{escape_html(new_rank)}] Hunter</b>")
 
-    lines.append("")
-    lines.append(f"💰 Total Gold: {hunter.gold}")
-    lines.append(f"✨ XP: {hunter.xp}/{hunter.xp_needed}")
-    lines.append("")
-    lines.append("「 Come back tomorrow for more, Hunter. 」")
+    extra_block = ""
+    if extra_lines:
+        extra_block = f"\n<blockquote>{' '.join(extra_lines)}</blockquote>\n"
 
-    await message.reply_text("\n".join(lines))
+    msg_text = (
+        "<b>╭━━━「 💰 DAILY SYSTEM STIPEND 」━━━╮</b>\n\n"
+        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n\n"
+        "<blockquote>"
+        "<b>✅ Daily Ration Dispatched:</b>\n"
+        f"• EXP Bounty: ✨ <code>+{xp_reward:,} XP</code>\n"
+        f"• Treasury Bonus: 💰 <code>+{gold_reward:,} G</code>\n"
+        f"• Total Vault: 💰 <code>{hunter.gold:,} G</code>\n"
+        f"• Current EXP: <code>{hunter.xp:,} / {hunter.xp_needed:,} XP</code>\n"
+        "</blockquote>\n"
+        f"{extra_block}\n"
+        "<blockquote><i>「 Return tomorrow for your next allocation, Hunter. 」</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
+    await message.reply_text(msg_text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"Daily claim by {hunter.hunter_name}: +{xp_reward} XP, +{gold_reward} Gold")

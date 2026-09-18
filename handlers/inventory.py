@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -23,7 +23,10 @@ from pyrogram.types import (
 
 from channel_db import ChannelDB
 from config import RARITY_EMOJI, EQUIPPABLE_TYPES
-from game.formatting import format_inventory, format_not_registered
+from game.formatting import format_inventory, format_not_registered, _hp_bar
+from game.rich_text import escape_html
+from game.items import apply_consumable
+from game.captions import build_inventory_caption, build_shop_caption
 from game.inventory_image import render_inventory_image
 from game.shop_image import render_shop_image
 from game.shop import get_shop_items_by_type, get_shop_item, create_item_from_shop
@@ -82,6 +85,21 @@ def _inventory_keyboard(
             rows.append([
                 InlineKeyboardButton(f"⚡ All Equippable Gear ({len(unequipped_items)} items)", callback_data="inv_to_equip")
             ])
+    elif inventory and active_cat == "consumable":
+        # Group consumables by name for sleek 1-tap usage
+        consumable_items = inventory.get_by_type("consumable")
+        grouped: dict[str, list[Item]] = {}
+        for item in consumable_items:
+            grouped.setdefault(item.name, []).append(item)
+
+        for name, items in list(grouped.items())[:6]:
+            first_item = items[0]
+            rarity_icon = RARITY_EMOJI.get(first_item.rarity, "")
+            stats = first_item.stat_summary()
+            count = len(items)
+            count_str = f" x{count}" if count > 1 else ""
+            label = f"🧪 Use: {rarity_icon} {first_item.name}{count_str} ({stats})"
+            rows.append([InlineKeyboardButton(label, callback_data=f"use_{first_item.id}")])
     elif inventory:
         unequipped_total = sum(
             1 for item in inventory.items
@@ -148,14 +166,12 @@ def _format_shop_category(item_type: str, gold: int) -> str:
     items = get_shop_items_by_type(item_type)
 
     lines = [
-        "╔══════════════════════════════╗",
-        f"║   🛒 SHOP — {label:<17}║",
-        "║     System Exchange Depot    ║",
-        "╚══════════════════════════════╝",
+        f"<b>╭━━━「 🛒 EXCHANGE DEPOT // {label} 」━━━╮</b>",
         "",
-        f"💰 Available Gold: {gold:,} G",
+        f"💰 <b>Available Treasury:</b> <code>{gold:,} G</code>",
         "",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "<blockquote>",
+        "<b>Catalog Inventory:</b>",
     ]
 
     for entry in items:
@@ -172,13 +188,17 @@ def _format_shop_category(item_type: str, gold: int) -> str:
         stats = ", ".join(stats_parts) if stats_parts else "Crafting Material"
 
         can_afford = "✅" if gold >= entry["price"] else "❌"
-        lines.append(f"{rarity_icon} {entry['name']} [{entry['rarity']}]")
-        lines.append(f"  ├ Stats: {stats}")
-        lines.append(f"  └ Price: 💰 {entry['price']:,} G  {can_afford}")
-        lines.append("")
+        i_name = escape_html(entry["name"])
+        r_name = escape_html(entry["rarity"])
+        lines.append(f"• {rarity_icon} <b>{i_name}</b> [<b>{r_name}</b>]")
+        lines.append(f"  └ <code>{escape_html(stats)}</code> ┊ 💰 <code>{entry['price']:,} G</code> {can_afford}")
 
-    lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    lines.append("Tap an item below to purchase.")
+    lines.extend([
+        "</blockquote>",
+        "",
+        "<i>Tap an item button below to complete purchase:</i>",
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+    ])
     return "\n".join(lines)
 
 
@@ -203,80 +223,89 @@ async def handle(client: Client, message: Message) -> None:
         pm_url = f"https://t.me/{bot_user}?start=inventory"
 
         if not hunter:
+            u_name = escape_html(user.first_name)
             gc_text = (
-                "╔══════════════════════════════╗\n"
-                "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
-                "╚══════════════════════════════╝\n\n"
-                f"👤 {user.first_name}, you are not an awakened Hunter yet!\n\n"
-                "Tap below to awaken in private chat and claim your starter inventory."
+                "<b>╭━━━「 ⚠️ SYSTEM AWAKENING REQUIRED 」━━━╮</b>\n\n"
+                f"👤 <b>Citizen:</b> <b>{u_name}</b>\n\n"
+                "<blockquote>"
+                "• You have not awakened as an active Hunter yet.\n"
+                "• Tap below to awaken in private chat and claim your starter inventory."
+                "</blockquote>\n\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
             )
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
             ])
-            await message.reply_text(gc_text, reply_markup=keyboard)
+            await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
             return
 
         inventory = await db.get_inventory(user.id)
+        h_name = escape_html(hunter.hunter_name)
 
         # Attempt direct transmission to PM if the user has messaged the bot before
         direct_sent = False
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
-            caption = f"🎒 Dimensional Inventory — ⚔️ Weapons\n👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Gold: {hunter.gold:,} G"
+            caption = build_inventory_caption(hunter, inventory, "weapon")
             await client.send_photo(
                 chat_id=user.id,
                 photo=photo_buf,
                 caption=caption,
                 reply_markup=_inventory_keyboard(inventory, "weapon"),
+                parse_mode=enums.ParseMode.HTML,
             )
             direct_sent = True
         except Exception:
             direct_sent = False
 
         status_notice = (
-            "✨ Dimensional Storage was also dispatched directly to your PM!"
+            "✨ <i>Dimensional Storage was also dispatched directly to your PM!</i>"
             if direct_sent
-            else "🔒 Open private chat with the System to view and manage your items."
+            else "🔒 <i>Open private chat with the System to view and manage your items.</i>"
         )
 
         gc_text = (
-            "╔══════════════════════════════╗\n"
-            "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
-            "║     DIMENSIONAL STORAGE      ║\n"
-            "╚══════════════════════════════╝\n\n"
-            f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}\n"
-            f"📦 Stored: {len(inventory.items)} items ┊ 💰 Gold: {hunter.gold:,} G\n\n"
-            "⚠️ To keep the group chat clean and protect your gear details,\n"
-            "your Dimensional Inventory must be opened in Private Chat (PM).\n\n"
-            f"{status_notice}"
+            "<b>╭━━━「 🎒 DIMENSIONAL STORAGE 」━━━╮</b>\n\n"
+            f"👤 <b>Hunter:</b> <b>{h_name}</b> [Rank <b>{hunter.rank}</b>]\n"
+            f"📦 <b>Vault:</b> <code>{len(inventory.items)} items</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
+            "<blockquote>"
+            "<b>Notice: Group Chat Privacy Protocol</b>\n"
+            "• Dimensional inventory operations are restricted to private chat.\n"
+            f"• {status_notice}\n"
+            "</blockquote>\n\n"
+            "<i>Tap below to open your dimensional vault:</i>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
 
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎒 Open Inventory in Bot PM", url=pm_url)]
         ])
-        await message.reply_text(gc_text, reply_markup=keyboard)
+        await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
         return
 
     # 2. Private Chat (PM) — render dimensional inventory image card
     if not hunter:
-        await message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
         return
 
     inventory = await db.get_inventory(user.id)
-    caption = f"🎒 Dimensional Inventory — ⚔️ Weapons\n👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Gold: {hunter.gold:,} G"
+    caption = build_inventory_caption(hunter, inventory, "weapon")
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
+            parse_mode=enums.ParseMode.HTML,
             reply_markup=_inventory_keyboard(inventory, "weapon"),
         )
     except Exception as exc:
         logger.error("Failed to render inventory image, falling back to text: %s", exc, exc_info=True)
         text = format_inventory(inventory, hunter, "weapon")
         await message.reply_text(
-            text, reply_markup=_inventory_keyboard(inventory, "weapon")
+            text,
+            reply_markup=_inventory_keyboard(inventory, "weapon"),
+            parse_mode=enums.ParseMode.HTML,
         )
 
 
@@ -325,98 +354,87 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             [InlineKeyboardButton("⬅️ Back to Inventory", callback_data="inv_weapon")]
         )
         equip_caption = (
-            "⚡ SELECT GEAR TO EQUIP\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 Hunter: {hunter.hunter_name} ┊ 💪 Power: {hunter.power}\n\n"
-            "Tap any item below to bind it to your Hunter:"
+            "<b>╭━━━「 ⚡ BIND EQUIPMENT 」━━━╮</b>\n\n"
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code>\n\n"
+            "<blockquote>"
+            "Select an equipment piece below to bind it to your Hunter's soul resonance:"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
         if query.message and query.message.photo:
-            await query.edit_message_caption(caption=equip_caption, reply_markup=InlineKeyboardMarkup(buttons))
+            await query.edit_message_caption(caption=equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML)
         else:
-            await query.edit_message_text(equip_caption, reply_markup=InlineKeyboardMarkup(buttons))
+            await query.edit_message_text(equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML)
         return
 
     # ── Inventory tabs ────────────────────────────────────
     if data.startswith("inv_"):
         category = data.replace("inv_", "")
         inventory = await db.get_inventory(user.id)
-        cat_title = category.title()
-        caption = f"🎒 Dimensional Inventory — {cat_title}\n👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Gold: {hunter.gold:,} G"
+        caption = build_inventory_caption(hunter, inventory, category)
 
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, category)
             if query.message and query.message.photo:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_inventory_keyboard(inventory, category),
                 )
             else:
                 await query.message.reply_photo(
                     photo=photo_buf,
                     caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_inventory_keyboard(inventory, category),
                 )
         except Exception as e:
             logger.error("Failed to render inventory image on tab switch: %s", e, exc_info=True)
             text = format_inventory(inventory, hunter, category)
             if query.message and query.message.photo:
-                await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, category))
+                await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, category), parse_mode=enums.ParseMode.HTML)
             else:
-                await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, category))
+                await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, category), parse_mode=enums.ParseMode.HTML)
 
     # ── Shop menu ─────────────────────────────────────────
     elif data == "shop_menu":
-        caption = (
-            f"🛒 Hunter Shop — System Exchange Depot\n"
-            f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
-            "Select a department below to browse items:"
-        )
+        caption = build_shop_caption(hunter, "menu")
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
             if query.message and query.message.photo:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_shop_category_keyboard(),
                 )
             else:
                 await query.message.reply_photo(
                     photo=photo_buf,
                     caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_category_keyboard(),
                 )
         except Exception as e:
             logger.error("Failed to render shop menu image: %s", e, exc_info=True)
-            text = (
-                "🛒 HUNTER SHOP — SYSTEM EXCHANGE DEPOT\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 Hunter: {hunter.hunter_name} ┊ 🏅 Rank {hunter.rank}\n"
-                f"💰 Available Gold: {hunter.gold:,} G\n\n"
-                "Select a category below to browse items:"
-            )
             if query.message and query.message.photo:
-                await query.edit_message_caption(caption=text, reply_markup=_shop_category_keyboard())
+                await query.edit_message_caption(caption=caption, reply_markup=_shop_category_keyboard(), parse_mode=enums.ParseMode.HTML)
             else:
-                await query.edit_message_text(text, reply_markup=_shop_category_keyboard())
+                await query.edit_message_text(caption, reply_markup=_shop_category_keyboard(), parse_mode=enums.ParseMode.HTML)
 
     # ── Shop category view ────────────────────────────────
     elif data.startswith("shop_"):
         category = data.replace("shop_", "")
-        caption = (
-            f"🛒 Hunter Shop — {category.title()}\n"
-            f"👤 Hunter: {hunter.hunter_name} [Rank {hunter.rank}] ┊ 💰 Available Treasury: {hunter.gold:,} G\n\n"
-            "Tap an item below to purchase:"
-        )
+        caption = build_shop_caption(hunter, category)
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, category)
             if query.message and query.message.photo:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_shop_items_keyboard(category),
                 )
             else:
                 await query.message.reply_photo(
                     photo=photo_buf,
                     caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_items_keyboard(category),
                 )
         except Exception as e:
@@ -424,11 +442,11 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             text = _format_shop_category(category, hunter.gold)
             if query.message and query.message.photo:
                 await query.edit_message_caption(
-                    caption=text, reply_markup=_shop_items_keyboard(category)
+                    caption=text, reply_markup=_shop_items_keyboard(category), parse_mode=enums.ParseMode.HTML
                 )
             else:
                 await query.edit_message_text(
-                    text, reply_markup=_shop_items_keyboard(category)
+                    text, reply_markup=_shop_items_keyboard(category), parse_mode=enums.ParseMode.HTML
                 )
 
 
@@ -510,26 +528,29 @@ async def equip_callback(client: Client, query: CallbackQuery) -> None:
         f"✨ Equipped: {equipped.name} ({diff_str})"
     )
 
+    caption = build_inventory_caption(hunter, inventory, return_cat, notice=notice)
+
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, return_cat, notice)
         if query.message and query.message.photo:
             await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption),
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_inventory_keyboard(inventory, return_cat),
             )
         else:
             await query.message.reply_photo(
                 photo=photo_buf,
                 caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=_inventory_keyboard(inventory, return_cat),
             )
     except Exception as e:
         logger.error("Failed to render inventory image on equip: %s", e, exc_info=True)
         text = format_inventory(inventory, hunter, return_cat, notice=notice)
         if query.message and query.message.photo:
-            await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, return_cat))
+            await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, return_cat), parse_mode=enums.ParseMode.HTML)
         else:
-            await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, return_cat))
+            await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, return_cat), parse_mode=enums.ParseMode.HTML)
 
 
 async def buy_callback(client: Client, query: CallbackQuery) -> None:
@@ -579,21 +600,19 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
 
     # Refresh the shop view with updated image and notice
     cat = shop_entry["type"]
-    caption = (
-        f"🛒 Hunter Shop — {cat.title()}\n"
-        f"✨ Acquired {new_item.name}! ┊ 💰 Remaining: {hunter.gold:,} G"
-    )
+    caption = build_shop_caption(hunter, cat, notice=notice)
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, cat, notice)
         if query.message and query.message.photo:
             await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption),
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_shop_items_keyboard(cat),
             )
         else:
             await query.message.reply_photo(
                 photo=photo_buf,
                 caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=_shop_items_keyboard(cat),
             )
     except Exception as e:
@@ -601,9 +620,269 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
         text = _format_shop_category(cat, hunter.gold)
         if query.message and query.message.photo:
             await query.edit_message_caption(
-                caption=text, reply_markup=_shop_items_keyboard(cat)
+                caption=text, reply_markup=_shop_items_keyboard(cat), parse_mode=enums.ParseMode.HTML
             )
         else:
             await query.edit_message_text(
-                text, reply_markup=_shop_items_keyboard(cat)
+                text, reply_markup=_shop_items_keyboard(cat), parse_mode=enums.ParseMode.HTML
             )
+
+
+async def use_callback(client: Client, query: CallbackQuery) -> None:
+    """Handle 1-tap consumable item usage directly inside the inventory."""
+    user = query.from_user
+    chat = query.message.chat if query.message else None
+    if not user:
+        await query.answer()
+        return
+
+    if chat and chat.type in ["group", "supergroup"]:
+        await query.answer("⚠️ Please manage your inventory in Bot PM!", show_alert=True)
+        return
+
+    db: ChannelDB = client.db
+    hunter = await db.get_hunter(user.id)
+    if not hunter:
+        await query.answer("You are not a registered Hunter!", show_alert=True)
+        return
+
+    # Extract item ID: "use_12" -> 12
+    raw_id = query.data.replace("use_", "")
+    try:
+        item_id = int(raw_id)
+    except ValueError:
+        await query.answer("❌ Invalid item selection.", show_alert=True)
+        return
+
+    inventory = await db.get_inventory(user.id)
+    item = inventory.get_item(item_id) if inventory else None
+    if not item:
+        await query.answer("❌ Item no longer in your inventory.", show_alert=True)
+        return
+
+    # Apply consumable effect
+    success, result_msg = apply_consumable(hunter, item)
+    if not success:
+        await query.answer(f"⚠️ {result_msg}", show_alert=True)
+        return
+
+    # Remove item from inventory
+    inventory.remove_item(item.id)
+    hunter.check_and_reset_daily()
+    hunter.daily_quest_use += 1
+
+    # Persist hunter & inventory changes to channel DB
+    await db.save_all(user.id)
+
+    notice = f"CONSUMED: {item.name} [{result_msg}]"
+    await query.answer(f"✅ Used {item.name}! ({result_msg})", show_alert=False)
+
+    caption = build_inventory_caption(hunter, inventory, "consumable", notice=notice)
+
+    try:
+        photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "consumable", notice)
+        if query.message and query.message.photo:
+            await query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                reply_markup=_inventory_keyboard(inventory, "consumable"),
+            )
+        else:
+            await query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_inventory_keyboard(inventory, "consumable"),
+            )
+    except Exception as e:
+        logger.error("Failed to render inventory image on potion use: %s", e, exc_info=True)
+        text = format_inventory(inventory, hunter, "consumable", notice=notice)
+        if query.message and query.message.photo:
+            await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, "consumable"), parse_mode=enums.ParseMode.HTML)
+        else:
+            await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, "consumable"), parse_mode=enums.ParseMode.HTML)
+
+
+async def handle_use(client: Client, message: Message) -> None:
+    """Handle /use, /potion, and /heal commands."""
+    user = message.from_user
+    if not user:
+        return
+
+    db: ChannelDB = client.db
+    hunter = await db.get_hunter(user.id)
+    if not hunter:
+        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        return
+
+    inventory = await db.get_inventory(user.id)
+    if not inventory:
+        await message.reply_text("❌ Your inventory could not be loaded.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    command_text = message.text or ""
+    parts = command_text.strip().split(maxsplit=1)
+    cmd = parts[0].lower().lstrip("/")
+    arg = parts[1].strip() if len(parts) > 1 else ""
+
+    consumables = inventory.get_by_type("consumable")
+
+    # If /heal shortcut:
+    if cmd == "heal":
+        healing_item = next(
+            (i for i in consumables if i.hp_bonus > 0 and i.atk_bonus == 0 and i.def_bonus == 0 and i.spd_bonus == 0),
+            None
+        )
+        if not healing_item:
+            healing_item = next((i for i in consumables if i.hp_bonus > 0), None)
+
+        h_name = escape_html(hunter.hunter_name)
+        if not healing_item:
+            await message.reply_text(
+                "<b>╭━━━「 ❌ NO HEALING POTIONS FOUND 」━━━╮</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name}\n"
+                f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
+                "<blockquote>"
+                "You do not possess any Health Potions in storage.\n"
+                "Visit <code>/shop</code> to purchase recovery elixirs!"
+                "</blockquote>\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=enums.ParseMode.HTML,
+            )
+            return
+
+        success, result_msg = apply_consumable(hunter, healing_item)
+        if not success:
+            await message.reply_text(
+                "<b>╭━━━「 ⚠️ VITALITY RESTORATION UNNECESSARY 」━━━╮</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name}\n"
+                f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
+                f"<blockquote>{escape_html(result_msg)}</blockquote>\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=enums.ParseMode.HTML,
+            )
+            return
+
+        inventory.remove_item(healing_item.id)
+        hunter.check_and_reset_daily()
+        hunter.daily_quest_use += 1
+        await db.save_all(user.id)
+
+        await message.reply_text(
+            "<b>╭━━━「 🧪 SYSTEM RESTORATION APPLIED 」━━━╮</b>\n\n"
+            f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
+            f"✨ <b>Item Used:</b> {escape_html(healing_item.name)}\n"
+            f"📊 <b>Recovery:</b> {escape_html(result_msg)}\n"
+            f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
+            f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
+            "<blockquote><i>「 Your wounds knit together as mana circulates through your core. 」</i></blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+        return
+
+    # If /use or /potion with no argument
+    h_name = escape_html(hunter.hunter_name)
+    if not arg:
+        if not consumables:
+            await message.reply_text(
+                "<b>╭━━━「 🎒 DIMENSIONAL STORAGE — CONSUMABLES 」━━━╮</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name}\n\n"
+                "<blockquote>"
+                "You do not have any potions, elixirs, or scrolls in storage.\n"
+                "Visit <code>/shop</code> to browse available consumable items!"
+                "</blockquote>\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=enums.ParseMode.HTML,
+            )
+            return
+
+        grouped: dict[str, list[Item]] = {}
+        for itm in consumables:
+            grouped.setdefault(itm.name, []).append(itm)
+
+        buttons = []
+        for name, items in list(grouped.items())[:6]:
+            first = items[0]
+            r_icon = RARITY_EMOJI.get(first.rarity, "")
+            cnt = len(items)
+            cnt_str = f" x{cnt}" if cnt > 1 else ""
+            stats = first.stat_summary()
+            buttons.append([
+                InlineKeyboardButton(f"🧪 Use: {r_icon} {first.name}{cnt_str} ({stats})", callback_data=f"use_{first.id}")
+            ])
+        buttons.append([
+            InlineKeyboardButton("🎒 Open Full Inventory", callback_data="inv_consumable"),
+            InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_consumable")
+        ])
+
+        await message.reply_text(
+            "<b>╭━━━「 🧪 AVAILABLE CONSUMABLES 」━━━╮</b>\n\n"
+            f"👤 <b>Hunter:</b> {h_name} ┊ ❤️ <b>HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
+            "<blockquote>"
+            "Select an item below to consume immediately, or type <code>/use &lt;item name&gt;</code>:"
+            "</blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML,
+        )
+        return
+
+    # If /use <arg>
+    target_item: Optional[Item] = None
+    if arg.isdigit():
+        target_id = int(arg)
+        target_item = inventory.get_item(target_id)
+        if target_item and target_item.type != "consumable":
+            await message.reply_text(
+                f"❌ Item #<code>{target_id}</code> ({escape_html(target_item.name)}) is a {escape_html(target_item.type)}, not a consumable!",
+                parse_mode=enums.ParseMode.HTML,
+            )
+            return
+    else:
+        arg_lower = arg.lower()
+        for itm in consumables:
+            if itm.name.lower() == arg_lower:
+                target_item = itm
+                break
+        if not target_item:
+            for itm in consumables:
+                if arg_lower in itm.name.lower():
+                    target_item = itm
+                    break
+
+    if not target_item:
+        await message.reply_text(
+            f"❌ Consumable matching '<code>{escape_html(arg)}</code>' not found in your inventory.\n"
+            "Check <code>/inventory</code> (Consumables tab) to see what items you carry.",
+            parse_mode=enums.ParseMode.HTML,
+        )
+        return
+
+    success, result_msg = apply_consumable(hunter, target_item)
+    if not success:
+        await message.reply_text(
+            "<b>╭━━━「 ⚠️ ACTION CANCELLED 」━━━╮</b>\n\n"
+            f"<blockquote>{escape_html(result_msg)}</blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+        return
+
+    inventory.remove_item(target_item.id)
+    hunter.check_and_reset_daily()
+    hunter.daily_quest_use += 1
+    await db.save_all(user.id)
+
+    await message.reply_text(
+        "<b>╭━━━「 🧪 ITEM CONSUMED 」━━━╮</b>\n\n"
+        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
+        f"✨ <b>Used:</b> {escape_html(target_item.name)} [<code>{target_item.rarity}</code>]\n"
+        f"📊 <b>Effect:</b> {escape_html(result_msg)}\n"
+        f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
+        f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n"
+        f"💪 <b>Total Power:</b> <code>{hunter.power:,}</code>\n\n"
+        "<blockquote><i>「 The System records your enhanced status. 」</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+

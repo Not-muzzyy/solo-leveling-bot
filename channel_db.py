@@ -16,7 +16,7 @@ from typing import Optional
 from pyrogram import Client
 from pyrogram.errors import RPCError
 
-from models import Hunter, Item, Inventory, Guild
+from models import Hunter, Item, Inventory, Guild, RedeemCode
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,9 @@ class ChannelDB:
         self._guild_cache: dict[int, Guild] = {}  # guild_id → Guild
         self._guild_index: dict[str, dict] = {}   # name.lower() → {guild_msg_id, owner_id}
         self._user_guild_map: dict[int, int] = {}  # user_id → guild_id
+        # ── Redeem codes storage ──────────────────────────
+        self._redeem_codes: dict[str, RedeemCode] = {}  # CODE.upper() → RedeemCode
+        self._redeem_msg_id: Optional[int] = None
 
     def _get_lock(self, user_id: int) -> asyncio.Lock:
         """Get or create a per-user write lock."""
@@ -100,6 +103,8 @@ class ChannelDB:
                     full_index = json.loads(raw)
                     full_index.pop("type", None)
                     self._guild_index = full_index.pop("guild_names", {})
+                    full_index.pop("guild_ids", None)
+                    self._redeem_msg_id = full_index.pop("redeem_msg_id", None)
                     self._index = full_index
                     logger.info(
                         f"Loaded index with {len(self._index)} hunters, {len(self._guild_index)} guilds."
@@ -168,6 +173,7 @@ class ChannelDB:
         # Populate cache from channel messages
         await self._load_all_hunters()
         await self._load_all_guilds()
+        await self._load_all_redeem_codes()
 
         # Build user→guild map and synchronize hunter <-> guild relationships
         self._user_guild_map.clear()
@@ -221,7 +227,25 @@ class ChannelDB:
             await self._create_index_message()
             return
 
-        data = {"type": "index", "guild_names": self._guild_index, **self._index}
+        guild_ids_map = {
+            str(m.get("guild_id", m.get("owner_id"))): {
+                "name": name,
+                "guild_msg_id": m["guild_msg_id"],
+                "owner_id": m.get("owner_id"),
+                "guild_id": m.get("guild_id", m.get("owner_id")),
+            }
+            for name, m in self._guild_index.items()
+            if m.get("guild_id") or m.get("owner_id")
+        }
+
+        data = {
+            "type": "index",
+            "guild_names": self._guild_index,
+            "guild_ids": guild_ids_map,
+            **self._index,
+        }
+        if self._redeem_msg_id:
+            data["redeem_msg_id"] = self._redeem_msg_id
         try:
             await self.bot.edit_message_text(
                 chat_id=self.channel_id,
@@ -274,6 +298,9 @@ class ChannelDB:
                 hunter_msg_id=hunter_msg_id,
                 inventory_msg_id=inv_msg_id,
             )
+            # Synchronize guild_id in index
+            if str(user_id) in self._index:
+                self._index[str(user_id)]["guild_id"] = hunter.guild_id
         except Exception as e:
             logger.error(f"Error loading hunter {user_id}: {e}")
 
@@ -346,13 +373,31 @@ class ChannelDB:
             if "not modified" not in str(e).lower():
                 logger.error(f"Failed to save guild {guild_id}: {e}")
 
+    async def get_guild_by_id(self, guild_id: int) -> Optional[Guild]:
+        """Get guild by numeric ID."""
+        # 1. Direct cache lookup
+        if guild_id in self._guild_cache:
+            return self._guild_cache[guild_id]
+        # 2. Search index mapping
+        for m in self._guild_index.values():
+            if m.get("guild_id") == guild_id or m.get("owner_id") == guild_id:
+                gid = m.get("guild_id", m.get("owner_id"))
+                if gid in self._guild_cache:
+                    return self._guild_cache[gid]
+        return None
+
     async def get_guild(self, guild_id: int) -> Optional[Guild]:
-        """Get guild from cache."""
-        return self._guild_cache.get(guild_id)
+        """Get guild from cache by ID."""
+        return await self.get_guild_by_id(guild_id)
 
     async def get_guild_by_name(self, name: str) -> Optional[Guild]:
-        """Look up guild by name (case-insensitive)."""
-        name_key = name.strip().lower()
+        """Look up guild by name (case-insensitive) or by ID string."""
+        clean = name.strip()
+        if clean.isdigit():
+            g = await self.get_guild_by_id(int(clean))
+            if g:
+                return g
+        name_key = clean.lower()
         # Direct lookup across cached guilds first
         for g in self._guild_cache.values():
             if g.name.strip().lower() == name_key:
@@ -411,8 +456,11 @@ class ChannelDB:
         entry = self._cache.get(user_id)
         if entry:
             entry.hunter.guild_id = guild_id
+        if str(user_id) in self._index:
+            self._index[str(user_id)]["guild_id"] = guild_id
         await self.save_guild(guild_id)
         await self.save_hunter(user_id)
+        await self._update_index_message()
         return True
 
     async def remove_guild_member(self, guild_id: int, user_id: int) -> bool:
@@ -426,8 +474,11 @@ class ChannelDB:
         entry = self._cache.get(user_id)
         if entry:
             entry.hunter.guild_id = None
+        if str(user_id) in self._index:
+            self._index[str(user_id)]["guild_id"] = None
         await self.save_guild(guild_id)
         await self.save_hunter(user_id)
+        await self._update_index_message()
         return True
 
     async def delete_guild(self, guild_id: int) -> None:
@@ -457,6 +508,8 @@ class ChannelDB:
             if entry:
                 entry.hunter.guild_id = None
                 await self.save_hunter(uid)
+            if str(uid) in self._index:
+                self._index[str(uid)]["guild_id"] = None
             self._user_guild_map.pop(uid, None)
 
         # 3. Remove from cache
@@ -534,6 +587,7 @@ class ChannelDB:
             self._index[str(user_id)] = {
                 "hunter_msg_id": hunter_msg.id,
                 "inv_msg_id": inv_msg.id,
+                "guild_id": hunter.guild_id,
             }
             await self._update_index_message()
 
@@ -560,6 +614,9 @@ class ChannelDB:
         entry = self._cache.get(user_id)
         if not entry:
             return
+
+        if str(user_id) in self._index:
+            self._index[str(user_id)]["guild_id"] = entry.hunter.guild_id
 
         async with self._get_lock(user_id):
             try:
@@ -666,3 +723,125 @@ class ChannelDB:
         # Save both
         await self.save_all(user_id)
         return item
+
+    async def remove_item(self, user_id: int, item_id: int) -> Optional[Item]:
+        """Remove an item from a hunter's inventory and save."""
+        entry = self._cache.get(user_id)
+        if not entry:
+            return None
+        removed = entry.inventory.remove_item(item_id)
+        if removed:
+            await self.save_inventory(user_id)
+        return removed
+
+    # ── Redeem Code Storage ──────────────────────────────
+
+    async def _load_all_redeem_codes(self) -> None:
+        """Load all promo redeem codes from channel message into memory."""
+        if not self._redeem_msg_id:
+            return
+
+        try:
+            msg = await self.bot.get_messages(self.channel_id, self._redeem_msg_id)
+            if msg and msg.text:
+                payload = json.loads(msg.text)
+                codes_dict = payload.get("codes", {})
+                self._redeem_codes = {
+                    code_key.upper(): RedeemCode.from_dict(c_data)
+                    for code_key, c_data in codes_dict.items()
+                }
+                logger.info(f"Loaded {len(self._redeem_codes)} promo redeem codes.")
+        except Exception as e:
+            logger.error(f"Failed to load redeem codes: {e}")
+
+    async def _save_redeem_codes(self) -> None:
+        """Flush in-memory redeem codes to the dedicated channel message."""
+        codes_dict = {
+            code_key: code_obj.to_dict()
+            for code_key, code_obj in self._redeem_codes.items()
+        }
+        payload = {
+            "type": "redeem_codes",
+            "codes": codes_dict,
+        }
+        text = json.dumps(payload, separators=(",", ":"))
+
+        if not self._redeem_msg_id:
+            try:
+                msg = await self.bot.send_message(
+                    chat_id=self.channel_id,
+                    text=text,
+                )
+                self._redeem_msg_id = msg.id
+                await self._update_index_message()
+            except RPCError as e:
+                logger.error(f"Failed to create redeem codes message: {e}")
+            return
+
+        try:
+            await self.bot.edit_message_text(
+                chat_id=self.channel_id,
+                message_id=self._redeem_msg_id,
+                text=text,
+            )
+        except RPCError as e:
+            err_str = str(e).lower()
+            if "not modified" in err_str:
+                return
+            if "message_id_invalid" in err_str or "message not found" in err_str:
+                logger.warning("Redeem message was deleted/invalid. Re-posting...")
+                self._redeem_msg_id = None
+                await self._save_redeem_codes()
+            else:
+                logger.error(f"Failed to save redeem codes: {e}")
+
+    async def create_redeem_code(self, code: RedeemCode) -> None:
+        """Register and persist a new promo redeem code."""
+        async with self._global_lock:
+            key = code.code.strip().upper()
+            code.code = key
+            self._redeem_codes[key] = code
+            await self._save_redeem_codes()
+            logger.info(f"Created redeem code: {key} (Type: {code.reward_type})")
+
+    async def get_redeem_code(self, code_str: str) -> Optional[RedeemCode]:
+        """Look up a promo code (case-insensitive)."""
+        return self._redeem_codes.get(code_str.strip().upper())
+
+    async def get_all_redeem_codes(self) -> list[RedeemCode]:
+        """Retrieve all registered promo codes."""
+        return list(self._redeem_codes.values())
+
+    async def delete_redeem_code(self, code_str: str) -> bool:
+        """Revoke and delete a promo code."""
+        async with self._global_lock:
+            key = code_str.strip().upper()
+            if key in self._redeem_codes:
+                del self._redeem_codes[key]
+                await self._save_redeem_codes()
+                return True
+            return False
+
+    async def claim_redeem_code(
+        self, code_str: str, user_id: int
+    ) -> tuple[bool, str, Optional[RedeemCode]]:
+        """
+        Atomically validate and claim a promo code for a hunter.
+        Returns (success, message, code_obj_or_None).
+        """
+        async with self._global_lock:
+            key = code_str.strip().upper()
+            code = self._redeem_codes.get(key)
+            if not code:
+                return False, "❌ Invalid or unrecognized System Code.", None
+
+            if code.has_claimed(user_id):
+                return False, "⚠️ You have already redeemed this System Code!", code
+
+            if code.is_depleted:
+                return False, "❌ This System Code has reached its maximum claim limit!", code
+
+            # Mark claimed
+            code.claimed_by.append(user_id)
+            await self._save_redeem_codes()
+            return True, "Success", code

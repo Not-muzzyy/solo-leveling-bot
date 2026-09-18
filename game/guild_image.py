@@ -1,46 +1,53 @@
 """
+/* Hallmark · component: guild_card · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/guild_image.py — Solo Leveling Visual Guild Card Renderer.
 
 Generates a stylized, high-resolution RPG Guild Card image using Pillow,
-showcasing the guild name, owner, top 5 hunters, and remaining members.
+showcasing the guild name, ID, owner, top 5 hunters, and telemetry.
+Fully aligned with the Hallmark Atmospheric Design System.
 """
 
 from __future__ import annotations
 
 import io
+import math
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import GUILD_MAX_MEMBERS, RANKS
 from game.font_manager import get_font_cascade, clean_and_normalize_name
+from game.design_tokens import (
+    CANVAS_TOP,
+    CANVAS_BOTTOM,
+    CANVAS_BORDER,
+    SURFACE_BASE,
+    SURFACE_ELEVATED,
+    SURFACE_ACCENT,
+    SURFACE_BORDER,
+    SURFACE_BORDER_LIGHT,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    INK_MUTED,
+    INK_CYAN,
+    INK_SKY,
+    INK_GOLD,
+    INK_RED,
+    INK_GREEN,
+    INK_PURPLE,
+    RANK_COLORS,
+    RARITY_COLORS,
+    draw_atmospheric_canvas,
+    draw_hud_corners,
+    draw_diamond,
+    draw_coin_icon,
+)
 from models import Guild, Hunter
 
-# Canvas dimensions (860 x 820)
+# Canvas dimensions (High-DPI 860 x 960)
 WIDTH = 860
-HEIGHT = 820
-
-# Color Palette (Solo Leveling Abyssal Blue HUD)
-BG_TOP = (7, 11, 24)
-BG_BOTTOM = (3, 6, 15)
-HUD_CYAN = (0, 229, 255)
-HUD_BLUE = (37, 99, 235)
-GOLD_COLOR = (250, 204, 21)
-GREEN_COLOR = (34, 197, 94)
-TEXT_WHITE = (248, 250, 252)
-TEXT_MUTED = (148, 163, 184)
-TEXT_DIM = (71, 85, 105)
-CARD_BG = (13, 20, 36, 235)
-CARD_BORDER = (30, 58, 102)
-GUILD_PURPLE = (168, 85, 247)
-
-RANK_COLORS = {
-    "E": (148, 163, 184), "D": (34, 197, 94), "C": (56, 189, 248),
-    "B": (168, 85, 247), "A": (244, 63, 94), "S": (251, 191, 36),
-    "SS": (245, 158, 11), "SSS": (239, 68, 68), "National Level": (236, 72, 153),
-    "Monarch": (192, 132, 252),
-}
+HEIGHT = 960
 
 
 def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -60,87 +67,81 @@ def _load_font(font_names: list[str], size: int) -> ImageFont.FreeTypeFont | Ima
     return ImageFont.load_default()
 
 
-def _get_fonts():
+def _get_fonts() -> dict:
     bold = ["segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "tahoma.ttf"]
     regular = ["segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf"]
+    mono = ["consola.ttf", "consolab.ttf", "cour.ttf"]
+
     return {
-        "guild_name": _load_font(bold, 36),
+        "header_tag": _load_font(bold, 12),
+        "guild_name": _load_font(bold, 30),
+        "guild_id_badge": _load_font(bold, 13),
         "subtitle": _load_font(bold, 14),
         "section_header": _load_font(bold, 13),
         "owner_name": _load_font(bold, 18),
         "member_name": _load_font(bold, 15),
-        "member_stat": _load_font(regular, 13),
-        "stat_value": _load_font(bold, 18),
-        "stat_label": _load_font(regular, 12),
+        "stat_value": _load_font(bold, 17),
+        "stat_label": _load_font(bold, 11),
         "body": _load_font(regular, 13),
         "body_bold": _load_font(bold, 13),
-        "footer": _load_font(bold, 12),
+        "footer": _load_font(bold, 11),
         "small": _load_font(regular, 11),
         "small_bold": _load_font(bold, 11),
         "rank_badge": _load_font(bold, 12),
+        "mono": _load_font(mono, 12),
     }
 
 
-def _draw_gradient_background(img: Image.Image) -> None:
-    draw = ImageDraw.Draw(img)
-    w, h = img.size
-    for y in range(h):
-        ratio = y / h
-        r = int(BG_TOP[0] * (1 - ratio) + BG_BOTTOM[0] * ratio)
-        g = int(BG_TOP[1] * (1 - ratio) + BG_BOTTOM[1] * ratio)
-        b = int(BG_TOP[2] * (1 - ratio) + BG_BOTTOM[2] * ratio)
-        draw.line([(0, y), (w, y)], fill=(r, g, b, 255))
-
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse([w // 2 - 250, -60, w // 2 + 250, 200], fill=(168, 85, 247, 25))
-    glow_draw.ellipse([w // 2 - 180, -30, w // 2 + 180, 130], fill=(0, 229, 255, 18))
-    glow = glow.filter(ImageFilter.GaussianBlur(35))
-    img.alpha_composite(glow)
-
-
-def _draw_tech_border(draw: ImageDraw.ImageDraw, x1, y1, x2, y2) -> None:
-    draw.rectangle([x1, y1, x2, y2], outline=(25, 45, 80, 180), width=1)
-    blen, bw = 24, 3
-    for corners in [
-        ((x1, y1), (x1 + blen, y1), (x1, y1 + blen)),
-        ((x2 - blen, y1), (x2, y1), (x2, y1 + blen)),
-        ((x1, y2), (x1 + blen, y2), (x1, y2 - blen)),
-        ((x2 - blen, y2), (x2, y2), (x2, y2 - blen)),
-    ]:
-        draw.line([corners[0], corners[1]], fill=GOLD_COLOR, width=bw)
-        draw.line([corners[0], corners[2]], fill=GOLD_COLOR, width=bw)
-
-
-def _draw_shield_icon(draw: ImageDraw.ImageDraw, cx, cy, size=18, fill=GUILD_PURPLE) -> None:
-    pts = [
+def _draw_shield_crest(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 24) -> None:
+    """Draw a stylized dual-layer Aegis Crest shield polygon."""
+    # Outer shield
+    pts_outer = [
         (cx, cy - size),
-        (cx + int(size * 0.8), cy - int(size * 0.5)),
-        (cx + int(size * 0.7), cy + int(size * 0.3)),
-        (cx, cy + size),
-        (cx - int(size * 0.7), cy + int(size * 0.3)),
-        (cx - int(size * 0.8), cy - int(size * 0.5)),
+        (cx + int(size * 0.85), cy - int(size * 0.45)),
+        (cx + int(size * 0.75), cy + int(size * 0.35)),
+        (cx, cy + size + 2),
+        (cx - int(size * 0.75), cy + int(size * 0.35)),
+        (cx - int(size * 0.85), cy - int(size * 0.45)),
     ]
-    draw.polygon(pts, fill=fill, outline=(200, 130, 255), width=1)
+    draw.polygon(pts_outer, fill=(24, 18, 48), outline=INK_PURPLE, width=2)
+
+    # Inner emblem
+    inner_sz = int(size * 0.6)
+    pts_inner = [
+        (cx, cy - inner_sz),
+        (cx + int(inner_sz * 0.8), cy - int(inner_sz * 0.35)),
+        (cx + int(inner_sz * 0.7), cy + int(inner_sz * 0.3)),
+        (cx, cy + inner_sz),
+        (cx - int(inner_sz * 0.7), cy + int(inner_sz * 0.3)),
+        (cx - int(inner_sz * 0.8), cy - int(inner_sz * 0.35)),
+    ]
+    draw.polygon(pts_inner, fill=INK_PURPLE, outline=INK_CYAN, width=1)
+    draw.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=INK_PRIMARY)
 
 
-def _draw_crown_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 10, fill=GOLD_COLOR) -> None:
+def _draw_crown_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 10, fill=INK_GOLD) -> None:
+    """Draw a handcrafted vector imperial crown icon."""
     w = size
     h = int(size * 0.75)
     pts = [
         (cx - w, cy + h), (cx - w, cy - h // 2), (cx - w // 2, cy),
         (cx, cy - h), (cx + w // 2, cy), (cx + w, cy - h // 2), (cx + w, cy + h),
     ]
-    draw.polygon(pts, fill=fill, outline=(255, 235, 120), width=1)
-    draw.ellipse([cx - 2, cy - h - 2, cx + 2, cy - h + 2], fill=(255, 255, 255))
+    draw.polygon(pts, fill=fill, outline=(255, 240, 160), width=1)
+    draw.ellipse([cx - 2, cy - h - 2, cx + 2, cy - h + 2], fill=INK_PRIMARY)
 
 
-def _draw_section_header(draw: ImageDraw.ImageDraw, fonts: dict, y: int, text: str, icon_color=HUD_CYAN) -> int:
-    """Draw a section header line. Returns y after the header."""
-    draw.line([(60, y), (WIDTH - 60, y)], fill=(30, 50, 80, 150), width=1)
-    y += 8
-    draw.text((60, y), text, font=fonts["section_header"], fill=icon_color)
-    return y + 22
+def _draw_lightning_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, size: int = 8, fill=INK_CYAN) -> None:
+    """Draw a sharp vector lightning bolt."""
+    pts = [
+        (cx + 1, cy - size),
+        (cx - size // 2, cy),
+        (cx, cy),
+        (cx - 2, cy + size),
+        (cx + size // 2 + 1, cy - 1),
+        (cx + 1, cy - 1),
+    ]
+    draw.polygon(pts, fill=fill)
 
 
 def _draw_owner_card(
@@ -149,43 +150,40 @@ def _draw_owner_card(
     hunter: Hunter,
     y: int,
 ) -> int:
-    """Draw the prominent guild owner card. Returns y after the card."""
-    h_card = 56
-    # Gold-bordered owner card
-    draw.rounded_rectangle([40, y, WIDTH - 40, y + h_card], radius=10, fill=(28, 24, 12, 240), outline=GOLD_COLOR, width=2)
+    """Draw the prominent guild sovereign (owner) card."""
+    h_card = 62
+    # Gold-trimmed surface container
+    draw.rounded_rectangle([40, y, WIDTH - 40, y + h_card], radius=8, fill=SURFACE_BASE, outline=INK_GOLD, width=1)
 
-    # Crown icon
-    _draw_crown_icon(draw, 72, y + 20, size=10, fill=GOLD_COLOR)
+    # Crown icon & Owner badge
+    _draw_crown_icon(draw, 68, y + 22, size=11, fill=INK_GOLD)
+    draw.rounded_rectangle([86, y + 10, 162, y + 28], radius=4, fill=(45, 36, 12), outline=INK_GOLD, width=1)
+    draw.text((124, y + 12), "SOVEREIGN", font=fonts["small_bold"], fill=INK_GOLD, anchor="mt")
 
-    # OWNER badge
-    draw.rounded_rectangle([92, y + 8, 160, y + 28], radius=4, fill=(48, 38, 14), outline=GOLD_COLOR, width=1)
-    draw.text((126, y + 10), "OWNER", font=fonts["small_bold"], fill=GOLD_COLOR, anchor="mt")
-
-    # Name
+    # Sovereign Name
     cascade = get_font_cascade(18, is_bold=True)
-    cascade.draw_text(draw, (92, y + 30), hunter.display_full_name, fill=TEXT_WHITE, max_w=350)
+    cascade.draw_text(draw, (86, y + 33), hunter.display_full_name, fill=INK_PRIMARY, max_w=340)
 
     # Rank badge
-    rank_color = RANK_COLORS.get(hunter.rank, GOLD_COLOR)
+    rank_color = RANK_COLORS.get(hunter.rank, INK_GOLD)
     rank_text = f"[{hunter.rank}-RANK]"
-    draw.text((92, y + 30), "", font=fonts["body"], fill=TEXT_WHITE)  # placeholder for cascade
-    tb_r = fonts["rank_badge"].getbbox(rank_text)
-    rw = tb_r[2] - tb_r[0]
-    rank_x = 92 + cascade.get_width(hunter.display_full_name, max_w=350) + 14
-    draw.text((rank_x, y + 33), rank_text, font=fonts["rank_badge"], fill=rank_color)
-    draw.text((rank_x + rw + 10, y + 33), f"Lv.{hunter.level}", font=fonts["small"], fill=TEXT_MUTED)
+    name_w = cascade.get_width(hunter.display_full_name, max_w=340)
+    rank_x = 86 + name_w + 12
+    draw.text((rank_x, y + 35), rank_text, font=fonts["rank_badge"], fill=rank_color)
+    draw.text((rank_x + 64, y + 35), f"Lv.{hunter.level}", font=fonts["small"], fill=INK_SECONDARY)
 
-    # Power right-aligned
-    power_str = f"⚡ {hunter.power:,}"
-    tb_p = fonts["stat_value"].getbbox(power_str)
+    # Power right-aligned with vector lightning icon
+    power_val = f"{hunter.power:,}"
+    tb_p = fonts["stat_value"].getbbox(power_val)
     pw = tb_p[2] - tb_p[0]
-    draw.text((WIDTH - 60 - pw, y + 14), power_str, font=fonts["stat_value"], fill=GOLD_COLOR)
+    _draw_lightning_icon(draw, WIDTH - 60 - pw - 12, y + 22, size=7, fill=INK_GOLD)
+    draw.text((WIDTH - 60 - pw, y + 14), power_val, font=fonts["stat_value"], fill=INK_GOLD)
 
-    # Stats summary
+    # Base Stats summary
     stats_str = f"STR {hunter.str_stat}  •  AGI {hunter.agi}  •  VIT {hunter.vit}  •  INT {hunter.int_stat}  •  PER {hunter.per}"
-    draw.text((WIDTH - 60, y + 40), stats_str, font=fonts["small"], fill=TEXT_DIM, anchor="rt")
+    draw.text((WIDTH - 60, y + 42), stats_str, font=fonts["small"], fill=INK_MUTED, anchor="rt")
 
-    return y + h_card + 10
+    return y + h_card + 14
 
 
 def _draw_top5_row(
@@ -197,56 +195,43 @@ def _draw_top5_row(
     hunter: Hunter,
     width: int = 740,
 ) -> int:
-    """Draw a top 5 member row with rank position badge. Returns y offset."""
+    """Draw a top 5 member row with rank position badge."""
     row_h = 38
 
-    # Row background with subtle highlight
-    draw.rounded_rectangle([x, y, x + width, y + row_h], radius=6, fill=(18, 28, 48, 200), outline=(35, 55, 85, 120))
+    # Row container on elevated surface
+    draw.rounded_rectangle([x, y, x + width, y + row_h], radius=6, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER, width=1)
 
     # Position badge (#1, #2, etc.)
     badge_colors = {
-        1: GOLD_COLOR, 2: (226, 232, 240), 3: (217, 119, 6),
-        4: HUD_CYAN, 5: HUD_CYAN,
+        1: INK_GOLD,
+        2: (226, 232, 240),
+        3: (217, 119, 6),
+        4: INK_CYAN,
+        5: INK_CYAN,
     }
-    badge_color = badge_colors.get(rank_pos, HUD_CYAN)
-    draw.rounded_rectangle([x + 6, y + 6, x + 42, y + row_h - 6], radius=4, fill=(*badge_color, 50), outline=(*badge_color, 180))
+    badge_color = badge_colors.get(rank_pos, INK_CYAN)
+    draw.rounded_rectangle([x + 6, y + 6, x + 42, y + row_h - 6], radius=4, fill=(*badge_color[:3], 40), outline=(*badge_color[:3], 180))
     draw.text((x + 24, y + 9), f"#{rank_pos}", font=fonts["small_bold"], fill=badge_color, anchor="mt")
 
-    # Name
+    # Name with font cascade
     name_x = x + 54
     cascade = get_font_cascade(14, is_bold=True)
-    cascade.draw_text(draw, (name_x, y + 5), hunter.display_full_name, fill=TEXT_WHITE, max_w=320)
+    cascade.draw_text(draw, (name_x, y + 8), hunter.display_full_name, fill=INK_PRIMARY, max_w=310)
 
-    # Rank + Level
-    rank_color = RANK_COLORS.get(hunter.rank, TEXT_MUTED)
-    rank_text = f"[{hunter.rank}]"
-    draw.text((x + width - 10, y + 5), f"Lv.{hunter.level}", font=fonts["small"], fill=TEXT_MUTED, anchor="rt")
-    draw.text((x + width - 10, y + 20), f"⚡ {hunter.power:,}", font=fonts["small_bold"], fill=HUD_CYAN, anchor="rt")
+    # Rank Badge after name
+    name_w = cascade.get_width(hunter.display_full_name, max_w=310)
+    rank_color = RANK_COLORS.get(hunter.rank, INK_SECONDARY)
+    draw.text((name_x + name_w + 10, y + 9), f"[{hunter.rank}]", font=fonts["small"], fill=rank_color)
 
-    # Rank badge after name
-    name_w = cascade.get_width(hunter.display_full_name, max_w=320)
-    draw.text((name_x + name_w + 8, y + 7), rank_text, font=fonts["small"], fill=rank_color)
+    # Level and Power on the right with vector lightning icon
+    draw.text((x + width - 12, y + 6), f"Lv.{hunter.level}", font=fonts["small"], fill=INK_SECONDARY, anchor="rt")
+    pwr_text = f"{hunter.power:,}"
+    tb_w = fonts["small_bold"].getbbox(pwr_text)
+    pw = tb_w[2] - tb_w[0]
+    _draw_lightning_icon(draw, x + width - 12 - pw - 10, y + 27, size=5, fill=INK_CYAN)
+    draw.text((x + width - 12, y + 21), pwr_text, font=fonts["small_bold"], fill=INK_CYAN, anchor="rt")
 
-    return y + row_h + 4
-
-
-def _draw_compact_row(
-    draw: ImageDraw.ImageDraw,
-    fonts: dict,
-    x: int,
-    y: int,
-    hunter: Hunter,
-    width: int = 740,
-) -> int:
-    """Draw a compact member row for remaining members. Returns y offset."""
-    row_h = 30
-    draw.rounded_rectangle([x, y, x + width, y + row_h], radius=4, fill=(16, 24, 40, 150))
-
-    rank_color = RANK_COLORS.get(hunter.rank, TEXT_MUTED)
-    draw.text((x + 10, y + 4), hunter.display_full_name, font=fonts["member_name"], fill=TEXT_WHITE, max_w=300)
-    draw.text((x + width - 10, y + 4), f"Lv.{hunter.level} [{hunter.rank}]  ⚡{hunter.power:,}", font=fonts["small"], fill=TEXT_MUTED, anchor="rt")
-
-    return y + row_h + 3
+    return y + row_h + 5
 
 
 def render_guild_image(
@@ -254,41 +239,81 @@ def render_guild_image(
     members: list[Hunter],
     total_power: int,
 ) -> io.BytesIO:
-    """Render the guild card image with owner, top 5, and remaining members."""
+    """
+    Render a high-resolution Hallmark Atmospheric Guild Card.
+    Strictly follows Hallmark anti-AI-slop design rules:
+    - Locked tokens, elevated surface hierarchy, authentic radial bloom
+    - Pure Roman typography, anti-tofu font cascade, vector crests and crowns
+    - Prominent Guild ID badge in title header and footer system signature.
+    """
     img = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
-    _draw_gradient_background(img)
+
+    # 1. Atmospheric Canvas with Arcane / Cyan Radial Bloom (grid_spacing=0 for clean velvet finish)
+    draw_atmospheric_canvas(
+        img,
+        top_color=CANVAS_TOP,
+        bottom_color=CANVAS_BOTTOM,
+        bloom_cx=WIDTH // 2,
+        bloom_cy=85,
+        bloom_color=(168, 85, 247, 32),
+        bloom_radius=220,
+        grid_spacing=0,
+    )
     draw = ImageDraw.Draw(img)
     fonts = _get_fonts()
 
-    # Outer tech border
-    _draw_tech_border(draw, 20, 20, WIDTH - 20, HEIGHT - 20)
+    # 2. Outer Technical HUD Framing
+    draw.rectangle([20, 20, WIDTH - 20, HEIGHT - 20], outline=CANVAS_BORDER, width=1)
+    draw_hud_corners(draw, (20, 20, WIDTH - 20, HEIGHT - 20), color=INK_CYAN, length=24, width=2)
 
-    # ── Title area ──
-    _draw_shield_icon(draw, 80, 65, size=24, fill=GUILD_PURPLE)
-    draw.text((115, 45), guild.name, font=fonts["guild_name"], fill=TEXT_WHITE)
-    draw.text((115, 88), "HUNTER GUILD", font=fonts["subtitle"], fill=HUD_CYAN)
+    # 3. System Header & Guild Crest
+    draw_diamond(draw, 122, 38, size=4, fill=INK_CYAN)
+    draw.text((134, 32), "SYSTEM NOTIFICATION  //  HUNTER GUILD REGISTRY", font=fonts["header_tag"], fill=INK_CYAN)
+    _draw_shield_crest(draw, 68, 64, size=24)
 
-    # ── Stats bar ──
-    stats_y = 120
-    stats = [
-        (f"{len(guild.members)}/{GUILD_MAX_MEMBERS}", "MEMBERS"),
-        (f"{total_power:,}", "TOTAL POWER"),
-        ("+10%", "XP BONUS"),
+    # Guild Name via Font Cascade
+    cascade_title = get_font_cascade(26, is_bold=True)
+    cascade_title.draw_text(draw, (116, 52), guild.name, fill=INK_PRIMARY, max_w=460)
+    title_w = cascade_title.get_width(guild.name, max_w=460)
+
+    # Guild ID Badge
+    id_x = 116 + title_w + 14
+    id_text = f"ID: #{guild.guild_id}"
+    tb_id = fonts["guild_id_badge"].getbbox(id_text)
+    id_w = tb_id[2] - tb_id[0] + 16
+    draw.rounded_rectangle([id_x, 56, id_x + id_w, 78], radius=4, fill=SURFACE_ELEVATED, outline=INK_CYAN, width=1)
+    draw.text((id_x + 8, 59), id_text, font=fonts["guild_id_badge"], fill=INK_CYAN)
+
+    # 4. Tactical Telemetry Quad (4 Elevated Surface Cards)
+    stats_y = 106
+    quad_w = 175
+    gap = 18
+    quad_x = 45
+
+    telemetry = [
+        (f"{len(guild.members)}/{GUILD_MAX_MEMBERS}", "ROSTER", INK_PRIMARY),
+        (f"{total_power:,}", "COMBAT POWER", INK_GOLD),
+        (f"{guild.war_wins}W - {guild.war_losses}L", "WAR RECORD", INK_SKY),
+        ("+10%", "XP BUFF", INK_GREEN),
     ]
-    stat_x = 60
-    for val, label in stats:
-        draw.rounded_rectangle([stat_x, stats_y, stat_x + 180, stats_y + 52], radius=6, fill=(18, 28, 48, 200), outline=(35, 55, 85, 100))
-        draw.text((stat_x + 90, stats_y + 8), val, font=fonts["stat_value"], fill=GOLD_COLOR, anchor="mt")
-        draw.text((stat_x + 90, stats_y + 32), label, font=fonts["stat_label"], fill=TEXT_MUTED, anchor="mt")
-        stat_x += 200
 
-    # ── Description ──
-    desc_y = 185
+    for val, label, color in telemetry:
+        draw.rounded_rectangle([quad_x, stats_y, quad_x + quad_w, stats_y + 54], radius=6, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER, width=1)
+        draw.text((quad_x + quad_w // 2, stats_y + 9), val, font=fonts["stat_value"], fill=color, anchor="mt")
+        draw.text((quad_x + quad_w // 2, stats_y + 34), label, font=fonts["stat_label"], fill=INK_MUTED, anchor="mt")
+        quad_x += quad_w + gap
+
+    y = stats_y + 68
+
+    # 5. Guild Directive / Description (if set)
     if guild.description:
-        draw.text((60, desc_y), f"📝 {guild.description}", font=fonts["body"], fill=TEXT_MUTED)
-        desc_y += 28
+        desc_h = 36
+        draw.rounded_rectangle([40, y, WIDTH - 40, y + desc_h], radius=6, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
+        desc_text = f"\"{guild.description}\""
+        draw.text((56, y + 10), desc_text, font=fonts["body"], fill=INK_SECONDARY)
+        y += desc_h + 14
 
-    # ── Sort members: owner first, then by power ──
+    # 6. Sort members: Sovereign (owner) first, then remaining by power descending
     owner = None
     others = []
     for h in members:
@@ -301,45 +326,49 @@ def render_guild_image(
     top5 = others[:5]
     remaining = others[5:]
 
-    # ── Owner Card ──
-    y = desc_y + 6
+    # 7. Guild Sovereign Card
     if owner:
+        draw_diamond(draw, 48, y + 9, size=4, fill=INK_GOLD)
+        draw.text((58, y), "GUILD SOVEREIGN & FOUNDER", font=fonts["section_header"], fill=INK_GOLD)
+        y += 22
         y = _draw_owner_card(draw, fonts, owner, y)
 
-    # ── Top 5 Section ──
+    # 8. Elite Vanguard (Top 5 Members)
     if top5:
-        y = _draw_section_header(draw, fonts, y, "🏆 TOP 5 HUNTERS", icon_color=GOLD_COLOR)
+        draw_diamond(draw, 48, y + 9, size=4, fill=INK_CYAN)
+        draw.text((58, y), "ELITE VANGUARD (HIGHEST POWER)", font=fonts["section_header"], fill=INK_CYAN)
+        y += 22
 
-        # Top 5 container
         container_top = y
-        container_h = len(top5) * 42 + 8
-        draw.rounded_rectangle([40, container_top, WIDTH - 40, container_top + container_h], radius=8, fill=CARD_BG, outline=HUD_CYAN, width=1)
+        container_h = len(top5) * 43 + 10
+        draw.rounded_rectangle([40, container_top, WIDTH - 40, container_top + container_h], radius=8, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
 
         y = container_top + 6
         for i, h in enumerate(top5):
             y = _draw_top5_row(draw, fonts, 50, y, i + 1, h, width=WIDTH - 100)
 
-        y = container_top + container_h + 8
+        y = container_top + container_h + 14
 
-    # ── Remaining Members ──
+    # 9. Remaining Members Summary
     if remaining:
-        y = _draw_section_header(draw, fonts, y, "📋 OTHER MEMBERS")
+        rem_count = len(remaining)
+        rem_power = sum(h.power for h in remaining)
+        rem_text = f"Allied Reserve: {rem_count} additional hunter(s) deployed  •  Combined Power: {rem_power:,}"
+        draw.rounded_rectangle([40, y, WIDTH - 40, y + 32], radius=6, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER, width=1)
+        draw.text((WIDTH // 2, y + 9), rem_text, font=fonts["small"], fill=INK_MUTED, anchor="mt")
 
-        for h in remaining:
-            if y > HEIGHT - 60:
-                break
-            y = _draw_compact_row(draw, fonts, 60, y, h, width=WIDTH - 120)
-
-    # ── Footer ──
+    # 10. Hallmark Verification Signature Footer
+    draw.line([(40, HEIGHT - 46), (WIDTH - 40, HEIGHT - 46)], fill=CANVAS_BORDER, width=1)
+    footer_text = f"SYSTEM REGISTRY  //  HUNTER GUILD ARCHIVE  •  ID #{guild.guild_id}  •  ALL RIGHTS RESERVED"
     draw.text(
-        (WIDTH // 2, HEIGHT - 36),
-        "「 A Guild grows stronger with every Hunter that joins. 」",
+        (WIDTH // 2, HEIGHT - 32),
+        footer_text,
         font=fonts["footer"],
-        fill=TEXT_DIM,
+        fill=INK_MUTED,
         anchor="mt",
     )
 
-    # Convert to PNG bytes
+    # Convert to PNG buffer
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=False)
     buf.seek(0)

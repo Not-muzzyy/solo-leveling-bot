@@ -190,6 +190,14 @@ class FontCascade:
             max_bottom = self.size
         return (0, min_top, total_w, max_bottom)
 
+    def get_width(self, text: str, max_w: Optional[int] = None) -> int:
+        """Compute the rendered pixel width of text."""
+        bb = self.getbbox(text)
+        w = bb[2] - bb[0]
+        if max_w is not None and w > max_w:
+            return max_w
+        return w
+
     def draw_text(
         self,
         draw: ImageDraw.ImageDraw,

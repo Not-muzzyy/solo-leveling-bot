@@ -16,7 +16,7 @@ from config import (
     ARMOR_TYPES,
     ACCESSORY_TYPES,
 )
-from models import Item
+from models import Hunter, Item
 
 
 def roll_rarity() -> str:
@@ -147,3 +147,50 @@ def create_starter_weapon() -> Item:
         hp_bonus=0,
         spd_bonus=0,
     )
+
+
+def apply_consumable(hunter: Hunter, item: Item) -> tuple[bool, str]:
+    """
+    Apply consumable potion, elixir, or scroll effect to a Hunter.
+    Returns (success: bool, description: str).
+    If a pure healing potion is used while hunter is at full health, returns (False, reason).
+    """
+    if item.type != "consumable":
+        return False, "This item is not a consumable."
+
+    is_pure_hp = (item.hp_bonus > 0 and item.atk_bonus == 0 and item.def_bonus == 0 and item.spd_bonus == 0)
+
+    # Prevent wasting pure health potions when already full
+    if is_pure_hp and hunter.hp >= hunter.max_hp:
+        return False, f"Vitality already at maximum ({hunter.hp}/{hunter.max_hp} HP)!"
+
+    effects: list[str] = []
+
+    # Stat boosts
+    if item.atk_bonus > 0:
+        hunter.str_stat += item.atk_bonus
+        effects.append(f"+{item.atk_bonus} STR")
+
+    if item.def_bonus > 0:
+        hunter.vit += item.def_bonus
+        effects.append(f"+{item.def_bonus} VIT")
+
+    if item.spd_bonus > 0:
+        hunter.agi += item.spd_bonus
+        effects.append(f"+{item.spd_bonus} AGI")
+
+    # Pure healing vs hybrid max HP bonus
+    if is_pure_hp:
+        healed = min(item.hp_bonus, hunter.max_hp - hunter.hp)
+        hunter.hp += healed
+        effects.append(f"+{healed} HP ({hunter.hp}/{hunter.max_hp})")
+    elif item.hp_bonus > 0:
+        hunter.max_hp += item.hp_bonus
+        hunter.hp = min(hunter.max_hp, hunter.hp + item.hp_bonus)
+        effects.append(f"+{item.hp_bonus} Max HP")
+
+    hunter.recalculate_power()
+    effects.append(f"Power: {hunter.power}")
+
+    return True, ", ".join(effects)
+

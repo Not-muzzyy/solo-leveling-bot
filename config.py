@@ -94,8 +94,11 @@ LOOT_DROP_CHANCE = 0.30            # 30% base
 SPECIAL_EVENT_CHANCE = 0.05        # 5%
 GOLD_LOSS_ON_DEFEAT_PERCENT = 0.10 # Lose 10% gold on defeat
 
-# ── Hunt Cooldown ────────────────────────────────────────
-HUNT_COOLDOWN_SECONDS = 900  # 15 minutes
+# ── Hunt & Exploration Settings ──────────────────────────
+HUNT_COOLDOWN_SECONDS = 60         # 1 minute cooldown per hunt
+DAILY_HUNT_LIMIT = 20              # Max 20 hunts per calendar day (UTC)
+EXPLORE_COOLDOWN_SECONDS = 3600    # 1 hour cooldown per exploration
+DAILY_EXPLORE_LIMIT = 3            # Max 3 explorations per calendar day (UTC)
 
 # ── Item Types ───────────────────────────────────────────
 ITEM_TYPES = ["weapon", "armor", "accessory", "consumable", "material"]

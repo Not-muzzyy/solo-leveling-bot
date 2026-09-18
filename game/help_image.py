@@ -46,9 +46,9 @@ from game.design_tokens import (
     draw_crown_icon,
 )
 
-# Canvas dimensions (860 x 1220 — matches Profile & Shop cards)
+# Canvas dimensions (860 x 1320 — spacious Hallmark multi-panel layout)
 WIDTH = 860
-HEIGHT = 1220
+HEIGHT = 1320
 
 
 def generate_help_image() -> io.BytesIO:
@@ -94,7 +94,7 @@ def generate_help_image() -> io.BytesIO:
     font_eyebrow.draw_text(
         draw,
         (46, header_y + 2),
-        "SYSTEM INTERFACE // OPERATIONAL DIRECTIVE // ARCHIVES V2.4",
+        "SYSTEM INTERFACE // OPERATIONAL DIRECTIVE // ARCHIVES V2.5",
         fill=INK_CYAN,
     )
 
@@ -118,7 +118,7 @@ def generate_help_image() -> io.BytesIO:
     font_subtitle.draw_text(
         draw,
         (34, header_y + 64),
-        "Complete command protocols, dimensional gates, syndicate operations & ascension tiers.",
+        "Complete command protocols, dimensional gates, blacksmith forge & ascension tiers.",
         fill=INK_SECONDARY,
     )
 
@@ -127,75 +127,69 @@ def generate_help_image() -> io.BytesIO:
     draw.line([(34, header_y + 92), (180, header_y + 92)], fill=INK_CYAN, width=2)
 
     # ── BENTO CARDS ───────────────────────────────────────────────────────────
-    # We organize the guide into 4 high-contrast panels:
-    # Top Left: Core Combat & Exploration (W: 386)
-    # Top Right: Vault & Dimensional Commerce (W: 386)
-    # Mid: Guild Syndicate & Mutual Aid (W: 792)
-    # Bottom: Ascension Hierarchy (Ranks & Rarities) (W: 792)
-
     card_left_x = 34
     card_right_x = 440
     card_w = 386
-    card_h = 320
+    card_h = 368
     top_y = 136
 
-    # ── PANEL 1: HUNTER COMBAT & PROGRESSION ─────────────────────────────────
+    # ── PANEL 1: HUNTER COMBAT & SPIRE OPERATIONS ────────────────────────────
     draw.rounded_rectangle([card_left_x, top_y, card_left_x + card_w, top_y + card_h], radius=8, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
     draw_hud_corners(draw, (card_left_x, top_y, card_left_x + card_w, top_y + card_h), color=INK_CYAN, length=12, width=1)
 
     # Section Header
     draw_diamond(draw, card_left_x + 16, top_y + 18, size=4, fill=INK_CYAN)
-    font_section.draw_text(draw, (card_left_x + 28, top_y + 11), "COMBAT & FIELD EXPEDITIONS", fill=INK_PRIMARY)
+    font_section.draw_text(draw, (card_left_x + 28, top_y + 11), "COMBAT & SPIRE OPERATIONS", fill=INK_PRIMARY)
     draw.line([(card_left_x + 16, top_y + 36), (card_left_x + card_w - 16, top_y + 36)], fill=SURFACE_BORDER, width=1)
 
     core_cmds = [
-        ("/start", "Awaken license & claim starter blade", INK_CYAN),
-        ("/hunt", "Slay gate monsters for XP & loot drops (15m CD)", INK_GOLD),
-        ("/profile", "Inspect System Status Window, attributes & gear", INK_SKY),
+        ("/hunt", "Slay gate monsters for XP & loot (1m CD, 20/day)", INK_GOLD),
+        ("/explore", "World map expedition for Gold & gifts (1h CD, 3/day)", INK_SKY),
+        ("/tower", "100-floor Demon Castle Spire Trial (3 keys/day)", INK_PURPLE),
         ("/duel", "Challenge a rival Hunter (reply in group)", INK_RED),
-        ("/claim", "Daily Hunter allowance — Gold & XP (24h CD)", INK_GREEN),
+        ("/leaderboard", "Global Hall of Fame: Power, Wealth & Kills", INK_CYAN),
+        ("/start /claim", "Awaken license & Daily Hunter stipend (24h CD)", INK_GREEN),
     ]
 
-    item_y = top_y + 48
+    item_y = top_y + 44
     for cmd, desc, col in core_cmds:
-        # Command pill
         c_bb = font_cmd.getbbox(cmd)
         c_w = c_bb[2] - c_bb[0] + 14
-        draw.rounded_rectangle([card_left_x + 16, item_y, card_left_x + 16 + c_w, item_y + 20], radius=4, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
+        draw.rounded_rectangle([card_left_x + 16, item_y, card_left_x + 16 + c_w, item_y + 19], radius=4, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
         font_cmd.draw_text(draw, (card_left_x + 23, item_y + 3), cmd, fill=col)
-        # Description
-        font_desc.draw_text(draw, (card_left_x + 16, item_y + 26), desc, fill=INK_SECONDARY, max_w=card_w - 32)
-        item_y += 52
+        font_desc.draw_text(draw, (card_left_x + 16, item_y + 24), desc, fill=INK_SECONDARY, max_w=card_w - 32)
+        item_y += 53
 
-    # ── PANEL 2: DIMENSIONAL VAULT & COMMERCE ────────────────────────────────
+    # ── PANEL 2: FORGE, VAULT & CONDITIONING ─────────────────────────────────
     draw.rounded_rectangle([card_right_x, top_y, card_right_x + card_w, top_y + card_h], radius=8, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
     draw_hud_corners(draw, (card_right_x, top_y, card_right_x + card_w, top_y + card_h), color=INK_CYAN, length=12, width=1)
 
     draw_diamond(draw, card_right_x + 16, top_y + 18, size=4, fill=INK_GOLD)
-    font_section.draw_text(draw, (card_right_x + 28, top_y + 11), "VAULT & EXCHANGE DEPOT", fill=INK_PRIMARY)
+    font_section.draw_text(draw, (card_right_x + 28, top_y + 11), "FORGE, VAULT & STATS", fill=INK_PRIMARY)
     draw.line([(card_right_x + 16, top_y + 36), (card_right_x + card_w - 16, top_y + 36)], fill=SURFACE_BORDER, width=1)
 
     vault_cmds = [
-        ("/inventory", "Interactive storage with 1-tap equip actions", INK_CYAN),
-        ("/equip", "Direct alias to inspect and swap loadout", INK_SKY),
-        ("/shop", "Acquire weapons, armor, rings & elixirs", INK_GOLD),
-        ("/leaderboard", "Global Hall of Fame: Power, Wealth & Kills", INK_PURPLE),
-        ("/help", "Transmit this visual operational manual", INK_PRIMARY),
+        ("/forge", "Enhance gear (+1 to +10) & fuse item rarities", INK_GOLD),
+        ("/daily", "Daily conditioning quests (+3 Free Stat Points)", INK_CYAN),
+        ("/stats", "Allocate unspent stat points (STR, AGI, VIT...)", INK_GREEN),
+        ("/inventory", "Storage with 1-tap equip & potion consumption", INK_SKY),
+        ("/profile", "Inspect Status Window, attributes & gear", INK_SECONDARY),
+        ("/shop /redeem", "Hunter Exchange Depot & System gift codes", INK_PURPLE),
     ]
 
-    item_y = top_y + 48
+    item_y = top_y + 44
     for cmd, desc, col in vault_cmds:
         c_bb = font_cmd.getbbox(cmd)
         c_w = c_bb[2] - c_bb[0] + 14
-        draw.rounded_rectangle([card_right_x + 16, item_y, card_right_x + 16 + c_w, item_y + 20], radius=4, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
+        draw.rounded_rectangle([card_right_x + 16, item_y, card_right_x + 16 + c_w, item_y + 19], radius=4, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
         font_cmd.draw_text(draw, (card_right_x + 23, item_y + 3), cmd, fill=col)
-        font_desc.draw_text(draw, (card_right_x + 16, item_y + 26), desc, fill=INK_SECONDARY, max_w=card_w - 32)
-        item_y += 52
+        font_desc.draw_text(draw, (card_right_x + 16, item_y + 24), desc, fill=INK_SECONDARY, max_w=card_w - 32)
+        item_y += 53
 
     # ── PANEL 3: GUILD SYNDICATE & MUTUAL AID ────────────────────────────────
     mid_y = top_y + card_h + 16
     mid_w = WIDTH - 68
-    mid_h = 290
+    mid_h = 280
     draw.rounded_rectangle([34, mid_y, 34 + mid_w, mid_y + mid_h], radius=8, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
     draw_hud_corners(draw, (34, mid_y, 34 + mid_w, mid_y + mid_h), color=INK_CYAN, length=12, width=1)
 
@@ -229,28 +223,28 @@ def generate_help_image() -> io.BytesIO:
         ("/gift gold <amount>", "Transfer gold funds to aid your guild comrade", INK_GOLD),
     ]
 
-    gy = mid_y + 48
+    gy = mid_y + 44
     for cmd, desc, col in guild_cmds_col1:
         c_bb = font_cmd.getbbox(cmd)
         c_w = c_bb[2] - c_bb[0] + 12
         draw.rounded_rectangle([col1_x, gy, col1_x + c_w, gy + 19], radius=3, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
         font_cmd.draw_text(draw, (col1_x + 6, gy + 3), cmd, fill=col)
-        font_desc.draw_text(draw, (col1_x, gy + 24), desc, fill=INK_SECONDARY, max_w=370)
-        gy += 56
+        font_desc.draw_text(draw, (col1_x, gy + 23), desc, fill=INK_SECONDARY, max_w=370)
+        gy += 54
 
-    gy = mid_y + 48
+    gy = mid_y + 44
     for cmd, desc, col in guild_cmds_col2:
         c_bb = font_cmd.getbbox(cmd)
         c_w = c_bb[2] - c_bb[0] + 12
         draw.rounded_rectangle([col2_x, gy, col2_x + c_w, gy + 19], radius=3, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER_LIGHT, width=1)
         font_cmd.draw_text(draw, (col2_x + 6, gy + 3), cmd, fill=col)
-        font_desc.draw_text(draw, (col2_x, gy + 24), desc, fill=INK_SECONDARY, max_w=370)
-        gy += 56
+        font_desc.draw_text(draw, (col2_x, gy + 23), desc, fill=INK_SECONDARY, max_w=370)
+        gy += 54
 
     # ── PANEL 4: ASCENSION HIERARCHY & ITEM TIERS ─────────────────────────────
     bot_y = mid_y + mid_h + 16
     bot_w = WIDTH - 68
-    bot_h = 340
+    bot_h = 390
     draw.rounded_rectangle([34, bot_y, 34 + bot_w, bot_y + bot_h], radius=8, fill=SURFACE_BASE, outline=SURFACE_BORDER, width=1)
     draw_hud_corners(draw, (34, bot_y, 34 + bot_w, bot_y + bot_h), color=INK_CYAN, length=12, width=1)
 
@@ -259,7 +253,7 @@ def generate_help_image() -> io.BytesIO:
     draw.line([(50, bot_y + 36), (34 + bot_w - 16, bot_y + 36)], fill=SURFACE_BORDER, width=1)
 
     # Sub-header: Hunter Ranks
-    font_badge.draw_text(draw, (50, bot_y + 46), "HUNTER RANKS (ASCENDING LEVEL MILESTONES)", fill=INK_CYAN)
+    font_badge.draw_text(draw, (50, bot_y + 44), "HUNTER RANKS (ASCENDING LEVEL MILESTONES)", fill=INK_CYAN)
 
     rank_ladder = [
         ("E", "Lv 1", RANK_COLORS["E"]),
@@ -275,20 +269,20 @@ def generate_help_image() -> io.BytesIO:
     ]
 
     rx = 50
-    pill_w = 69
-    pill_h = 44
+    pill_w = 67
+    pill_h = 42
     for r_name, req, r_col in rank_ladder:
-        draw.rounded_rectangle([rx, bot_y + 64, rx + pill_w, bot_y + 64 + pill_h], radius=4, fill=SURFACE_ELEVATED, outline=r_col, width=1)
+        draw.rounded_rectangle([rx, bot_y + 60, rx + pill_w, bot_y + 60 + pill_h], radius=4, fill=SURFACE_ELEVATED, outline=r_col, width=1)
         r_bb = font_cmd.getbbox(r_name)
         rw = r_bb[2] - r_bb[0]
-        font_cmd.draw_text(draw, (rx + (pill_w - rw) // 2, bot_y + 70), r_name, fill=r_col)
+        font_cmd.draw_text(draw, (rx + (pill_w - rw) // 2, bot_y + 66), r_name, fill=r_col)
         req_bb = font_badge.getbbox(req)
         reqw = req_bb[2] - req_bb[0]
-        font_badge.draw_text(draw, (rx + (pill_w - reqw) // 2, bot_y + 90), req, fill=INK_SECONDARY)
+        font_badge.draw_text(draw, (rx + (pill_w - reqw) // 2, bot_y + 85), req, fill=INK_SECONDARY)
         rx += pill_w + 10
 
     # Sub-header: Item Rarities & Drop Probabilities
-    font_badge.draw_text(draw, (50, bot_y + 128), "ITEM RARITY SPECTRUM & GATE DROP RATES", fill=INK_GOLD)
+    font_badge.draw_text(draw, (50, bot_y + 116), "ITEM RARITY SPECTRUM & GATE DROP RATES", fill=INK_GOLD)
 
     rarity_data = [
         ("COMMON", "50%", RARITY_COLORS["Common"]),
@@ -300,43 +294,47 @@ def generate_help_image() -> io.BytesIO:
     ]
 
     rx = 50
-    rpill_w = 118
-    rpill_h = 44
+    rpill_w = 117
+    rpill_h = 42
     for rar_name, rate, rar_col in rarity_data:
-        draw.rounded_rectangle([rx, bot_y + 146, rx + rpill_w, bot_y + 146 + rpill_h], radius=4, fill=SURFACE_ELEVATED, outline=rar_col, width=1)
-        draw_diamond(draw, rx + 14, bot_y + 168, size=4, fill=rar_col)
-        font_cmd.draw_text(draw, (rx + 24, bot_y + 152), rar_name, fill=rar_col)
-        font_badge.draw_text(draw, (rx + 24, bot_y + 172), f"DROP: {rate}", fill=INK_SECONDARY)
-        rx += rpill_w + 12
+        draw.rounded_rectangle([rx, bot_y + 132, rx + rpill_w, bot_y + 132 + rpill_h], radius=4, fill=SURFACE_ELEVATED, outline=rar_col, width=1)
+        draw_diamond(draw, rx + 14, bot_y + 153, size=4, fill=rar_col)
+        font_cmd.draw_text(draw, (rx + 24, bot_y + 138), rar_name, fill=rar_col)
+        font_badge.draw_text(draw, (rx + 24, bot_y + 156), f"DROP: {rate}", fill=INK_SECONDARY)
+        rx += rpill_w + 11
 
     # Core Gameplay Rule Callout Box
-    callout_y = bot_y + 208
+    callout_y = bot_y + 184
     callout_w = bot_w - 32
-    draw.rounded_rectangle([50, callout_y, 50 + callout_w, callout_y + 112], radius=6, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER, width=1)
-    draw_diamond(draw, 66, callout_y + 20, size=3, fill=INK_CYAN)
-    font_cmd.draw_text(draw, (78, callout_y + 12), "OPERATIONAL SYSTEM PROTOCOLS & PRIVACY", fill=INK_CYAN)
+    callout_h = 204
+    draw.rounded_rectangle([50, callout_y, 50 + callout_w, callout_y + callout_h], radius=6, fill=SURFACE_ELEVATED, outline=SURFACE_BORDER, width=1)
+    draw_diamond(draw, 66, callout_y + 18, size=3, fill=INK_CYAN)
+    font_cmd.draw_text(draw, (78, callout_y + 11), "OPERATIONAL SYSTEM PROTOCOLS & PRIVACY", fill=INK_CYAN)
 
     tips = [
-        "- In group chats, /inventory, /shop & /help open in PM to prevent chat clutter.",
-        "- Duels (/duel) are group-exclusive and must be initiated by replying to a target hunter.",
-        "- Hunting has a 15-minute gate seal; claims refresh every 24 hours.",
-        "- Superadmins can manage hunter attributes, coins, and system balances.",
+        "- In group chats, /inventory, /shop & /forge open in PM to protect gear & prevent chat spam.",
+        "- /tower challenges the 100-Floor Demon Castle Spire (3 keys/day) for titles & artifact drops.",
+        "- /forge enhances gear (+1 to +10) with safe zones to +7, plus 3-item rarity fusion.",
+        "- /daily provides 4 conditioning quests for +3 Free Stat Points to freely allocate via /stats.",
+        "- Hunts have 1m CD (max 20/day); /explore has 1h CD (max 3/day) across the global map.",
+        "- Duels (/duel) are group-exclusive; redeem promo codes in Bot PM via /redeem <CODE>.",
     ]
-    ty = callout_y + 36
+    ty = callout_y + 32
     for tip in tips:
         font_desc.draw_text(draw, (66, ty), tip, fill=INK_SECONDARY, max_w=callout_w - 32)
-        ty += 18
+        ty += 28
 
     # ── FOOTER ────────────────────────────────────────────────────────────────
-    footer_y = HEIGHT - 46
+    footer_y = HEIGHT - 54
     draw.line([(34, footer_y), (WIDTH - 34, footer_y)], fill=SURFACE_BORDER, width=1)
 
     quote = "「 THE SYSTEM ACKNOWLEDGES THOSE WHO STRIVE TO GROW STRONGER 」"
     q_bb = font_footer.getbbox(quote)
     qw = q_bb[2] - q_bb[0]
-    font_footer.draw_text(draw, ((WIDTH - qw) // 2, footer_y + 12), quote, fill=INK_CYAN)
+    font_footer.draw_text(draw, ((WIDTH - qw) // 2, footer_y + 16), quote, fill=INK_CYAN)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
     buf.seek(0)
     return buf
+

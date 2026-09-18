@@ -6,11 +6,15 @@ Wires up all handlers and initializes the Telegram channel database.
 
 import logging
 
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 
 from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID
 from channel_db import ChannelDB
-from handlers import start, profile, hunt, inventory, help, claim, shop, leaderboard, duel, guild, guild_war, admin
+from handlers import (
+    start, profile, hunt, inventory, help, claim, shop,
+    leaderboard, duel, guild, guild_war, admin, redeem, explore,
+    forge, tower, quest
+)
 
 # ── Logging ───────────────────────────────────────────────
 logging.basicConfig(
@@ -25,6 +29,7 @@ app = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
+    parse_mode=enums.ParseMode.HTML,
 )
 
 
@@ -50,14 +55,21 @@ async def on_stop(client):
 app.on_message(filters.command("start"))(start.handle)
 app.on_message(filters.command("profile"))(profile.handle)
 app.on_message(filters.command("hunt"))(hunt.handle)
+app.on_message(filters.command("explore"))(explore.handle)
 app.on_message(filters.command(["inventory", "equip"]))(inventory.handle)
 app.on_message(filters.command("shop"))(shop.handle)
 app.on_message(filters.command("leaderboard"))(leaderboard.handle)
 app.on_message(filters.command("duel"))(duel.handle)
 app.on_message(filters.command("help"))(help.handle)
 app.on_message(filters.command("claim"))(claim.handle)
+app.on_message(filters.command("redeem"))(redeem.handle_redeem)
 app.on_message(filters.command("guild"))(guild.handle)
 app.on_message(filters.command("gift"))(guild.handle_gift)
+app.on_message(filters.command(["use", "potion", "heal"]))(inventory.handle_use)
+app.on_message(filters.command(["forge", "craft", "upgrade"]))(forge.handle)
+app.on_message(filters.command(["tower", "trial"]))(tower.handle)
+app.on_message(filters.command("daily"))(quest.handle_daily)
+app.on_message(filters.command(["stats", "addstat"]))(quest.handle_stats)
 
 # ── Superadmin / Owner Command Handlers ───────────────────
 app.on_message(filters.command(["admin", "superadmin"]))(admin.handle_admin_help)
@@ -66,16 +78,25 @@ app.on_message(filters.command(["setgold", "setcoins"]))(admin.handle_set_gold)
 app.on_message(filters.command(["addxp", "addep"]))(admin.handle_add_xp)
 app.on_message(filters.command("setlevel"))(admin.handle_set_level)
 app.on_message(filters.command("inspect"))(admin.handle_inspect)
+app.on_message(filters.command("createcode"))(admin.handle_create_code)
+app.on_message(filters.command(["listcodes", "codes"]))(admin.handle_list_codes)
+app.on_message(filters.command("deletecode"))(admin.handle_delete_code)
 
 # ── Inline Button Callbacks ───────────────────────────────
 app.on_callback_query(filters.regex(r"^equip_"))(inventory.equip_callback)
+app.on_callback_query(filters.regex(r"^use_"))(inventory.use_callback)
 app.on_callback_query(filters.regex(r"^inv_"))(inventory.tab_callback)
 app.on_callback_query(filters.regex(r"^shop_"))(inventory.tab_callback)
 app.on_callback_query(filters.regex(r"^buy_"))(inventory.buy_callback)
 app.on_callback_query(filters.regex(r"^lb_"))(leaderboard.callback)
 app.on_callback_query(filters.regex(r"^glb_"))(guild.guild_leaderboard_callback)
+app.on_callback_query(filters.regex(r"^(gjoin_|gleave_|gview_|gmembers_|gnoop)"))(guild.guild_interaction_callback)
 app.on_callback_query(filters.regex(r"^war_"))(guild_war.war_callback)
 app.on_callback_query(filters.regex(r"^duel_"))(duel.callback)
+app.on_callback_query(filters.regex(r"^forge_"))(forge.callback)
+app.on_callback_query(filters.regex(r"^tower_"))(tower.callback)
+app.on_callback_query(filters.regex(r"^(quest_|stats_)"))(quest.callback)
+app.on_callback_query(filters.regex(r"^help_"))(help.callback)
 
 
 # ── Run ───────────────────────────────────────────────────

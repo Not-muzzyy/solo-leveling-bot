@@ -43,6 +43,48 @@ class Hunter:
     guild_id: Optional[int] = None  # guild_id they belong to (= owner_id if owner)
     guild_war_wins: int = 0
     guild_war_losses: int = 0
+    # ── Daily Quotas & Cooldown Persistence ───────────────
+    daily_hunts: int = 0
+    last_hunt_date: str = ""
+    last_hunt_time: float = 0.0
+    daily_explores: int = 0
+    last_explore_date: str = ""
+    last_explore_time: float = 0.0
+    current_explore_node: int = 0
+    # ── Demon Castle Tower ────────────────────────────────
+    tower_floor: int = 1
+    tower_highest_floor: int = 0
+    tower_keys: int = 3
+    last_tower_date: str = ""
+    # ── System Daily Quests & Free Attributes ─────────────
+    unspent_stat_points: int = 0
+    daily_quest_hunts: int = 0
+    daily_quest_explore: int = 0
+    daily_quest_duel: int = 0
+    daily_quest_use: int = 0
+    daily_quest_claimed: bool = False
+    last_quest_date: str = ""
+
+    def check_and_reset_daily(self) -> None:
+        """Check if UTC calendar date has changed and reset daily quotas accordingly."""
+        from datetime import datetime, timezone
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if self.last_hunt_date != today_str:
+            self.daily_hunts = 0
+            self.last_hunt_date = today_str
+        if self.last_explore_date != today_str:
+            self.daily_explores = 0
+            self.last_explore_date = today_str
+        if self.last_tower_date != today_str:
+            self.tower_keys = 3
+            self.last_tower_date = today_str
+        if self.last_quest_date != today_str:
+            self.daily_quest_hunts = 0
+            self.daily_quest_explore = 0
+            self.daily_quest_duel = 0
+            self.daily_quest_use = 0
+            self.daily_quest_claimed = False
+            self.last_quest_date = today_str
 
     @property
     def display_full_name(self) -> str:
@@ -113,6 +155,14 @@ class Item:
     hp_bonus: int = 0
     spd_bonus: int = 0
     is_equipped: bool = False
+    upgrade_level: int = 0
+
+    @property
+    def display_name(self) -> str:
+        """Formatted item name with upgrade prefix if enhanced (+1, +2, etc.)."""
+        if self.upgrade_level > 0:
+            return f"+{self.upgrade_level} {self.name}"
+        return self.name
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-safe dictionary."""
@@ -324,5 +374,70 @@ class Guild:
 
     @classmethod
     def from_json(cls, text: str) -> Guild:
+        """Deserialize from JSON string."""
+        return cls.from_dict(json.loads(text))
+
+
+@dataclass
+class RedeemCode:
+    """Represents a promo / gift redemption code."""
+
+    code: str                      # Normalized uppercase code (e.g. "SHADOW100K")
+    reward_type: str               # "gold" | "item" | "xp"
+    reward_value: dict | int       # int if gold/xp; serialized Item dict if item
+    max_uses: int = 1              # Max claims across all hunters (0 or -1 = unlimited)
+    claimed_by: list[int] = field(default_factory=list)  # List of hunter user_ids
+    created_by: int = 0            # Telegram user_id of creator
+    created_at: float = 0.0        # Creation timestamp
+    description: str = ""          # Optional label / campaign note
+
+    @property
+    def is_depleted(self) -> bool:
+        """Check if code has reached its maximum claim limit."""
+        if self.max_uses <= 0:
+            return False
+        return len(self.claimed_by) >= self.max_uses
+
+    @property
+    def remaining_uses(self) -> int | str:
+        """Return remaining claims available, or 'Unlimited'."""
+        if self.max_uses <= 0:
+            return "Unlimited"
+        return max(0, self.max_uses - len(self.claimed_by))
+
+    def has_claimed(self, user_id: int) -> bool:
+        """Check if a specific hunter has already claimed this code."""
+        return user_id in self.claimed_by
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-safe dictionary."""
+        return {
+            "type": "redeem_code",
+            "code": self.code.strip().upper(),
+            "reward_type": self.reward_type,
+            "reward_value": self.reward_value,
+            "max_uses": self.max_uses,
+            "claimed_by": self.claimed_by,
+            "created_by": self.created_by,
+            "created_at": self.created_at,
+            "description": self.description,
+        }
+
+    def to_json(self) -> str:
+        """Serialize to compact JSON string."""
+        return json.dumps(self.to_dict(), separators=(",", ":"))
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RedeemCode:
+        """Deserialize from dictionary with safe field filtering."""
+        import dataclasses
+        d = dict(data)
+        d.pop("type", None)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
+
+    @classmethod
+    def from_json(cls, text: str) -> RedeemCode:
         """Deserialize from JSON string."""
         return cls.from_dict(json.loads(text))

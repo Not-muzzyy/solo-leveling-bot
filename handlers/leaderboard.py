@@ -11,13 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, CallbackQuery
 from pyrogram.errors import BadRequest
 
 from channel_db import ChannelDB
 from game.font_manager import clean_and_normalize_name
 from game.leaderboard_image import render_leaderboard_image
+from game.rich_text import escape_html
+from game.captions import build_leaderboard_caption
 from models import Hunter
 
 logger = logging.getLogger(__name__)
@@ -104,12 +106,13 @@ async def handle(client: Client, message: Message) -> None:
     all_hunters = await db.get_all_hunters()
     if not all_hunters:
         await message.reply_text(
-            "╔══════════════════════════════╗\n"
-            "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
-            "║      HUNTER LEADERBOARD      ║\n"
-            "╚══════════════════════════════╝\n\n"
-            "No hunters have awakened yet!\n"
-            "Use /start to awaken and begin your hunter journey."
+            "<b>╭━━━「 🏆 SYSTEM LEADERBOARD 」━━━╮</b>\n\n"
+            "<i>No hunters have awakened yet in the System registry!</i>\n\n"
+            "<blockquote>"
+            "• Use <code>/start</code> to awaken as the first registered Hunter."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=enums.ParseMode.HTML,
         )
         return
 
@@ -126,16 +129,19 @@ async def handle(client: Client, message: Message) -> None:
             category=category,
             requesting_user_id=user.id,
         )
-        cat_name = CATEGORY_TITLES.get(category, "Combat Power")
-        caption = f"🏆 System Leaderboard — Top Hunters [{cat_name}]"
+        caption = build_leaderboard_caption(category)
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_leaderboard_keyboard(category),
+            parse_mode=enums.ParseMode.HTML,
         )
     except Exception as exc:
         logger.error("Failed to render leaderboard image: %s", exc, exc_info=True)
-        await message.reply_text("❌ System Error: Failed to render leaderboard. Please try again later.")
+        await message.reply_text(
+            "❌ System Error: Failed to render leaderboard. Please try again later.",
+            parse_mode=enums.ParseMode.HTML,
+        )
 
 
 async def callback(client: Client, query: CallbackQuery) -> None:
@@ -170,12 +176,11 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             category=category,
             requesting_user_id=user_id,
         )
-        cat_name = CATEGORY_TITLES.get(category, "Combat Power")
-        caption = f"🏆 System Leaderboard — Top Hunters [{cat_name}]"
+        caption = build_leaderboard_caption(category)
 
         if query.message and query.message.photo:
             await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption),
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_leaderboard_keyboard(category),
             )
         elif query.message:
@@ -183,9 +188,11 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 photo=photo_buf,
                 caption=caption,
                 reply_markup=_leaderboard_keyboard(category),
+                parse_mode=enums.ParseMode.HTML,
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):
             logger.warning("BadRequest during leaderboard update: %s", br_err)
     except Exception as exc:
         logger.error("Failed to update leaderboard tab: %s", exc, exc_info=True)
+

@@ -15,6 +15,7 @@ import asyncio
 import logging
 import time
 from pyrogram import Client
+from pyrogram.enums import ParseMode
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from pyrogram.errors import BadRequest
 
@@ -32,6 +33,8 @@ from models import Guild, Hunter, Inventory
 from game.hunter import add_xp
 from game.duel import simulate_duel
 from game.font_manager import clean_and_normalize_name
+from game.formatting import format_not_registered
+from game.rich_text import escape_html
 from game.guild_war_image import (
     render_war_challenge_card,
     render_war_status_card,
@@ -109,7 +112,7 @@ async def handle_war(client: Client, message: Message) -> None:
     # Ensure user is registered
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text("⚠️ You must be a Hunter first. Use /start.")
+        await message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML)
         return
 
     # Check for active war
@@ -119,51 +122,68 @@ async def handle_war(client: Client, message: Message) -> None:
         await _show_war_status(client, message, db, war)
         return
     if war and war["status"] == "pending":
-        await message.reply_text("⚠️ A war challenge is already pending. Wait for it to resolve.")
+        await message.reply_text(
+            "<b>╭━━━「 ⚠️ WAR PROTOCOL PENDING 」━━━╮</b>\n\n"
+            "<i>A syndicate war challenge is currently awaiting resolution.</i>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # /guild war (no args) — show help
     if not args:
         text = (
-            "╔══════════════════════════════╗\n"
-            "║   ⚔️ GUILD WAR SYSTEM        ║\n"
-            "╚══════════════════════════════╝\n\n"
-            "Challenge another guild to war!\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "/guild war <guild_name> — Challenge a guild\n\n"
-            "📜 HOW IT WORKS:\n"
-            "1. Guild owner challenges another guild\n"
-            "2. Target guild owner accepts or declines\n"
-            "3. All members fight 1v1 (strongest vs strongest)\n"
-            "4. Most duel wins = guild wins the war!\n\n"
-            "🎁 WINNER: +200💰 per member, +war_score, +XP\n"
-            "💀 LOSER: -XP, -war_score\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "「 Only the strongest guilds survive. 」"
+            "<b>╭━━━「 ⚔️ GUILD WARFARE SYSTEM 」━━━╮</b>\n\n"
+            "<i>Challenge another Hunter Syndicate to official clan warfare!</i>\n\n"
+            "<blockquote>"
+            "<b>Declaration Directive:</b>\n"
+            "• <code>/guild war &lt;guild_name&gt;</code> — Challenge a rival guild\n\n"
+            "<b>Combat Structure:</b>\n"
+            "1. Guild Sovereign issues the war declaration\n"
+            "2. Opposing Sovereign accepts or declines the challenge\n"
+            "3. Roster members clash in 1v1 ladder duels\n"
+            "4. Syndicate with the most victories claims the spoils!\n\n"
+            f"🎁 <b>Spoils:</b> <code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>/fighter, <code>+{GUILD_WAR_WIN_SCORE} War Score</code>, bonus EXP\n"
+            f"💀 <b>Defeat:</b> <code>-{GUILD_WAR_LOSS_SCORE} War Score</code>, <code>-{GUILD_WAR_XP_PENALTY} EXP</code>\n"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
-        await message.reply_text(text)
+        await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
 
     # ── Challenge another guild ──
     # Verify user is a guild owner
     sender_guild = await db.get_user_guild(user.id)
     if not sender_guild:
-        await message.reply_text("⚠️ You must be in a guild to start a war. Create one with /guild create.")
+        await message.reply_text(
+            "⚠️ <b>Enrollment Required:</b> You must belong to a guild to declare war. Establish one via <code>/guild create</code>.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     if sender_guild.owner_id != user.id:
-        await message.reply_text("⚠️ Only the guild owner can declare war!")
+        await message.reply_text(
+            "⚠️ <b>Authority Denied:</b> Only the Guild Sovereign can issue a formal war declaration!",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # Find target guild
     target_name = " ".join(args).strip()
     target_guild = await db.get_guild_by_name(target_name)
     if not target_guild:
-        await message.reply_text(f"❌ No guild named **{target_name}** found.", parse_mode="markdown")
+        t_name = escape_html(target_name)
+        await message.reply_text(
+            f"❌ <b>Target Syndicate Missing:</b> No guild named <b>{t_name}</b> exists in System records.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     if target_guild.guild_id == sender_guild.guild_id:
-        await message.reply_text("⚠️ You can't declare war on your own guild!")
+        await message.reply_text(
+            "⚠️ <b>Internal Conflict Forbidden:</b> You cannot declare war upon your own guild!",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # Load members
@@ -180,7 +200,10 @@ async def handle_war(client: Client, message: Message) -> None:
             defender_members.append(h)
 
     if not challenger_members or not defender_members:
-        await message.reply_text("❌ Both guilds need members to start a war.")
+        await message.reply_text(
+            "❌ Both syndicates require active members to initiate a guild war.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     challenger_power = sum(h.power for h in challenger_members)
@@ -200,6 +223,21 @@ async def handle_war(client: Client, message: Message) -> None:
         "defender_power": defender_power,
     }
 
+    s_name = escape_html(sender_guild.name)
+    t_name = escape_html(target_guild.name)
+    caption = (
+        "<b>╭━━━「 ⚔️ GUILD WAR DECLARATION 」━━━╮</b>\n\n"
+        f"🏰 <b>Challenger:</b> <b>{s_name}</b> (⚡<code>{challenger_power:,}</code>)\n"
+        f"🛡️ <b>Target:</b> <b>{t_name}</b> (⚡<code>{defender_power:,}</code>)\n\n"
+        "<blockquote>"
+        "<b>Notice to Opposing Sovereign:</b>\n"
+        f"• <b>{s_name}</b> has issued an official challenge to <b>{t_name}</b>.\n"
+        "• Target Sovereign must respond to initiate combat or forfeit.\n"
+        "</blockquote>\n\n"
+        "<i>Respond using the controls below:</i>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
     # Send challenge card
     try:
         photo_buf = await asyncio.to_thread(
@@ -208,23 +246,18 @@ async def handle_war(client: Client, message: Message) -> None:
             target_guild, defender_members,
             challenger_power, defender_power,
         )
-        caption = (
-            f"⚔️ **{sender_guild.name}** declares war on **{target_guild.name}**!\n\n"
-            f"👑 Target owner: Reply required to accept/decline."
-        )
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_war_keyboard(),
-            parse_mode="markdown",
+            parse_mode=ParseMode.HTML,
         )
     except Exception as exc:
         logger.error("Failed to render war challenge card: %s", exc, exc_info=True)
         await message.reply_text(
-            f"⚔️ **{sender_guild.name}** declares war on **{target_guild.name}**!\n\n"
-            f"👑 Target owner: Use /guild war to accept or decline.",
+            caption,
             reply_markup=_war_keyboard(),
-            parse_mode="markdown",
+            parse_mode=ParseMode.HTML,
         )
 
     logger.info(f"War challenge: {sender_guild.name} -> {target_guild.name}")
@@ -244,7 +277,10 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
     war = _get_war()
 
     if not war or war["status"] != "pending":
-        await query.edit_message_text("⚠️ This war challenge has expired or been resolved.")
+        await query.edit_message_text(
+            "⚠️ This war challenge has expired or been resolved.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # Only target guild owner can accept/decline
@@ -254,10 +290,13 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
 
     if query.data == "war_decline":
         _reset_war()
+        def_name = escape_html(war['defender_guild_name'])
         await query.edit_message_text(
-            f"❌ **{war['defender_guild_name']}** has declined the war challenge.\n\n"
-            f"Their leader chose diplomacy over battle.",
-            parse_mode="markdown",
+            "<b>╭━━━「 🏳️ WAR CHALLENGE DECLINED 」━━━╮</b>\n\n"
+            f"❌ <b>{def_name}</b> declined the war challenge.\n\n"
+            "<blockquote><i>Their leader chose diplomacy over bloodshed.</i></blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -268,7 +307,10 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
 
         if not defender_guild or not challenger_guild:
             _reset_war()
-            await query.edit_message_text("❌ One of the guilds no longer exists. War cancelled.")
+            await query.edit_message_text(
+                "❌ One of the guilds no longer exists. War cancelled.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         # Initiate the war
@@ -278,6 +320,17 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         )
 
         # Send initial status card
+        ch_name = escape_html(war['challenger_guild_name'])
+        def_name = escape_html(war['defender_guild_name'])
+        caption = (
+            "<b>╭━━━「 ⚔️ GUILD WAR INITIATED 」━━━╮</b>\n\n"
+            f"🏰 <b>{ch_name}</b> vs <b>{def_name}</b>\n\n"
+            "<blockquote>"
+            f"• Scheduled Clashes: <code>{len(active_war['matchups'])}</code> 1v1 Duels\n"
+            "• All duel outcomes will determine the victorious syndicate."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        )
         try:
             photo_buf = await asyncio.to_thread(
                 render_war_status_card,
@@ -288,23 +341,16 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
                 active_war["challengers"],
                 active_war["defenders"],
             )
-            caption = (
-                f"⚔️ **WAR BEGINS!**\n\n"
-                f"🏰 {war['challenger_guild_name']} vs {war['defender_guild_name']}\n"
-                f"👥 {len(active_war['matchups'])} battles will determine the winner!"
-            )
             if query.message:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption),
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                     reply_markup=None,
-                    parse_mode="markdown",
                 )
         except Exception as exc:
             logger.error("Failed to render war status: %s", exc, exc_info=True)
             await query.edit_message_text(
-                f"⚔️ **WAR BEGINS!** {war['challenger_guild_name']} vs {war['defender_guild_name']}\n\n"
-                f"Starting {len(active_war['matchups'])} battles...",
-                parse_mode="markdown",
+                caption,
+                parse_mode=ParseMode.HTML,
             )
 
         logger.info(f"War started: {war['challenger_guild_name']} vs {war['defender_guild_name']}")
@@ -410,6 +456,21 @@ async def _resolve_war(
 
         await db.save_hunter(h.user_id)
 
+    w_name = escape_html(winner_guild.name)
+    l_name = escape_html(loser_guild.name)
+    result_text = (
+        "<b>╭━━━「 🏆 GUILD WAR CONCLUDED 」━━━╮</b>\n\n"
+        f"👑 <b>Victor Syndicate:</b> <b>{w_name}</b>\n"
+        f"💀 <b>Defeated Syndicate:</b> <b>{l_name}</b>\n\n"
+        "<blockquote>"
+        f"• Final Standing: <code>{c_wins} — {d_wins}</code>\n"
+        f"• Winner Spoils: 💰 <code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>, ✨ <code>+{GUILD_WAR_BASE_XP + GUILD_WAR_WIN_BONUS_XP:,} XP</code>/fighter\n"
+        f"• Defeat Penalty: 💀 <code>-{GUILD_WAR_XP_PENALTY:,} XP</code>/member\n"
+        f"• War Score: <b>{w_name}</b> <code>+{GUILD_WAR_WIN_SCORE}</code> ┊ <b>{l_name}</b> <code>-{GUILD_WAR_LOSS_SCORE}</code>\n"
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
     # Send result card
     try:
         photo_buf = await asyncio.to_thread(
@@ -424,7 +485,6 @@ async def _resolve_war(
             GUILD_WAR_XP_PENALTY,
         )
 
-        # Find a message to edit or send new
         chat_id = war.get("message_chat_id")
         msg_id = war.get("message_id")
 
@@ -433,22 +493,12 @@ async def _resolve_war(
                 await client.edit_message_media(
                     chat_id=chat_id,
                     message_id=msg_id,
-                    media=InputMediaPhoto(media=photo_buf, caption=f"⚔️ WAR COMPLETE — {winner_guild.name} WINS!"),
+                    media=InputMediaPhoto(media=photo_buf, caption=f"⚔️ <b>WAR COMPLETE — {w_name} WINS!</b>", parse_mode=ParseMode.HTML),
                 )
             except Exception:
                 pass
     except Exception as exc:
         logger.error("Failed to render war result card: %s", exc, exc_info=True)
-
-    # Send result as new message
-    result_text = (
-        f"⚔️ **WAR COMPLETE!**\n\n"
-        f"🏆 **{winner_guild.name}** wins!\n\n"
-        f"📊 Final Score: {c_wins} — {d_wins}\n\n"
-        f"🎁 Winner bonuses applied: +{GUILD_WAR_GOLD_REWARD}💰, +{GUILD_WAR_BASE_XP + GUILD_WAR_WIN_BONUS_XP} XP per fighter\n"
-        f"💀 Loser penalties: -{GUILD_WAR_XP_PENALTY} XP per member\n"
-        f"📈 War Score: {winner_guild.name} +{GUILD_WAR_WIN_SCORE} | {loser_guild.name} -{GUILD_WAR_LOSS_SCORE}"
-    )
 
     # Try to send result to the chat where war was started
     if war.get("message_chat_id"):
@@ -456,7 +506,7 @@ async def _resolve_war(
             await client.send_message(
                 chat_id=war["message_chat_id"],
                 text=result_text,
-                parse_mode="markdown",
+                parse_mode=ParseMode.HTML,
             )
         except Exception:
             pass
@@ -476,9 +526,20 @@ async def _show_war_status(client: Client, message: Message, db: ChannelDB, war:
     d_guild = await db.get_guild(war["defender_guild_id"])
 
     if not c_guild or not d_guild:
-        await message.reply_text("⚠️ War state is invalid.")
+        await message.reply_text("⚠️ War state is invalid.", parse_mode=ParseMode.HTML)
         return
 
+    cg_name = escape_html(c_guild.name)
+    dg_name = escape_html(d_guild.name)
+    caption = (
+        "<b>╭━━━「 ⚔️ GUILD WAR IN PROGRESS 」━━━╮</b>\n\n"
+        f"🏰 <b>{cg_name}</b> [<code>{c_wins}</code>] vs [<code>{d_wins}</code>] <b>{dg_name}</b>\n\n"
+        "<blockquote>"
+        f"• Current Engagement: <code>{current}/{total}</code> battles\n"
+        "• Outcome updating in real-time."
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
     try:
         photo_buf = await asyncio.to_thread(
             render_war_status_card,
@@ -488,11 +549,10 @@ async def _show_war_status(client: Client, message: Message, db: ChannelDB, war:
             list(war["challengers"].values()),
             list(war["defenders"].values()),
         )
-        caption = f"⚔️ WAR IN PROGRESS — {c_guild.name} [{c_wins}] vs [{d_wins}] {d_guild.name}"
-        await message.reply_photo(photo=photo_buf, caption=caption)
+        await message.reply_photo(photo=photo_buf, caption=caption, parse_mode=ParseMode.HTML)
     except Exception as exc:
         logger.error("Failed to render war status: %s", exc, exc_info=True)
         await message.reply_text(
-            f"⚔️ WAR: {c_guild.name} [{c_wins}] vs [{d_wins}] {d_guild.name}\n"
-            f"Battle {current}/{total} in progress..."
+            caption,
+            parse_mode=ParseMode.HTML,
         )

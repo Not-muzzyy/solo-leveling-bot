@@ -24,6 +24,8 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, 
 
 from channel_db import ChannelDB
 from game.formatting import format_not_registered
+from game.rich_text import escape_html
+from game.captions import build_duel_challenge_caption, build_duel_result_caption
 from game.duel import simulate_duel
 from game.duel_image import render_duel_card
 from game.photo_helper import fetch_user_pfp_bytes
@@ -42,9 +44,13 @@ async def handle(client: Client, message: Message) -> None:
     # 1. Enforce Group Chat Only (No Duels in PM)
     if chat.type == "private":
         await message.reply_text(
-            "⚔️ <b>HUNTER PVP ARENA</b>\n\n"
-            "Duels can only be initiated in <b>Group Chats</b>!\n\n"
-            "To challenge a rival Hunter, reply to any of their messages in a group with <code>/duel</code>.",
+            "<b>╭━━━「 ⚔️ HUNTER PVP ARENA 」━━━╮</b>\n\n"
+            "⚠️ <b>Arena Protocol: Group Directives Only</b>\n\n"
+            "<blockquote>"
+            "• Duels can only be initiated inside <b>Group Chats</b>!\n"
+            "• To challenge a rival, reply to any of their messages with <code>/duel</code>."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -52,8 +58,12 @@ async def handle(client: Client, message: Message) -> None:
     # 2. Enforce Reply-To-Message Requirement
     if not message.reply_to_message or not message.reply_to_message.from_user:
         await message.reply_text(
-            "⚠️ <b>Challenge Target Required!</b>\n\n"
-            "To challenge another Hunter to a duel, <b>reply</b> to one of their messages in this group with <code>/duel</code>!",
+            "<b>╭━━━「 ⚔️ TARGET SPECIFICATION REQUIRED 」━━━╮</b>\n\n"
+            "⚠️ <b>Direct reply required to issue a challenge!</b>\n\n"
+            "<blockquote>"
+            "• <b>Reply</b> to a rival Hunter's message in this group with <code>/duel</code>."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -63,8 +73,12 @@ async def handle(client: Client, message: Message) -> None:
     # 3. Disallow Bot Challenges
     if opponent_user.is_bot:
         await message.reply_text(
-            "🤖 <b>Automaton Target Invalid!</b>\n\n"
-            "You cannot challenge a System Automaton / Bot to a duel!",
+            "<b>╭━━━「 🤖 INVALID COMBAT TARGET 」━━━╮</b>\n\n"
+            "❌ <b>Target is a System Automaton!</b>\n\n"
+            "<blockquote>"
+            "• You cannot challenge non-awakened automata / bots to a duel."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -72,8 +86,12 @@ async def handle(client: Client, message: Message) -> None:
     # 4. Disallow Self-Duels
     if opponent_user.id == user.id:
         await message.reply_text(
-            "⚔️ <b>Self-Challenge Prohibited!</b>\n\n"
-            "You cannot duel yourself. Reply to a worthy rival Hunter's message to issue a challenge!",
+            "<b>╭━━━「 ⚔️ SELF-COMBAT PROHIBITED 」━━━╮</b>\n\n"
+            "❌ <b>Internal mana clash disallowed!</b>\n\n"
+            "<blockquote>"
+            "• Reply to a worthy rival Hunter's message to issue an Arena challenge."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -83,34 +101,27 @@ async def handle(client: Client, message: Message) -> None:
     # 5. Check Registration of Challenger
     challenger_hunter = await db.get_hunter(user.id)
     if not challenger_hunter:
-        await message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML)
         return
 
     # 6. Check Registration of Opponent
     opponent_hunter = await db.get_hunter(opponent_user.id)
     if not opponent_hunter:
-        opp_name = opponent_user.first_name or "Target"
+        opp_name = escape_html(opponent_user.first_name or "Target")
         await message.reply_text(
-            f"⚠️ <b>Target Not Awakened!</b>\n\n"
-            f"<b>{opp_name}</b> has not awakened as a Hunter yet. They must start their journey with /start first!",
+            "<b>╭━━━「 ⚠️ OPPONENT NOT AWAKENED 」━━━╮</b>\n\n"
+            f"❌ <b>{opp_name} has not awakened!</b>\n\n"
+            "<blockquote>"
+            "• They have not registered with the System yet.\n"
+            "• They must awaken via <code>/start</code> first before entering PvP."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
 
     # 7. Send Duel Challenge Invitation with Interactive Keyboard
-    c_name = challenger_hunter.display_full_name
-    o_name = opponent_hunter.display_full_name
-
-    text = (
-        "╔══════════════════════════════════╗\n"
-        "║   ⚔️ <b>HUNTER DUEL CHALLENGE</b> ⚔️   ║\n"
-        "╚══════════════════════════════════╝\n\n"
-        f"💥 <b>{c_name}</b> [Rank {challenger_hunter.rank} • Lv. {challenger_hunter.level}]\n"
-        f"has challenged\n"
-        f"🎯 <b>{o_name}</b> [Rank {opponent_hunter.rank} • Lv. {opponent_hunter.level}]\n"
-        "to an official Arena PvP Duel!\n\n"
-        f"<i>Only {o_name} can accept or decline this challenge.</i>"
-    )
+    text = build_duel_challenge_caption(challenger_hunter, opponent_hunter)
 
     keyboard = InlineKeyboardMarkup([
         [
@@ -150,15 +161,17 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     challenger = await db.get_hunter(challenger_id)
     opponent = await db.get_hunter(opponent_id)
 
-    c_name = challenger.display_full_name if challenger else f"Hunter #{challenger_id}"
-    o_name = opponent.display_full_name if opponent else f"Hunter #{opponent_id}"
+    c_name = escape_html(challenger.display_full_name if challenger else f"Hunter #{challenger_id}")
+    o_name = escape_html(opponent.display_full_name if opponent else f"Hunter #{opponent_id}")
 
     # 2. Handle Decline
     if action == "decline":
         await query.answer("Duel challenge declined.")
         await query.edit_message_text(
-            f"🏳️ <b>DUEL DECLINED</b>\n\n"
-            f"<b>{o_name}</b> has declined the duel challenge from <b>{c_name}</b>.",
+            "<b>╭━━━「 🏳️ DUEL DECLINED 」━━━╮</b>\n\n"
+            f"<b>{o_name}</b> declined the duel challenge from <b>{c_name}</b>.\n\n"
+            "<blockquote><i>Combat avoided. Peace maintained in the district.</i></blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -167,14 +180,18 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if action == "accept":
         await query.answer("⚔️ Duel accepted! Entering Arena...")
         await query.edit_message_text(
-            "⚔️ <b>DUEL IN PROGRESS...</b>\n\n"
-            f"<b>{c_name}</b> and <b>{o_name}</b> have entered the Arena!\n"
-            "The System is computing combat resolution...",
+            "<b>╭━━━「 ⚔️ ARENA GATES OPENING 」━━━╮</b>\n\n"
+            f"<b>{c_name}</b> and <b>{o_name}</b> have stepped into the Arena!\n\n"
+            "<blockquote><i>The System is computing combat matrix resolution...</i></blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
             parse_mode=ParseMode.HTML,
         )
 
         if not challenger or not opponent:
-            await query.message.reply_text("⚠️ Could not load hunter profiles. Duel aborted.")
+            await query.message.reply_text(
+                "⚠️ Could not load hunter profiles. Duel aborted.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         c_inv = await db.get_inventory(challenger_id)
@@ -187,11 +204,16 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         # 5. Simulate Combat
         result = simulate_duel(challenger, c_inv, opponent, o_inv)
 
+        # Track daily quest duel completion
+        challenger.daily_quest_duel += 1
+        opponent.daily_quest_duel += 1
+
         # 6. Persist Updated Hunter Data
         await db.save_hunter(challenger_id)
         await db.save_hunter(opponent_id)
 
         # 7. Render Duel Resolution Card & Dispatch
+        caption = build_duel_result_caption(result)
         try:
             photo_buf = await asyncio.to_thread(
                 render_duel_card,
@@ -202,16 +224,6 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 opponent_inv=o_inv,
             )
 
-            winner_name = result.winner.display_full_name
-            loser_name = result.loser.display_full_name
-            caption = (
-                f"⚔️ <b>PVP ARENA DUEL RESOLUTION</b>\n\n"
-                f"👑 <b>Victor:</b> {winner_name} (+{result.winner_xp_gained} XP, +{result.winner_gold_gained} G)\n"
-                f"💀 <b>Defeated:</b> {loser_name} (+{result.loser_xp_gained} XP)"
-            )
-            if result.winner_leveled_up and result.winner_new_level:
-                caption += f"\n⭐ <b>{winner_name}</b> leveled up to <b>Lv. {result.winner_new_level}</b>!"
-
             await query.message.reply_photo(
                 photo=photo_buf,
                 caption=caption,
@@ -220,11 +232,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         except Exception as exc:
             logger.error("Failed to render duel card: %s", exc, exc_info=True)
             await query.message.reply_text(
-                f"⚔️ <b>PVP ARENA DUEL RESOLUTION</b>\n\n"
-                f"👑 <b>Victor:</b> {result.winner.display_full_name}\n"
-                f"💀 <b>Defeated:</b> {result.loser.display_full_name}\n\n"
-                f"💥 Challenger Damage: {result.challenger_damage_dealt:,}\n"
-                f"💥 Opponent Damage: {result.opponent_damage_dealt:,}\n"
-                f"🎁 Spoils: +{result.winner_xp_gained} XP, +{result.winner_gold_gained} Gold",
+                caption,
                 parse_mode=ParseMode.HTML,
             )
+

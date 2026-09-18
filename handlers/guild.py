@@ -33,6 +33,8 @@ from game.formatting import format_not_registered
 from game.font_manager import clean_and_normalize_name
 from game.guild_image import render_guild_image
 from game.guild_leaderboard_image import render_guild_leaderboard_image
+from game.rich_text import escape_html
+from game.captions import build_guild_caption
 from handlers import guild_war
 
 logger = logging.getLogger(__name__)
@@ -40,19 +42,145 @@ logger = logging.getLogger(__name__)
 
 def _format_guild_info(guild: Guild, db_guild_stats: dict | None = None) -> str:
     """Format guild info as text."""
-    lines = [
-        "╔══════════════════════════════╗",
-        "║   🏰 HUNTER GUILD            ║",
-        "╚══════════════════════════════╝",
-        "",
-        f"🏰 {guild.name}",
-        f"📝 {guild.description or 'No description set.'}",
-        f"👑 Owner: #{guild.owner_id}",
-        f"👥 Members: {len(guild.members)}/{GUILD_MAX_MEMBERS}",
-        "",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-    ]
-    return "\n".join(lines)
+    g_name = escape_html(guild.name)
+    desc = escape_html(guild.description or "No description recorded.")
+    return (
+        f"<b>╭━━━「 🏰 GUILD DIRECTORY // {g_name.upper()} 」━━━╮</b>\n\n"
+        f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{guild.guild_id}</code>)\n"
+        f"👥 <b>Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
+        f"👑 <b>Sovereign:</b> <code>#{guild.owner_id}</code>\n\n"
+        "<blockquote>"
+        f"📝 <b>Guild Creed:</b> <i>{desc}</i>\n"
+        "• Active Syndicate Perk: 🎁 <b>+10% EXP on all Hunts</b>\n"
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
+
+def _guild_view_keyboard(
+    user_id: int,
+    target_guild: Guild,
+    viewer_guild: Optional[Guild],
+    all_guilds: list[Guild] | None = None,
+) -> InlineKeyboardMarkup:
+    """Construct dynamic Hallmark action buttons for the visual Guild Card."""
+    buttons = []
+    gid = target_guild.guild_id
+
+    # Row 1: Contextual Membership Actions
+    if viewer_guild and viewer_guild.guild_id == gid:
+        if viewer_guild.owner_id == user_id:
+            buttons.append([
+                InlineKeyboardButton("👑 Guild Sovereign", callback_data="gnoop"),
+                InlineKeyboardButton("👥 Members", callback_data=f"gmembers_{gid}"),
+            ])
+            buttons.append([
+                InlineKeyboardButton("⚔️ Challenge War", callback_data=f"gwar_{gid}"),
+                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+            ])
+        else:
+            buttons.append([
+                InlineKeyboardButton("🚪 Leave Guild", callback_data=f"gleave_{gid}"),
+                InlineKeyboardButton("👥 Members", callback_data=f"gmembers_{gid}"),
+            ])
+            buttons.append([
+                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+            ])
+    elif viewer_guild:
+        # Viewer belongs to a different guild
+        buttons.append([
+            InlineKeyboardButton(f"⚠️ In Guild: {viewer_guild.name}", callback_data="gnoop_switch"),
+            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+        ])
+    else:
+        # Viewer is guildless -> PROMINENT JOIN BUTTON!
+        buttons.append([
+            InlineKeyboardButton(f"⚔️ Join {target_guild.name}", callback_data=f"gjoin_{gid}"),
+        ])
+        buttons.append([
+            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+        ])
+
+    # Row 2 (Optional): Navigation when browsing directory
+    if all_guilds and len(all_guilds) > 1:
+        idx = 0
+        for i, g in enumerate(all_guilds):
+            if g.guild_id == gid:
+                idx = i
+                break
+        prev_gid = all_guilds[(idx - 1) % len(all_guilds)].guild_id
+        next_gid = all_guilds[(idx + 1) % len(all_guilds)].guild_id
+        buttons.append([
+            InlineKeyboardButton("◀️ Previous", callback_data=f"gview_{prev_gid}"),
+            InlineKeyboardButton(f"🏰 {idx + 1}/{len(all_guilds)}", callback_data="gnoop"),
+            InlineKeyboardButton("Next ▶️", callback_data=f"gview_{next_gid}"),
+        ])
+
+    return InlineKeyboardMarkup(buttons)
+
+
+async def handle_view(client: Client, message: Message, target_query: str = "") -> None:
+    """Handle /guild view and /guild info commands with Hallmark visual rendering."""
+    user = message.from_user
+    if not user:
+        return
+
+    db: ChannelDB = client.db
+    viewer_guild = await db.get_user_guild(user.id)
+    all_guilds = await db.get_all_guilds()
+
+    guild = None
+    if target_query:
+        guild = await db.get_guild_by_name(target_query)
+        if not guild:
+            q_esc = escape_html(target_query)
+            await message.reply_text(
+                f"❌ No Hunter Guild matching <b>{q_esc}</b> was found in the System Registry.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+    elif viewer_guild:
+        guild = viewer_guild
+    elif all_guilds:
+        # Viewer has no guild and specified no query: show first / top guild
+        guild = all_guilds[0]
+    else:
+        await message.reply_text(
+            "<b>╭━━━「 🏰 HUNTER GUILD REGISTRY 」━━━╮</b>\n\n"
+            "<i>No Hunter Guilds have been established yet in the System!</i>\n\n"
+            "<blockquote>"
+            "• Be the pioneer and establish the first Guild:\n"
+            "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    # Load member hunters
+    member_hunters = []
+    for uid in guild.members:
+        h = await db.get_hunter(uid)
+        if h:
+            member_hunters.append(h)
+
+    total_power = sum(h.power for h in member_hunters)
+    keyboard = _guild_view_keyboard(user.id, guild, viewer_guild, all_guilds)
+    caption = build_guild_caption(guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
+
+    try:
+        photo_buf = await asyncio.to_thread(
+            render_guild_image, guild, member_hunters, total_power
+        )
+        await message.reply_photo(photo=photo_buf, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+    except Exception as exc:
+        logger.error("Failed to render hallmark guild image: %s", exc, exc_info=True)
+        # Fallback to text
+        await message.reply_text(
+            _format_guild_info(guild),
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
 
 
 async def handle(client: Client, message: Message) -> None:
@@ -73,56 +201,71 @@ async def handle(client: Client, message: Message) -> None:
     # ── /guild (no args) — show help ──────────────────────
     if not sub:
         text = (
-            "╔══════════════════════════════╗\n"
-            "║   🏰 HUNTER GUILD SYSTEM     ║\n"
-            "╚══════════════════════════════╝\n\n"
-            "⚔️ GUILD COMMANDS\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "/guild create <name> — Create a guild (500💰)\n"
-            "/guild join <name> — Join a guild\n"
-            "/guild leave — Leave your guild\n"
-            "/guild info — View your guild card\n"
-            "/guild members — List guild members\n"
-            "/guild top — Top 10 guilds leaderboard\n"
-            "/guild war <name> — Challenge a guild to war\n"
-            "/guild kick — Kick a member (owner only)\n"
-            "/guild disband — Delete your guild (owner only)\n"
-            "/guild edit <desc> — Edit description (owner only)\n\n"
-            "🎁 GIFT COMMANDS\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "/gift item <id> @user — Gift an item to a guildmate\n"
-            "/gift gold <amount> @user — Gift gold to a guildmate\n"
-            "Or reply to a guildmate's message with /gift item <id>\n\n"
-            f"👥 Max members: {GUILD_MAX_MEMBERS}\n"
-            "🎁 Guild members get +10% XP on hunts!\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "「 A Hunter grows stronger with allies at their side. 」"
+            "<b>╭━━━「 🏰 HUNTER GUILD DIRECTORY 」━━━╮</b>\n\n"
+            "<blockquote>"
+            "<b>⚔️ Syndicate Directives:</b>\n"
+            "• <code>/guild view [name]</code> — View guild card & join\n"
+            "• <code>/guild create &lt;name&gt;</code> — Establish guild (<code>500 Gold</code>)\n"
+            "• <code>/guild join &lt;name&gt;</code> — Pledge allegiance to a guild\n"
+            "• <code>/guild leave</code> — Depart current guild\n"
+            "• <code>/guild members</code> — Inspect guild roster\n"
+            "• <code>/guild top</code> — Top 10 guilds leaderboard\n"
+            "• <code>/guild war &lt;name&gt;</code> — Challenge rival guild to war\n"
+            "• <code>/guild kick</code> — Expel member (reply in group)\n"
+            "• <code>/guild disband</code> — Dissolve guild (owner only)\n"
+            "• <code>/guild edit &lt;desc&gt;</code> — Update syndicate creed\n"
+            "</blockquote>\n\n"
+            "<blockquote>"
+            "<b>🎁 Gifting Protocols:</b>\n"
+            "• <code>/gift gold &lt;amount&gt; @user</code> — Gift gold to guildmate\n"
+            "• <code>/gift item &lt;id&gt; @user</code> — Gift equipment to guildmate\n"
+            "</blockquote>\n\n"
+            "<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
-        await message.reply_text(text)
+        await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
 
     # ── /guild create <name> ──────────────────────────────
     if sub == "create":
         if len(args) < 2:
-            await message.reply_text("Usage: /guild create <name>\nExample: /guild create Shadow Legion")
+            await message.reply_text(
+                "<b>╭━━━「 🏰 GUILD ESTABLISHMENT 」━━━╮</b>\n\n"
+                "⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n"
+                "<i>Example:</i> <code>/guild create Shadow Legion</code>\n\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         guild_name = " ".join(args[1:]).strip()
         if len(guild_name.split()) < 1 or len(guild_name.split()) > 4:
-            await message.reply_text("Guild name must be 1-4 words long.")
+            await message.reply_text(
+                "❌ <b>Invalid Name:</b> Guild name must be 1 to 4 words.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         if hunter.guild_id:
-            await message.reply_text("⚠️ You already belong to a guild! Leave it first with /guild leave.")
+            await message.reply_text(
+                "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         if await db.guild_name_exists(guild_name):
-            await message.reply_text(f"❌ A guild named **{guild_name}** already exists!", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(
+                f"❌ <b>Name Conflict:</b> A guild named <b>{escape_html(guild_name)}</b> already exists!",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         # Check gold
         if hunter.gold < 500:
-            await message.reply_text(f"❌ Creating a guild costs 500💰. You have {hunter.gold:,}💰.")
+            await message.reply_text(
+                f"❌ <b>Insufficient Treasury:</b> Creating a guild costs <code>500 Gold</code>. You have <code>{hunter.gold:,} Gold</code>.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         # Create the guild
@@ -140,11 +283,16 @@ async def handle(client: Client, message: Message) -> None:
         await db.save_hunter(user.id)
 
         await message.reply_text(
-            f"🏰 **{guild_name}** has been established!\n\n"
-            f"👑 Owner: {hunter.display_full_name}\n"
-            f"👥 Members: 1/{GUILD_MAX_MEMBERS}\n\n"
-            f"Use /guild info to view your guild.",
-            parse_mode=ParseMode.MARKDOWN,
+            "<b>╭━━━「 🏰 GUILD CHARTER ESTABLISHED 」━━━╮</b>\n\n"
+            f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!\n\n"
+            "<blockquote>"
+            f"👑 <b>Founder / Sovereign:</b> <b>{escape_html(hunter.display_full_name)}</b>\n"
+            f"👥 <b>Initial Roster:</b> <code>1/{GUILD_MAX_MEMBERS}</code>\n"
+            "• Perk Active: 🎁 <b>+10% Hunt EXP</b> unlocked for all members\n"
+            "</blockquote>\n\n"
+            "<i>Use <code>/guild info</code> to review your visual syndicate card.</i>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
         logger.info(f"Guild created: {guild_name} by {hunter.hunter_name}")
         return
@@ -152,203 +300,186 @@ async def handle(client: Client, message: Message) -> None:
     # ── /guild join <name> ────────────────────────────────
     if sub == "join":
         if len(args) < 2:
-            await message.reply_text("Usage: /guild join <name>\nExample: /guild join Shadow Legion")
+            await message.reply_text(
+                "<b>╭━━━「 🏰 JOIN SYNDICATE 」━━━╮</b>\n\n"
+                "⚠️ <b>Syntax:</b> <code>/guild join &lt;name&gt;</code>\n"
+                "<i>Example:</i> <code>/guild join Shadow Legion</code>\n\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         guild_name = " ".join(args[1:]).strip()
 
         if hunter.guild_id:
-            await message.reply_text("⚠️ You already belong to a guild! Leave it first with /guild leave.")
+            await message.reply_text(
+                "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         guild = await db.get_guild_by_name(guild_name)
         if not guild:
-            await message.reply_text(f"❌ No guild named **{guild_name}** found.", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(
+                f"❌ <b>Not Found:</b> No guild named <b>{escape_html(guild_name)}</b> exists.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         if len(guild.members) >= GUILD_MAX_MEMBERS:
-            await message.reply_text(f"❌ **{guild.name}** is full! ({len(guild.members)}/{GUILD_MAX_MEMBERS})")
+            await message.reply_text(
+                f"❌ <b>Roster Full:</b> <b>{escape_html(guild.name)}</b> has reached capacity (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>).",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         success = await db.add_guild_member(guild.guild_id, user.id)
         if success:
             await message.reply_text(
-                f"🏰 You have joined **{guild.name}**!\n\n"
-                f"👥 Members: {len(guild.members)}/{GUILD_MAX_MEMBERS}\n"
-                f"🎁 You now receive +10% XP on hunts!",
-                parse_mode=ParseMode.MARKDOWN,
+                "<b>╭━━━「 🏰 GUILD PLEDGE ACCEPTED 」━━━╮</b>\n\n"
+                f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!\n\n"
+                "<blockquote>"
+                f"👥 <b>Updated Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
+                "🎁 <b>Active Buff:</b> <code>+10% EXP</code> applied to all dungeon hunts!\n"
+                "</blockquote>\n\n"
+                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                parse_mode=ParseMode.HTML,
             )
         else:
-            await message.reply_text("❌ Failed to join guild. Try again.")
+            await message.reply_text(
+                "❌ Failed to join guild. Please try again.",
+                parse_mode=ParseMode.HTML,
+            )
         return
 
     # ── /guild leave ──────────────────────────────────────
     if sub == "leave":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You don't belong to any guild.")
+            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
             return
 
         if guild.owner_id == user.id:
-            await message.reply_text("⚠️ You are the guild owner! Use /guild disband to delete it, or transfer ownership first.")
+            await message.reply_text(
+                "⚠️ <b>Sovereign Restriction:</b> You are the guild owner! Use <code>/guild disband</code> to dissolve the guild.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         await db.remove_guild_member(guild.guild_id, user.id)
-        await message.reply_text(f"🚪 You have left **{guild.name}**.", parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(
+            f"🚪 <b>Allegiance Severed:</b> You have departed from <b>{escape_html(guild.name)}</b>.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
-    # ── /guild info [name] ────────────────────────────────
-    if sub == "info":
-        if len(args) >= 2:
-            # Look up by name
-            guild_name = " ".join(args[1:]).strip()
-            guild = await db.get_guild_by_name(guild_name)
-        else:
-            # Show user's own guild
-            guild = await db.get_user_guild(user.id)
-
-        if not guild:
-            await message.reply_text("⚠️ No guild found. Create one with /guild create <name>")
-            return
-
-        # Load all member hunters
-        member_hunters = []
-        for uid in guild.members:
-            h = await db.get_hunter(uid)
-            if h:
-                member_hunters.append(h)
-
-        total_power = sum(h.power for h in member_hunters)
-
-        try:
-            photo_buf = await asyncio.to_thread(
-                render_guild_image, guild, member_hunters, total_power
-            )
-            caption = f"🏰 {guild.name} — {len(guild.members)}/{GUILD_MAX_MEMBERS} members"
-            await message.reply_photo(photo=photo_buf, caption=caption)
-        except Exception as exc:
-            logger.error("Failed to render guild image: %s", exc, exc_info=True)
-            # Fallback to text
-            member_lines = []
-            for h in sorted(member_hunters, key=lambda x: (x.user_id != guild.owner_id, -x.power)):
-                rank_emoji = {
-                    "E": "🅴", "D": "🅳", "C": "🅲", "B": "🅱️", "A": "🅰️",
-                    "S": "⭐", "SS": "🌟", "SSS": "💫", "National Level": "🔱", "Monarch": "👑"
-                }.get(h.rank, "")
-                role = "👑" if h.user_id == guild.owner_id else "⚔️"
-                member_lines.append(f"{role} {h.display_full_name} — Lv.{h.level} {rank_emoji}{h.rank}")
-
-            member_text = "\n".join(member_lines) if member_lines else "No members found."
-            text = (
-                "╔══════════════════════════════╗\n"
-                "║   🏰 GUILD INFO              ║\n"
-                "╚══════════════════════════════╝\n\n"
-                f"🏰 {guild.name}\n"
-                f"📝 {guild.description or 'No description set.'}\n"
-                f"👥 Members: {len(guild.members)}/{GUILD_MAX_MEMBERS}\n"
-                f"💪 Total Power: {total_power:,}\n"
-                f"🎁 XP Bonus: +10% for all members\n"
-                "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📋 MEMBERS:\n{member_text}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            )
-            await message.reply_text(text)
+    # ── /guild view / /guild info [name/id] ───────────────
+    if sub in ("view", "info"):
+        target_query = " ".join(args[1:]).strip() if len(args) > 1 else ""
+        await handle_view(client, message, target_query)
         return
 
     # ── /guild members ────────────────────────────────────
     if sub == "members":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You don't belong to any guild.")
+            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
             return
 
         member_lines = []
         for uid in guild.members:
             h = await db.get_hunter(uid)
             if h:
-                rank_emoji = {
-                    "E": "🅴", "D": "🅳", "C": "🅲", "B": "🅱️", "A": "🅰️",
-                    "S": "⭐", "SS": "🌟", "SSS": "💫", "National Level": "🔱", "Monarch": "👑"
-                }.get(h.rank, "")
                 role = "👑 Owner" if uid == guild.owner_id else "⚔️ Member"
-                member_lines.append(f"{role} — {h.display_full_name} | Lv.{h.level} {rank_emoji}{h.rank} | ⚡{h.power}")
+                member_lines.append(f"• {role}: <b>{escape_html(h.display_full_name)}</b> [Rank <b>{h.rank}</b> | Lv.<code>{h.level}</code> | ⚡<code>{h.power:,}</code>]")
 
         text = (
-            f"🏰 {guild.name} — Members ({len(guild.members)}/{GUILD_MAX_MEMBERS})\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>╭━━━「 👥 GUILD ROSTER // {escape_html(guild.name.upper())} 」━━━╮</b>\n\n"
+            f"🏰 <b>Syndicate:</b> <b>{escape_html(guild.name)}</b> (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>)\n\n"
+            "<blockquote>"
             + "\n".join(member_lines) +
-            "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            "\n</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
-        await message.reply_text(text)
+        await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
 
     # ── /guild kick <user> ────────────────────────────────
     if sub == "kick":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You don't belong to any guild.")
+            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the guild owner can kick members.")
+            await message.reply_text("⚠️ Only the Guild Sovereign can expel members.", parse_mode=ParseMode.HTML)
             return
 
         if not message.reply_to_message or not message.reply_to_message.from_user:
-            await message.reply_text("⚠️ Reply to a member's message to kick them.")
+            await message.reply_text("⚠️ Reply to a member's message in this group to expel them.", parse_mode=ParseMode.HTML)
             return
 
         target = message.reply_to_message.from_user
         if target.id == user.id:
-            await message.reply_text("⚠️ You can't kick yourself. Use /guild disband instead.")
+            await message.reply_text("⚠️ You cannot expel yourself. Use <code>/guild disband</code> instead.", parse_mode=ParseMode.HTML)
             return
 
         if target.id not in guild.members:
-            await message.reply_text(f"⚠️ {target.first_name} is not in your guild.")
+            await message.reply_text(f"⚠️ {escape_html(target.first_name)} is not enrolled in your guild.", parse_mode=ParseMode.HTML)
             return
 
         await db.remove_guild_member(guild.guild_id, target.id)
-        await message.reply_text(f"👢 {target.first_name} has been kicked from **{guild.name}**.", parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(
+            f"👢 <b>Member Expelled:</b> <b>{escape_html(target.first_name)}</b> was removed from <b>{escape_html(guild.name)}</b>.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # ── /guild disband ────────────────────────────────────
     if sub == "disband":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You don't belong to any guild.")
+            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the guild owner can disband the guild.")
+            await message.reply_text("⚠️ Only the Guild Sovereign can disband the guild.", parse_mode=ParseMode.HTML)
             return
 
         guild_name = guild.name
         await db.delete_guild(guild.guild_id)
-        await message.reply_text(f"🏰 **{guild_name}** has been disbanded.", parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(
+            f"🏰 <b>Syndicate Dissolved:</b> <b>{escape_html(guild_name)}</b> has been permanently disbanded.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # ── /guild edit <desc> ────────────────────────────────
     if sub == "edit":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You don't belong to any guild.")
+            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the guild owner can edit the description.")
+            await message.reply_text("⚠️ Only the Guild Sovereign can edit the description.", parse_mode=ParseMode.HTML)
             return
 
         desc = " ".join(args[1:]).strip()
         if not desc:
-            await message.reply_text("Usage: /guild edit <description>")
+            await message.reply_text("Usage: <code>/guild edit &lt;description&gt;</code>", parse_mode=ParseMode.HTML)
             return
 
         if len(desc) > 200:
-            await message.reply_text("Description must be 200 characters or less.")
+            await message.reply_text("❌ Description must be 200 characters or fewer.", parse_mode=ParseMode.HTML)
             return
 
         guild.description = desc
         await db.save_guild(guild.guild_id)
-        await message.reply_text(f"📝 Guild description updated:\n\n{desc}")
+        await message.reply_text(
+            f"📝 <b>Guild Creed Updated:</b>\n\n<i>{escape_html(desc)}</i>",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # ── /guild top — guild leaderboard ────────────────────
@@ -362,7 +493,10 @@ async def handle(client: Client, message: Message) -> None:
         return
 
     # Unknown subcommand
-    await message.reply_text("Unknown guild command. Use /guild to see available commands.")
+    await message.reply_text(
+        "❌ Unknown guild command. Use <code>/guild</code> to see available directives.",
+        parse_mode=ParseMode.HTML,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -400,73 +534,84 @@ async def handle_gift(client: Client, message: Message) -> None:
 
     sender = await db.get_hunter(user.id)
     if not sender:
-        await message.reply_text(format_not_registered())
+        await message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML)
         return
 
     if not args:
         await message.reply_text(
-            "╔══════════════════════════════╗\n"
-            "║   🎁 GUILD GIFT SYSTEM       ║\n"
-            "╚══════════════════════════════╝\n\n"
-            "Gift items and gold to your guildmates!\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "/gift item <id> @user — Gift an item\n"
-            "/gift gold <amount> @user — Gift gold\n\n"
-            "💡 Tip: Reply to a guildmate's message\n"
-            "with /gift item <id> for quick gifting!\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "「 Sharing strength is the mark of a true guild. 」"
+            "<b>╭━━━「 🎁 GUILD GIFTING PROTOCOL 」━━━╮</b>\n\n"
+            "<i>Distribute treasury or equipment directly to your guildmates!</i>\n\n"
+            "<blockquote>"
+            "<b>Directives:</b>\n"
+            "• <code>/gift item &lt;id&gt; @user</code> — Gift unequipped gear\n"
+            "• <code>/gift gold &lt;amount&gt; @user</code> — Gift treasury gold\n\n"
+            "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
         return
 
     gift_type = args[0].lower()
     if gift_type not in ("item", "gold"):
-        await message.reply_text("Usage: /gift item <id> or /gift gold <amount>\nExample: /gift item 3 (reply to recipient)")
+        await message.reply_text(
+            "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt;</code> or <code>/gift gold &lt;amount&gt;</code>",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # Verify sender is in a guild
     sender_guild = await db.get_user_guild(user.id)
     if not sender_guild:
-        await message.reply_text("⚠️ You must be in a guild to gift. Create one with /guild create.")
+        await message.reply_text(
+            "⚠️ You must be enrolled in a Hunter Guild to gift items or gold.",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     # ── /gift gold <amount> ──────────────────────────────
     if gift_type == "gold":
         if len(args) < 2:
-            await message.reply_text("Usage: /gift gold <amount> @user\nExample: /gift gold 500 (reply to recipient)")
+            await message.reply_text(
+                "⚠️ <b>Usage:</b> <code>/gift gold &lt;amount&gt; @user</code>",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         try:
             amount = int(args[1])
         except ValueError:
-            await message.reply_text("❌ Invalid gold amount. Use a whole number.")
+            await message.reply_text("❌ Invalid gold amount. Use a positive integer.", parse_mode=ParseMode.HTML)
             return
 
         if amount <= 0:
-            await message.reply_text("❌ Gold amount must be positive.")
+            await message.reply_text("❌ Gold amount must be greater than zero.", parse_mode=ParseMode.HTML)
             return
 
         if sender.gold < amount:
-            await message.reply_text(f"❌ You don't have enough gold! You have {sender.gold:,}💰.")
+            await message.reply_text(
+                f"❌ <b>Insufficient Treasury:</b> You only possess <code>{sender.gold:,} Gold</code>.",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         recipient_id, err = _resolve_recipient(message, args)
         if err:
-            await message.reply_text(err)
+            await message.reply_text(err, parse_mode=ParseMode.HTML)
             return
 
         if recipient_id == user.id:
-            await message.reply_text("⚠️ You can't gift gold to yourself.")
+            await message.reply_text("⚠️ You cannot gift gold to yourself.", parse_mode=ParseMode.HTML)
             return
 
         # Verify recipient is in same guild
         if recipient_id not in sender_guild.members:
-            await message.reply_text("⚠️ That hunter is not in your guild.")
+            await message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML)
             return
 
         recipient = await db.get_hunter(recipient_id)
         if not recipient:
-            await message.reply_text("⚠️ That hunter hasn't registered yet.")
+            await message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML)
             return
 
         # Transfer gold
@@ -475,11 +620,17 @@ async def handle_gift(client: Client, message: Message) -> None:
         await db.save_hunter(user.id)
         await db.save_hunter(recipient_id)
 
+        s_name = escape_html(sender.display_full_name)
+        r_name = escape_html(recipient.display_full_name)
         await message.reply_text(
-            f"🎁 **{sender.display_full_name}** gifted **{amount:,}💰** to **{recipient.display_full_name}**!\n\n"
-            f"Your balance: {sender.gold:,}💰\n"
-            f"Their balance: {recipient.gold:,}💰",
-            parse_mode=ParseMode.MARKDOWN,
+            "<b>╭━━━「 🎁 GUILD TREASURY DISPATCH 」━━━╮</b>\n\n"
+            f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!\n\n"
+            "<blockquote>"
+            f"• Sender Vault: <code>{sender.gold:,} Gold</code>\n"
+            f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
         logger.info(f"Gold gift: {sender.hunter_name} -> {recipient.hunter_name}: {amount} gold")
         return
@@ -487,49 +638,52 @@ async def handle_gift(client: Client, message: Message) -> None:
     # ── /gift item <id> ──────────────────────────────────
     if gift_type == "item":
         if len(args) < 2:
-            await message.reply_text("Usage: /gift item <id> @user\nExample: /gift item 3 (reply to recipient)")
+            await message.reply_text(
+                "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt; @user</code>",
+                parse_mode=ParseMode.HTML,
+            )
             return
 
         try:
             item_id = int(args[1])
         except ValueError:
-            await message.reply_text("❌ Invalid item ID. Use a number (e.g., /gift item 3).")
+            await message.reply_text("❌ Invalid item ID. Use a valid number.", parse_mode=ParseMode.HTML)
             return
 
         recipient_id, err = _resolve_recipient(message, args)
         if err:
-            await message.reply_text(err)
+            await message.reply_text(err, parse_mode=ParseMode.HTML)
             return
 
         if recipient_id == user.id:
-            await message.reply_text("⚠️ You can't gift items to yourself.")
+            await message.reply_text("⚠️ You cannot gift items to yourself.", parse_mode=ParseMode.HTML)
             return
 
         # Verify recipient is in same guild
         if recipient_id not in sender_guild.members:
-            await message.reply_text("⚠️ That hunter is not in your guild.")
+            await message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML)
             return
 
         recipient = await db.get_hunter(recipient_id)
         if not recipient:
-            await message.reply_text("⚠️ That hunter hasn't registered yet.")
+            await message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML)
             return
 
         # Check sender has the item
         sender_inv = await db.get_inventory(user.id)
         item = sender_inv.get_item(item_id)
         if not item:
-            await message.reply_text(f"❌ No item with ID {item_id} found in your inventory.")
+            await message.reply_text(f"❌ No item with ID <code>{item_id}</code> found in your inventory.", parse_mode=ParseMode.HTML)
             return
 
         if item.is_equipped:
-            await message.reply_text("⚠️ Unequip the item first before gifting it!")
+            await message.reply_text("⚠️ Unequip the artifact first before gifting it!", parse_mode=ParseMode.HTML)
             return
 
         # Remove from sender, add to receiver
         removed = sender_inv.remove_item(item_id)
         if not removed:
-            await message.reply_text("❌ Failed to remove item from inventory.")
+            await message.reply_text("❌ Failed to transfer item from inventory.", parse_mode=ParseMode.HTML)
             return
 
         recipient_inv = await db.get_inventory(recipient_id)
@@ -544,12 +698,22 @@ async def handle_gift(client: Client, message: Message) -> None:
             "Epic": "🟣", "Legendary": "🟡", "Mythic": "🔴",
         }.get(removed.rarity, "⚪")
 
+        s_name = escape_html(sender.display_full_name)
+        r_name = escape_html(recipient.display_full_name)
+        it_name = escape_html(removed.name)
         await message.reply_text(
-            f"🎁 **{sender.display_full_name}** gifted **{rarity_emoji} {removed.name}** to **{recipient.display_full_name}**!\n\n"
-            f"Item: {removed.stat_summary()}\n"
-            f"Type: {removed.type.title()} | Rarity: {removed.rarity}",
-            parse_mode=ParseMode.MARKDOWN,
+            "<b>╭━━━「 🎁 GUILD ARTIFACT TRANSFER 」━━━╮</b>\n\n"
+            f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!\n\n"
+            "<blockquote>"
+            f"• Artifact: <code>[{escape_html(removed.rarity)}]</code> <b>{it_name}</b>\n"
+            f"• Stats: <code>{escape_html(removed.stat_summary())}</code>\n"
+            f"• Slot: <b>{escape_html(removed.type.title())}</b>"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
+        logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
+        return
         logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
         return
 
@@ -641,12 +805,13 @@ async def handle_top(client: Client, message: Message) -> None:
     all_guilds = await db.get_all_guilds()
     if not all_guilds:
         await message.reply_text(
-            "╔══════════════════════════════╗\n"
-            "║   ⚡ SYSTEM NOTIFICATION ⚡   ║\n"
-            "║    GUILD LEADERBOARD         ║\n"
-            "╚══════════════════════════════╝\n\n"
-            "No guilds have been established yet!\n"
-            "Use /guild create <name> to found a guild."
+            "<b>╭━━━「 🏆 GUILD LEADERBOARD 」━━━╮</b>\n\n"
+            "<i>No guilds have been established yet in the System!</i>\n\n"
+            "<blockquote>"
+            "• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild."
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -666,15 +831,28 @@ async def handle_top(client: Client, message: Message) -> None:
             viewer_guild_id=viewer_guild_id,
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
-        caption = f"🏰 Guild Leaderboard — Top Guilds [{cat_name}]"
+        caption = (
+            f"<b>╭━━━「 🏆 GUILD LEADERBOARD // {cat_name.upper()} 」━━━╮</b>\n\n"
+            f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
+            "<blockquote>"
+            "<b>Guild Standings Matrix:</b>\n"
+            "• Visual rankings displayed on the Syndicate HUD card above.\n"
+            "• Switch ranking criteria using the controls below.\n"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        )
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_glb_keyboard(category),
+            parse_mode=ParseMode.HTML,
         )
     except Exception as exc:
         logger.error("Failed to render guild leaderboard image: %s", exc, exc_info=True)
-        await message.reply_text("❌ System Error: Failed to render guild leaderboard. Please try again later.")
+        await message.reply_text(
+            "❌ System Error: Failed to render guild leaderboard. Please try again later.",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> None:
@@ -714,11 +892,20 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
             viewer_guild_id=viewer_guild_id,
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
-        caption = f"🏰 Guild Leaderboard — Top Guilds [{cat_name}]"
+        caption = (
+            f"<b>╭━━━「 🏆 GUILD LEADERBOARD // {cat_name.upper()} 」━━━╮</b>\n\n"
+            f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
+            "<blockquote>"
+            "<b>Guild Standings Matrix:</b>\n"
+            "• Visual rankings displayed on the Syndicate HUD card above.\n"
+            "• Switch ranking criteria using the controls below.\n"
+            "</blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        )
 
         if query.message and query.message.photo:
             await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption),
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                 reply_markup=_glb_keyboard(category),
             )
         elif query.message:
@@ -726,9 +913,201 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
                 photo=photo_buf,
                 caption=caption,
                 reply_markup=_glb_keyboard(category),
+                parse_mode=ParseMode.HTML,
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):
             logger.warning("BadRequest during guild leaderboard update: %s", br_err)
     except Exception as exc:
         logger.error("Failed to update guild leaderboard tab: %s", exc, exc_info=True)
+
+
+async def guild_interaction_callback(client: Client, query: CallbackQuery) -> None:
+    """Handle interactive guild action buttons (gjoin_, gleave_, gview_, gmembers_, gnoop)."""
+    if not query:
+        return
+
+    data = query.data or ""
+    user = query.from_user
+    if not user:
+        return
+
+    db: ChannelDB = client.db
+
+    if data == "gnoop":
+        await query.answer("👑 Guild Sovereign & Founder.", show_alert=False)
+        return
+
+    if data == "gnoop_switch":
+        await query.answer(
+            "⚠️ You already belong to a Guild!\nYou must leave your current guild (/guild leave) before joining another.",
+            show_alert=True,
+        )
+        return
+
+    # ── gmembers_{guild_id} ──
+    if data.startswith("gmembers_"):
+        try:
+            gid = int(data[9:])
+        except ValueError:
+            return
+        g = await db.get_guild_by_id(gid)
+        if not g:
+            await query.answer("❌ Guild not found.", show_alert=True)
+            return
+
+        lines = [f"🏰 {g.name} — Members ({len(g.members)}/{GUILD_MAX_MEMBERS}):"]
+        for uid in g.members:
+            h = await db.get_hunter(uid)
+            if h:
+                role = "👑" if uid == g.owner_id else "⚔️"
+                lines.append(f"{role} {h.display_full_name} [Lv.{h.level} {h.rank}-Rank] ⚡{h.power:,}")
+        roster_text = "\n".join(lines[:12])
+        if len(lines) > 12:
+            roster_text += f"\n...and {len(lines) - 12} more"
+        if len(roster_text) > 190:
+            roster_text = roster_text[:187] + "..."
+        await query.answer(roster_text, show_alert=True)
+        return
+
+    # ── gview_{guild_id} ──
+    if data.startswith("gview_"):
+        await query.answer()
+        try:
+            gid = int(data[6:])
+        except ValueError:
+            return
+        target_guild = await db.get_guild_by_id(gid)
+        if not target_guild:
+            return
+
+        viewer_guild = await db.get_user_guild(user.id)
+        all_guilds = await db.get_all_guilds()
+
+        member_hunters = []
+        for uid in target_guild.members:
+            h = await db.get_hunter(uid)
+            if h:
+                member_hunters.append(h)
+        total_power = sum(h.power for h in member_hunters)
+
+        photo_buf = await asyncio.to_thread(
+            render_guild_image, target_guild, member_hunters, total_power
+        )
+        caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
+        keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
+        try:
+            if query.message and query.message.photo:
+                await query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                    reply_markup=keyboard,
+                )
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                logger.warning(f"Failed to edit guild view: {e}")
+        return
+
+    # ── gjoin_{guild_id} ──
+    if data.startswith("gjoin_"):
+        hunter = await db.get_hunter(user.id)
+        if not hunter:
+            await query.answer("⚠️ Register first with /start!", show_alert=True)
+            return
+
+        try:
+            gid = int(data[6:])
+        except ValueError:
+            return
+
+        target_guild = await db.get_guild_by_id(gid)
+        if not target_guild:
+            await query.answer("❌ Guild no longer exists.", show_alert=True)
+            return
+
+        if hunter.guild_id:
+            await query.answer("⚠️ You already belong to a guild! Leave it first with /guild leave.", show_alert=True)
+            return
+
+        if len(target_guild.members) >= GUILD_MAX_MEMBERS:
+            await query.answer(f"❌ {target_guild.name} is full ({len(target_guild.members)}/{GUILD_MAX_MEMBERS})!", show_alert=True)
+            return
+
+        success = await db.add_guild_member(target_guild.guild_id, user.id)
+        if success:
+            await query.answer(
+                f"🎉 Welcome to {target_guild.name}!\nYou have received the +10% XP Buff on all hunts!",
+                show_alert=True,
+            )
+            # Refresh card in-place
+            viewer_guild = target_guild
+            all_guilds = await db.get_all_guilds()
+            member_hunters = []
+            for uid in target_guild.members:
+                h = await db.get_hunter(uid)
+                if h:
+                    member_hunters.append(h)
+            total_power = sum(h.power for h in member_hunters)
+
+            photo_buf = await asyncio.to_thread(
+                render_guild_image, target_guild, member_hunters, total_power
+            )
+            caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
+            keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
+            try:
+                if query.message and query.message.photo:
+                    await query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                        reply_markup=keyboard,
+                    )
+            except Exception as e:
+                logger.warning(f"In-place media edit error after join: {e}")
+        else:
+            await query.answer("❌ Failed to join guild. Please try again.", show_alert=True)
+        return
+
+    # ── gleave_{guild_id} ──
+    if data.startswith("gleave_"):
+        try:
+            gid = int(data[7:])
+        except ValueError:
+            return
+
+        target_guild = await db.get_guild_by_id(gid)
+        if not target_guild:
+            await query.answer("❌ Guild not found.", show_alert=True)
+            return
+
+        if target_guild.owner_id == user.id:
+            await query.answer("⚠️ Guild Sovereign cannot leave. Use /guild disband or transfer ownership.", show_alert=True)
+            return
+
+        if user.id not in target_guild.members:
+            await query.answer("⚠️ You are not a member of this guild.", show_alert=True)
+            return
+
+        await db.remove_guild_member(target_guild.guild_id, user.id)
+        await query.answer(f"🚪 You have departed from {target_guild.name}.", show_alert=True)
+
+        # Refresh card in-place
+        all_guilds = await db.get_all_guilds()
+        member_hunters = []
+        for uid in target_guild.members:
+            h = await db.get_hunter(uid)
+            if h:
+                member_hunters.append(h)
+        total_power = sum(h.power for h in member_hunters)
+
+        photo_buf = await asyncio.to_thread(
+            render_guild_image, target_guild, member_hunters, total_power
+        )
+        caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
+        keyboard = _guild_view_keyboard(user.id, target_guild, None, all_guilds)
+        try:
+            if query.message and query.message.photo:
+                await query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                    reply_markup=keyboard,
+                )
+        except Exception as e:
+            logger.warning(f"In-place media edit error after leave: {e}")
+        return
