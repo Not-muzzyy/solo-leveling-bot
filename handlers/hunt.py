@@ -102,7 +102,7 @@ async def handle(client: Client, message: Message) -> None:
     hunter.daily_quest_hunts += 1
 
     # Generate monster based on hunter level/rank
-    monster = generate_monster(hunter)
+    monster = generate_monster(hunter.level)
 
     # Simulate combat
     result = simulate_hunt(hunter, monster)
