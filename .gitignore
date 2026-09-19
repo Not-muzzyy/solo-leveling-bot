@@ -52,6 +52,7 @@ logs/
 *.tmp
 *.temp
 nohup.out
+.restart_state.json
 
 # Test & Debug Artifacts
 .pytest_cache/

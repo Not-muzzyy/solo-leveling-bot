@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from config import RARITY_EMOJI, RANK_EMOJI
 from models import Hunter, Item, HuntResult, Inventory
-from game.rich_text import escape_html, bold, italic, code, blockquote, system_lore, pre
+from game.rich_text import escape_html, bold, italic, code, blockquote, system_lore, pre, safe_message
 
 
 def _stat_bar(value: int, max_val: int = 50) -> str:
@@ -104,7 +104,7 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
     lines = [
         "<b>╭━━━「 ⚔️ HUNTER STATUS MATRIX 」━━━╮</b>",
         "",
-        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b> {rank_icon}]",
+        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{escape_html(hunter.rank)}</b> {rank_icon}]",
         f"🏅 <b>Title:</b> <i>{title_esc}</i>",
         f"📊 <b>Level:</b> <code>{hunter.level}</code> ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code> (<code>+{total_equip}</code>)",
         f"✨ <b>XP:</b> <code>{hunter.xp}/{hunter.xp_needed}</code>  {_progress_bar(hunter.xp, hunter.xp_needed)}",
@@ -136,14 +136,14 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ]
 
-    return "\n".join(lines)
+    return safe_message("\n".join(lines))
 
 
 def format_welcome(hunter: Hunter) -> str:
     """Format the dramatic welcome message for a new hunter."""
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
-    return (
+    return safe_message(
         "<b>╭━━━「 ⚡ SYSTEM AWAKENING NOTICE 」━━━╮</b>\n\n"
         "<i>A new Hunter has been detected and registered by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
@@ -192,14 +192,15 @@ def format_hunt_victory(result: HuntResult) -> str:
         rarity_icon = RARITY_EMOJI.get(result.item_drop.rarity, "")
         stats = escape_html(result.item_drop.stat_summary())
         drop_name = escape_html(result.item_drop.name)
-        lines.append(f"• 🎁 <b>Loot Drop:</b> [{result.item_drop.rarity}] <b>{drop_name}</b> {rarity_icon} (<i>{stats}</i>)")
+        drop_rarity = escape_html(result.item_drop.rarity)
+        lines.append(f"• 🎁 <b>Loot Drop:</b> [{drop_rarity}] <b>{drop_name}</b> {rarity_icon} (<i>{stats}</i>)")
 
     if result.leveled_up:
         lines.append(f"• ⚡ <b>LEVEL UP!</b> → <b>Level {result.new_level}</b>")
 
     if result.ranked_up:
         new_rank_icon = RANK_EMOJI.get(result.new_rank, "")
-        lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → <b>{result.new_rank}</b> {new_rank_icon}")
+        lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → <b>{escape_html(result.new_rank)}</b> {new_rank_icon}")
 
     lines.append("</blockquote>")
 
@@ -208,7 +209,7 @@ def format_hunt_victory(result: HuntResult) -> str:
         lines.append(f"<blockquote>{escape_html(result.special_event)}</blockquote>")
 
     lines.append("<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>")
-    return "\n".join(lines)
+    return safe_message("\n".join(lines))
 
 
 def format_hunt_defeat(result: HuntResult) -> str:
@@ -239,7 +240,7 @@ def format_hunt_defeat(result: HuntResult) -> str:
     if result.special_event:
         lines.insert(-1, f"<blockquote>{escape_html(result.special_event)}</blockquote>")
 
-    return "\n".join(lines)
+    return safe_message("\n".join(lines))
 
 
 def format_hunt_result(result: HuntResult) -> str:
@@ -282,7 +283,7 @@ def format_inventory(
 
     if hunter:
         lines.extend([
-            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 🏅 Rank <b>{hunter.rank}</b>",
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 🏅 Rank <b>{escape_html(hunter.rank)}</b>",
             f"💰 <b>Gold:</b> <code>{hunter.gold:,} G</code> ┊ 📦 <b>Capacity:</b> <code>{total_items} items</code>",
             "",
         ])
@@ -318,8 +319,9 @@ def format_inventory(
             status_tag = "⚡ [EQUIPPED]" if item.is_equipped else "📦 [IN STORAGE]"
             stats = escape_html(item.stat_summary())
             it_name = escape_html(item.name)
+            it_rarity = escape_html(item.rarity)
 
-            lines.append(f"{i}. {rarity_icon} <b>{it_name}</b> [<b>{item.rarity}</b>]")
+            lines.append(f"{i}. {rarity_icon} <b>{it_name}</b> [<b>{it_rarity}</b>]")
             lines.append(f"   ├ Status: <code>{status_tag}</code>")
             lines.append(f"   └ Stats:  <code>{stats}</code>")
 
@@ -336,7 +338,7 @@ def format_inventory(
         "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ])
 
-    return "\n".join(lines)
+    return safe_message("\n".join(lines))
 
 
 def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> str:
@@ -378,7 +380,7 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
 
     diff_body = "\n".join(stat_diffs)
 
-    return (
+    return safe_message(
         "<b>╭━━━「 ⚔️ EQUIPMENT BINDING COMPLETE 」━━━╮</b>\n\n"
         f"⚡ <b>Equipped:</b> <code>[{escape_html(item.rarity)}]</code> <b>{i_name}</b> {rarity_icon}\n"
         f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
@@ -395,7 +397,7 @@ def format_cooldown(remaining_seconds: int) -> str:
     """Format cooldown remaining message."""
     minutes = remaining_seconds // 60
     seconds = remaining_seconds % 60
-    return (
+    return safe_message(
         "<b>╭━━━「 ⏳ RECOVERY IN PROGRESS 」━━━╮</b>\n\n"
         "<i>You are still catching your breath from your previous hunt.</i>\n\n"
         "<blockquote>"
@@ -409,10 +411,11 @@ def format_cooldown(remaining_seconds: int) -> str:
 def format_already_registered(hunter: Hunter) -> str:
     """Message when a user tries to /start again."""
     h_name = escape_html(hunter.hunter_name)
-    return (
+    r_name = escape_html(hunter.rank)
+    return safe_message(
         "<b>╭━━━「 ⚡ HUNTER SYSTEM CONNECTED 」━━━╮</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
-        f"⭐ <b>Rank:</b> <b>{hunter.rank}-Rank</b> ┊ 📊 <b>Level:</b> <code>{hunter.level}</code>\n"
+        f"⭐ <b>Rank:</b> <b>{r_name}-Rank</b> ┊ 📊 <b>Level:</b> <code>{hunter.level}</code>\n"
         f"⚡ <b>Power:</b> <code>{hunter.power:,}</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
         "<blockquote>"
         "<b>Available Directives:</b>\n"
@@ -427,7 +430,7 @@ def format_already_registered(hunter: Hunter) -> str:
 
 def format_not_registered() -> str:
     """Message when unregistered user tries a command."""
-    return (
+    return safe_message(
         "<b>╭━━━「 ⚠️ SYSTEM AWAKENING REQUIRED 」━━━╮</b>\n\n"
         "<i>The System detects no awakened mana signature for your identity.</i>\n\n"
         "<blockquote>"

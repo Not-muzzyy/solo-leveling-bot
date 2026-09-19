@@ -13,11 +13,28 @@ and authorized superadmins (configured via OWNER_ID / SUPERADMIN_IDS in .env):
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import os
+import re
+import subprocess
+import sys
+import time
 from typing import Optional, Tuple
 
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 from pyrogram import Client, filters, enums
-from pyrogram.types import Message
+from pyrogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 
 import config
 from config import RANKS, RANK_LEVEL_THRESHOLDS, BASE_HP
@@ -203,6 +220,12 @@ async def handle_admin_help(client: Client, message: Message) -> None:
         "<blockquote>"
         "🔍 <b>Diagnostics & Inspection:</b>\n"
         "• <code>/inspect [user_id|@username]</code> — Deep telemetry & raw attributes\n"
+        "</blockquote>\n\n"
+        "<blockquote>"
+        "🚀 <b>Lifecycle & Remote Updates:</b>\n"
+        "• <code>/update</code> — Check remote git commits, changed files & code lines\n"
+        "• <code>/restart</code> — Pull latest commits & reboot bot process\n"
+        "• <code>/stop</code> (or <code>/shutdown</code>) — Terminate & kill bot process\n"
         "</blockquote>\n\n"
         "<blockquote>💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i></blockquote>\n"
         "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
@@ -779,4 +802,298 @@ async def handle_delete_code(client: Client, message: Message) -> None:
             f"❌ Code <code>{escape_html(code_str)}</code> was not found in the System registry.",
             parse_mode=enums.ParseMode.HTML,
         )
+
+
+# ── GIT REPOSITORY & LIFECYCLE HELPERS ───────────────────────────────────────
+
+RESTART_STATE_FILE = os.path.join(os.getcwd(), ".restart_state.json")
+
+
+def _run_git(*args: str) -> tuple[int, str, str]:
+    """Execute a git command synchronously in a worker thread."""
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=os.getcwd(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=35,
+        )
+        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+    except Exception as exc:
+        return -1, "", str(exc)
+
+
+async def _run_git_async(*args: str) -> tuple[int, str, str]:
+    """Execute a git command asynchronously without blocking the event loop."""
+    return await asyncio.to_thread(_run_git, *args)
+
+
+async def _get_git_branch() -> str:
+    """Determine the active git branch name."""
+    ret, stdout, _ = await _run_git_async("rev-parse", "--abbrev-ref", "HEAD")
+    return stdout if ret == 0 and stdout else "main"
+
+
+async def _get_upstream_ref(branch: str) -> str:
+    """Determine the remote tracking upstream branch."""
+    ret, stdout, _ = await _run_git_async("rev-parse", "--abbrev-ref", "@{u}")
+    if ret == 0 and stdout:
+        return stdout
+    return f"origin/{branch}"
+
+
+async def _execute_restart(client: Client, chat_id: int, message_id: int, pull_first: bool = True) -> None:
+    """
+    Persist restart metadata, optionally pull updates, spawn fresh process, and exit cleanly.
+    """
+    _, current_commit, _ = await _run_git_async("rev-parse", "--short", "HEAD")
+    branch = await _get_git_branch()
+
+    pull_summary = ""
+    if pull_first:
+        ret, stdout, stderr = await _run_git_async("pull")
+        pull_summary = stdout if ret == 0 else f"Error: {stderr}"
+        logger.info(f"Pre-restart git pull output: {pull_summary}")
+
+    restart_data = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "timestamp": time.time(),
+        "branch": branch,
+        "prev_commit": current_commit or "unknown",
+        "pull_summary": pull_summary[:300] if pull_summary else "",
+    }
+
+    try:
+        with open(RESTART_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(restart_data, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to write restart state: {e}")
+
+    # Brief pause to allow Telegram networks and disk buffers to flush
+    await asyncio.sleep(0.5)
+
+    # Re-launch current script with same python executable & arguments
+    script_path = os.path.abspath(sys.argv[0])
+    args = [sys.executable, script_path] + sys.argv[1:]
+    logger.info(f"Spawning restart process: {args}")
+
+    try:
+        subprocess.Popen(args, cwd=os.getcwd())
+    except Exception as exc:
+        logger.error(f"Failed to spawn new process during restart: {exc}")
+        return
+
+    # Terminate current process immediately to release sessions and sockets
+    os._exit(0)
+
+
+# ── COMMAND: /update ──────────────────────────────────────────────────────────
+async def handle_update(client: Client, message: Message) -> None:
+    """
+    Check remote git origin for incoming commits.
+    Displays:
+    - Commit names / titles
+    - Changed files list
+    - Code total lines ONLY in number (+insertions, -deletions, total lines)
+    """
+    user = message.from_user
+    if not user or not is_superadmin(user.id):
+        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    status_msg = await message.reply_text(
+        "<b>╭━━━「 🔍 CHECKING UPDATES 」━━━╮</b>\n\n"
+        "<i>Contacting remote repository origin...</i>\n\n"
+        "<blockquote>• Fetching git refs from origin...</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+
+    branch = await _get_git_branch()
+    upstream = await _get_upstream_ref(branch)
+
+    # 1. Fetch remote origin
+    ret, _, stderr = await _run_git_async("fetch", "origin")
+    if ret != 0:
+        await status_msg.edit_text(
+            "<b>╭━━━「 ⚠️ UPDATE CHECK FAILED 」━━━╮</b>\n\n"
+            f"❌ Failed to reach remote git origin.\n\n"
+            f"<blockquote><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>\n\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+        return
+
+    # 2. Check commit difference between HEAD and upstream
+    ret, count_str, _ = await _run_git_async("rev-list", "--count", f"HEAD..{upstream}")
+    commit_count = int(count_str) if (ret == 0 and count_str.isdigit()) else 0
+
+    if commit_count <= 0:
+        # System is already synchronized
+        _, current_hash, _ = await _run_git_async("rev-parse", "--short", "HEAD")
+        _, commit_msg, _ = await _run_git_async("log", "-1", "--format=%s")
+        _, author, _ = await _run_git_async("log", "-1", "--format=%an")
+
+        text = (
+            "<b>╭━━━「 ✨ SYSTEM UP TO DATE 」━━━╮</b>\n\n"
+            "<i>The Solo Leveling Hunter System is synchronized with remote origin.</i>\n\n"
+            "<blockquote>"
+            f"• <b>Branch:</b> <code>{escape_html(branch)}</code>\n"
+            f"• <b>Active Commit:</b> <code>{escape_html(current_hash)}</code>\n"
+            f"• <b>Latest Change:</b> {escape_html(commit_msg)}\n"
+            f"• <b>Author:</b> {escape_html(author)}\n"
+            "• <b>Status:</b> 🟢 No pending remote commits found.\n"
+            "</blockquote>\n\n"
+            "<blockquote>💡 <i>Use <code>/restart</code> anytime to reboot the bot process.</i></blockquote>\n"
+            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        )
+        await status_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
+        return
+
+    # 3. Incoming commits found! Extract details:
+    # A. Commit names & titles
+    ret, log_out, _ = await _run_git_async("log", f"HEAD..{upstream}", "--format=%h - %s (%an)", f"-n{min(commit_count, 10)}")
+    commit_lines = [line.strip() for line in log_out.split("\n") if line.strip()]
+    commits_formatted = []
+    for c in commit_lines:
+        parts = c.split(" - ", 1)
+        if len(parts) == 2:
+            h, rest = parts[0], parts[1]
+            commits_formatted.append(f"• <code>{escape_html(h)}</code>: {escape_html(rest)}")
+        else:
+            commits_formatted.append(f"• {escape_html(c)}")
+    if commit_count > 10:
+        commits_formatted.append(f"• <i>... and {commit_count - 10} more commits</i>")
+    commits_block = "\n".join(commits_formatted)
+
+    # B. Changed files
+    ret, files_out, _ = await _run_git_async("diff", "--name-only", f"HEAD..{upstream}")
+    file_lines = [line.strip() for line in files_out.split("\n") if line.strip()]
+    files_formatted = [f"• <code>{escape_html(f)}</code>" for f in file_lines[:10]]
+    if len(file_lines) > 10:
+        files_formatted.append(f"• <i>... and {len(file_lines) - 10} more files</i>")
+    files_block = "\n".join(files_formatted) if files_formatted else "• <i>No file list available</i>"
+
+    # C. Code total lines only in number
+    ret, stat_out, _ = await _run_git_async("diff", "--shortstat", f"HEAD..{upstream}")
+    ins_m = re.search(r"(\d+)\s+insertion", stat_out)
+    del_m = re.search(r"(\d+)\s+deletion", stat_out)
+    files_m = re.search(r"(\d+)\s+file", stat_out)
+
+    files_count = int(files_m.group(1)) if files_m else len(file_lines)
+    insertions = int(ins_m.group(1)) if ins_m else 0
+    deletions = int(del_m.group(1)) if del_m else 0
+    total_lines = insertions + deletions
+
+    text = (
+        "<b>╭━━━「 🚀 SYSTEM UPDATE AVAILABLE 」━━━╮</b>\n\n"
+        f"<i>{commit_count} new commit{'s' if commit_count != 1 else ''} detected on <code>{escape_html(upstream)}</code>!</i>\n\n"
+        "<blockquote>"
+        f"<b>📦 Incoming Commits ({commit_count}):</b>\n"
+        f"{commits_block}\n"
+        "</blockquote>\n\n"
+        "<blockquote>"
+        f"<b>📂 Changed Files ({files_count}):</b>\n"
+        f"{files_block}\n"
+        "</blockquote>\n\n"
+        "<blockquote>"
+        "<b>📊 Code Total Lines:</b>\n"
+        f"• Insertions: <b>+{insertions:,}</b>\n"
+        f"• Deletions: <b>-{deletions:,}</b>\n"
+        f"• Total Lines Changed: <b>{total_lines:,}</b>\n"
+        "</blockquote>\n\n"
+        "<blockquote>💡 <i>Tap <b>[ 🔄 Pull & Restart ]</b> below or run <code>/restart</code> to apply.</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Pull & Restart", callback_data="admin_restart")]
+    ])
+    await status_msg.edit_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+
+
+# ── COMMAND: /restart ────────────────────────────────────────────────────────
+async def handle_restart(client: Client, message: Message) -> None:
+    """Reboot the bot process, pulling latest commits if requested or available."""
+    user = message.from_user
+    if not user or not is_superadmin(user.id):
+        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    status_msg = await message.reply_text(
+        "<b>╭━━━「 🔄 SYSTEM REBOOTING 」━━━╮</b>\n\n"
+        "<i>Initiating automated reboot sequence...</i>\n\n"
+        "<blockquote>"
+        "• <b>Step 1:</b> Pulling remote code changes...\n"
+        "• <b>Step 2:</b> Saving telemetry state...\n"
+        "• <b>Step 3:</b> Spawning fresh process...\n"
+        "</blockquote>\n\n"
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+
+    await _execute_restart(client, message.chat.id, status_msg.id, pull_first=True)
+
+
+# ── CALLBACK: admin_restart ──────────────────────────────────────────────────
+async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
+    """Handle the inline button callback [ 🔄 Pull & Restart ]."""
+    user = query.from_user
+    if not user or not is_superadmin(user.id):
+        await query.answer("⛔ Access Denied: Superadmin only.", show_alert=True)
+        return
+
+    await query.answer("Initiating System restart...", show_alert=False)
+
+    await query.edit_message_text(
+        "<b>╭━━━「 🔄 SYSTEM REBOOTING 」━━━╮</b>\n\n"
+        "<i>Applying updates and restarting System...</i>\n\n"
+        "<blockquote>"
+        "• <b>Step 1:</b> Pulling remote commits from origin...\n"
+        "• <b>Step 2:</b> Preserving state telemetry...\n"
+        "• <b>Step 3:</b> Launching new engine instance...\n"
+        "</blockquote>\n\n"
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+
+    chat_id = query.message.chat.id
+    message_id = query.message.id
+    await _execute_restart(client, chat_id, message_id, pull_first=True)
+
+
+# ── COMMAND: /stop / /shutdown / /kill ────────────────────────────────────────
+async def handle_stop(client: Client, message: Message) -> None:
+    """Terminate and kill the bot process as commanded by the Superadmin."""
+    user = message.from_user
+    if not user or not is_superadmin(user.id):
+        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    name = escape_html(user.first_name or "Sovereign")
+    await message.reply_text(
+        "<b>╭━━━「 🛑 SYSTEM SHUTDOWN 」━━━╮</b>\n\n"
+        "<i>Terminating Hunter System engine as commanded...</i>\n\n"
+        "<blockquote>"
+        "• <b>Status:</b> Offline 🔴\n"
+        f"• <b>Authorized By:</b> {name}\n"
+        "• <b>Action:</b> Process terminated (task killed)\n"
+        "</blockquote>\n\n"
+        "<blockquote>💤 <i>System power disconnected. All sessions safely released.</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+
+    logger.info(f"Stop command issued by Superadmin {user.id} ({user.first_name}). Terminating process...")
+
+    # Allow network buffer time to deliver the final message
+    await asyncio.sleep(0.5)
+
+    os._exit(0)
 

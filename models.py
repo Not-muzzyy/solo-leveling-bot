@@ -164,6 +164,11 @@ class Item:
             return f"+{self.upgrade_level} {self.name}"
         return self.name
 
+    @property
+    def enhancement(self) -> int:
+        """Alias for upgrade_level."""
+        return self.upgrade_level
+
     def to_dict(self) -> dict:
         """Serialize to a JSON-safe dictionary."""
         return asdict(self)

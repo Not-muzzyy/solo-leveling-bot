@@ -35,6 +35,7 @@ from game.duel import simulate_duel
 from game.font_manager import clean_and_normalize_name
 from game.formatting import format_not_registered
 from game.rich_text import escape_html
+from game.captions import build_war_challenge_caption, build_war_status_caption
 from game.guild_war_image import (
     render_war_challenge_card,
     render_war_status_card,
@@ -223,19 +224,11 @@ async def handle_war(client: Client, message: Message) -> None:
         "defender_power": defender_power,
     }
 
-    s_name = escape_html(sender_guild.name)
-    t_name = escape_html(target_guild.name)
-    caption = (
-        "<b>╭━━━「 ⚔️ GUILD WAR DECLARATION 」━━━╮</b>\n\n"
-        f"🏰 <b>Challenger:</b> <b>{s_name}</b> (⚡<code>{challenger_power:,}</code>)\n"
-        f"🛡️ <b>Target:</b> <b>{t_name}</b> (⚡<code>{defender_power:,}</code>)\n\n"
-        "<blockquote>"
-        "<b>Notice to Opposing Sovereign:</b>\n"
-        f"• <b>{s_name}</b> has issued an official challenge to <b>{t_name}</b>.\n"
-        "• Target Sovereign must respond to initiate combat or forfeit.\n"
-        "</blockquote>\n\n"
-        "<i>Respond using the controls below:</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    caption = build_war_challenge_caption(
+        sender_guild.name,
+        target_guild.name,
+        challenger_power,
+        defender_power,
     )
 
     # Send challenge card
@@ -529,16 +522,13 @@ async def _show_war_status(client: Client, message: Message, db: ChannelDB, war:
         await message.reply_text("⚠️ War state is invalid.", parse_mode=ParseMode.HTML)
         return
 
-    cg_name = escape_html(c_guild.name)
-    dg_name = escape_html(d_guild.name)
-    caption = (
-        "<b>╭━━━「 ⚔️ GUILD WAR IN PROGRESS 」━━━╮</b>\n\n"
-        f"🏰 <b>{cg_name}</b> [<code>{c_wins}</code>] vs [<code>{d_wins}</code>] <b>{dg_name}</b>\n\n"
-        "<blockquote>"
-        f"• Current Engagement: <code>{current}/{total}</code> battles\n"
-        "• Outcome updating in real-time."
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    caption = build_war_status_caption(
+        c_guild.name,
+        d_guild.name,
+        c_wins,
+        d_wins,
+        current,
+        total,
     )
     try:
         photo_buf = await asyncio.to_thread(

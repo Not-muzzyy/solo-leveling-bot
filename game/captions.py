@@ -7,7 +7,7 @@ Implements aesthetic, structured card templates in accordance with telegram_rich
 - Escaped dynamic data and <code> tags for stats & numbers
 - Semantic <blockquote> blocks for lore, status matrices, and combat reports
 - Footer banner: <b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>
-- Strict caption length safety (<= 1024 chars for Telegram media captions)
+- Strict caption length safety (<= 1024 chars for Telegram media captions) via safe_caption()
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Optional
 from config import RANK_EMOJI, RARITY_EMOJI
 from models import Hunter, Inventory, Item, HuntResult
-from game.rich_text import escape_html
+from game.rich_text import escape_html, safe_caption
 
 
 def build_profile_caption(hunter: Hunter, inventory: Inventory, full_name: str = "") -> str:
@@ -31,7 +31,7 @@ def build_profile_caption(hunter: Hunter, inventory: Inventory, full_name: str =
     a_name = escape_html(armor.name) if armor else "None"
     acc_name = escape_html(accessory.name) if accessory else "None"
 
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚔️ HUNTER STATUS MATRIX 」━━━╮</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"🏅 <b>Rank:</b> {rank_icon} <b>{hunter.rank}-Rank</b> ┊ 📊 <b>Lv:</b> <code>{hunter.level}</code>\n"
@@ -62,7 +62,7 @@ def build_hunt_caption(hunter: Hunter, result: HuntResult) -> str:
             i_rarity = escape_html(result.item_drop.rarity)
             loot_line = f"\n• 🎁 <b>Loot:</b> <code>[{i_rarity}]</code> <b>{i_name}</b>"
 
-        return (
+        return safe_caption(
             "<b>╭━━━「 ⚔️ DUNGEON HUNT REPORT 」━━━╮</b>\n\n"
             f"🎯 <b>Target:</b> <b>{m_name}</b> [<b>{m_rank}-Rank</b>]\n"
             f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b> [Rank <b>{hunter.rank}</b>]\n\n"
@@ -77,7 +77,7 @@ def build_hunt_caption(hunter: Hunter, result: HuntResult) -> str:
             "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
     else:
-        return (
+        return safe_caption(
             "<b>╭━━━「 ☠️ COMBAT CASUALTY REPORT 」━━━╮</b>\n\n"
             f"🎯 <b>Monster:</b> <b>{m_name}</b> [<b>{m_rank}-Rank</b>]\n"
             f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b> [Rank <b>{hunter.rank}</b>]\n\n"
@@ -126,7 +126,7 @@ def build_explore_caption(
             asc_lines.append(f"👑 <b>Rank Awakening:</b> Awakened as <b>[{escape_html(new_rank)}] Hunter</b>!")
         ascend_block = f"<blockquote>{' '.join(asc_lines)}</blockquote>\n\n"
 
-    return (
+    return safe_caption(
         f"<b>╭━━━「 🗺️ SYSTEM EXPEDITION // {s_name} 」━━━╮</b>\n\n"
         f"👤 <b>Scout:</b> {d_name} [Rank <b>{hunter.rank}</b> | Lv. <code>{hunter.level}</code>]\n\n"
         "<blockquote>"
@@ -164,7 +164,7 @@ def build_inventory_caption(
     if notice:
         notice_block = f"<blockquote><b>⚡ System Notice:</b> <i>{escape_html(notice)}</i></blockquote>\n\n"
 
-    return (
+    return safe_caption(
         f"<b>╭━━━「 🎒 DIMENSIONAL INVENTORY // {cat_title} 」━━━╮</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
         f"💰 <b>Treasury:</b> <code>{hunter.gold:,} G</code> ┊ 📦 <b>Stored Items:</b> <code>{total_items}</code>\n\n"
@@ -193,7 +193,7 @@ def build_shop_caption(
     if notice:
         notice_block = f"<blockquote><b>✅ Purchase Confirmed:</b> <i>{escape_html(notice)}</i></blockquote>\n\n"
 
-    return (
+    return safe_caption(
         f"<b>╭━━━「 🛒 HUNTER EXCHANGE DEPOT // {cat_title} 」━━━╮</b>\n\n"
         f"👤 <b>Customer:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
         f"💰 <b>Available Treasury:</b> <code>{hunter.gold:,} G</code>\n\n"
@@ -228,7 +228,7 @@ def build_tower_caption(
         if result.title_unlocked:
             title_line = f"\n• 👑 <b>Title:</b> <i>{escape_html(result.title_unlocked)}</i>"
 
-        return (
+        return safe_caption(
             "<b>╭━━━「 🏰 DEMON CASTLE SPIRE // RESOLUTION 」━━━╮</b>\n\n"
             f"👤 <b>Challenger:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
             f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}\n\n"
@@ -242,7 +242,7 @@ def build_tower_caption(
             "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
         )
     else:
-        return (
+        return safe_caption(
             "<b>╭━━━「 🏰 DEMON CASTLE SPIRE // CHAMBER 」━━━╮</b>\n\n"
             f"👤 <b>Challenger:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
             f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}\n\n"
@@ -267,7 +267,7 @@ def build_quest_caption(hunter: Hunter) -> str:
     )
     status_tag = "✅ COMPLETED" if all_done else "⏳ IN PROGRESS"
 
-    return (
+    return safe_caption(
         "<b>╭━━━「 📋 DAILY PHYSICAL CONDITIONING 」━━━╮</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
         f"⚡ <b>Status:</b> <b>{status_tag}</b>\n\n"
@@ -299,11 +299,12 @@ def build_forge_caption(
         notice_block = f"<blockquote><b>🔥 Blacksmith Anvil:</b> <i>{escape_html(notice)}</i></blockquote>\n\n"
 
     if selected_item:
+        enhancement_lvl = getattr(selected_item, "upgrade_level", getattr(selected_item, "enhancement", 0))
         target_block = (
             "<blockquote>"
             "<b>Selected Gear for Enhancement:</b>\n"
             f"• Item: <b>{escape_html(selected_item.name)}</b> <code>[{escape_html(selected_item.rarity)}]</code>\n"
-            f"• Refinement Level: <b>+{selected_item.enhancement}</b>\n"
+            f"• Refinement Level: <b>+{enhancement_lvl}</b>\n"
             f"• Stats: <code>{escape_html(selected_item.stat_summary())}</code>\n"
             "</blockquote>\n\n"
         )
@@ -316,7 +317,7 @@ def build_forge_caption(
             "</blockquote>\n\n"
         )
 
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚒️ BLACKSMITH'S ANVIL & SYNTHESIS 」━━━╮</b>\n\n"
         f"👤 <b>Artisan:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
         f"💰 <b>Treasury:</b> <code>{hunter.gold:,} G</code>\n\n"
@@ -329,7 +330,7 @@ def build_forge_caption(
 
 def build_help_caption() -> str:
     """Master /help operational manual caption."""
-    return (
+    return safe_caption(
         "<b>╭━━━「 📖 SYSTEM OPERATIONAL MANUAL 」━━━╮</b>\n\n"
         "<b>Solo Leveling Hunter System // Archives V2.5</b>\n\n"
         "<blockquote>"
@@ -357,21 +358,43 @@ def build_help_caption() -> str:
     )
 
 
-def build_claim_caption(hunter: Hunter, reward_gold: int, reward_xp: int, streak: int) -> str:
+def build_claim_caption(
+    hunter: Hunter,
+    reward_gold: int,
+    reward_xp: int,
+    streak: int = 1,
+    leveled_up: bool = False,
+    new_rank: str | None = None,
+) -> str:
     """Aesthetic daily stipend caption for /claim."""
     h_name = escape_html(hunter.hunter_name)
-    return (
+
+    extra_lines = []
+    if leveled_up:
+        extra_lines.append(f"⚡ <b>LEVEL UP!</b> Reached <b>Level {hunter.level}</b>")
+    if new_rank:
+        extra_lines.append(f"🔥 <b>RANK ADVANCEMENT!</b> Awakened as <b>[{escape_html(new_rank)}] Hunter</b>")
+
+    extra_block = ""
+    if extra_lines:
+        extra_block = f"\n<blockquote>{' '.join(extra_lines)}</blockquote>\n"
+
+    streak_line = f"• Login Streak: 🔥 <code>{streak} Days</code>\n" if streak > 1 else ""
+
+    return safe_caption(
         "<b>╭━━━「 💰 SYSTEM DAILY STIPEND 」━━━╮</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n\n"
         "<blockquote>"
-        "<b>✅ Daily Allowance Dispatched!</b>\n"
-        f"• Treasury Bonus: 💰 <code>+{reward_gold:,} Gold</code>\n"
-        f"• Awakening XP: ✨ <code>+{reward_xp:,} XP</code>\n"
-        f"• Login Streak: 🔥 <code>{streak} Days</code>\n"
+        "<b>✅ Daily Ration Dispatched:</b>\n"
+        f"• EXP Bounty: ✨ <code>+{reward_xp:,} XP</code>\n"
+        f"• Treasury Bonus: 💰 <code>+{reward_gold:,} G</code>\n"
+        f"{streak_line}"
         f"• Total Vault: 💰 <code>{hunter.gold:,} G</code>\n"
-        "</blockquote>\n\n"
-        "<i>Return in 24 hours to claim your next System stipend.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        f"• Current EXP: <code>{hunter.xp:,} / {hunter.xp_needed:,} XP</code>\n"
+        "</blockquote>\n"
+        f"{extra_block}\n"
+        "<blockquote><i>「 Return in 24 hours for your next allocation, Hunter. 」</i></blockquote>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
 
@@ -379,7 +402,7 @@ def build_start_welcome_caption(hunter: Hunter) -> str:
     """Aesthetic awakening welcome caption for /start."""
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚡ SYSTEM AWAKENING NOTICE 」━━━╮</b>\n\n"
         "<i>A new Player has been chosen by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
@@ -401,7 +424,7 @@ def build_start_welcome_caption(hunter: Hunter) -> str:
 def build_start_existing_caption(hunter: Hunter) -> str:
     """Aesthetic returning hunter card caption for /start."""
     h_name = escape_html(hunter.hunter_name)
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚡ HUNTER SYSTEM CONNECTED 」━━━╮</b>\n\n"
         "<i>Welcome back, Player.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
@@ -422,7 +445,7 @@ def build_duel_challenge_caption(challenger: Hunter, opponent: Hunter) -> str:
     """Aesthetic challenge invitation card caption for /duel."""
     c_name = escape_html(challenger.display_full_name)
     o_name = escape_html(opponent.display_full_name)
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚔️ HUNTER DUEL CHALLENGE 」━━━╮</b>\n\n"
         f"💥 <b>Challenger:</b> {c_name} [Rank <b>{challenger.rank}</b> ┊ Lv. <code>{challenger.level}</code>]\n"
         f"🎯 <b>Challenged:</b> {o_name} [Rank <b>{opponent.rank}</b> ┊ Lv. <code>{opponent.level}</code>]\n\n"
@@ -447,7 +470,7 @@ def build_duel_result_caption(result: Any) -> str:
     w_dmg = result.challenger_damage_dealt if result.winner.user_id == result.challenger.user_id else result.opponent_damage_dealt
     l_dmg = result.opponent_damage_dealt if result.winner.user_id == result.challenger.user_id else result.challenger_damage_dealt
 
-    return (
+    return safe_caption(
         "<b>╭━━━「 ⚔️ ARENA DUEL RESOLUTION 」━━━╮</b>\n\n"
         f"👑 <b>Victor:</b> <b>{winner_name}</b> [Rank <b>{result.winner.rank}</b>]\n"
         f"💀 <b>Defeated:</b> <b>{loser_name}</b> [Rank <b>{result.loser.rank}</b>]\n\n"
@@ -474,7 +497,7 @@ def build_leaderboard_caption(category: str = "power") -> str:
         "trophies": "War Trophies",
     }
     cat_name = cat_titles.get(category, category.title())
-    return (
+    return safe_caption(
         f"<b>╭━━━「 🏆 SYSTEM LEADERBOARD // {cat_name.upper()} 」━━━╮</b>\n\n"
         f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
         "<blockquote>"
@@ -491,7 +514,7 @@ def build_guild_caption(guild: Any, member_count: int, total_power: int, max_mem
     """Aesthetic caption for /guild cards."""
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
-    return (
+    return safe_caption(
         f"<b>╭━━━「 🏰 GUILD DIRECTORY // {g_name.upper()} 」━━━╮</b>\n\n"
         f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{guild.guild_id}</code>)\n"
         f"👥 <b>Roster:</b> <code>{member_count}/{max_members}</code> ┊ ⚡ <b>Power:</b> <code>{total_power:,}</code>\n"
@@ -504,3 +527,47 @@ def build_guild_caption(guild: Any, member_count: int, total_power: int, max_mem
         "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
     )
 
+
+def build_war_challenge_caption(
+    sender_guild_name: str,
+    target_guild_name: str,
+    challenger_power: int,
+    defender_power: int,
+) -> str:
+    """Aesthetic challenge caption for /guild war declaration."""
+    s_name = escape_html(sender_guild_name)
+    t_name = escape_html(target_guild_name)
+    return safe_caption(
+        "<b>╭━━━「 ⚔️ GUILD WAR DECLARATION 」━━━╮</b>\n\n"
+        f"🏰 <b>Challenger:</b> <b>{s_name}</b> (⚡<code>{challenger_power:,}</code>)\n"
+        f"🛡️ <b>Target:</b> <b>{t_name}</b> (⚡<code>{defender_power:,}</code>)\n\n"
+        "<blockquote>"
+        "<b>Notice to Opposing Sovereign:</b>\n"
+        f"• <b>{s_name}</b> has issued an official challenge to <b>{t_name}</b>.\n"
+        "• Target Sovereign must respond to initiate combat or forfeit.\n"
+        "</blockquote>\n\n"
+        "<i>Respond using the controls below:</i>\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )
+
+
+def build_war_status_caption(
+    challenger_guild_name: str,
+    defender_guild_name: str,
+    challenger_wins: int,
+    defender_wins: int,
+    current_match: int,
+    total_matches: int,
+) -> str:
+    """Aesthetic status caption for an active guild war in progress."""
+    cg_name = escape_html(challenger_guild_name)
+    dg_name = escape_html(defender_guild_name)
+    return safe_caption(
+        "<b>╭━━━「 ⚔️ GUILD WAR IN PROGRESS 」━━━╮</b>\n\n"
+        f"🏰 <b>{cg_name}</b> [<code>{challenger_wins}</code>] vs [<code>{defender_wins}</code>] <b>{dg_name}</b>\n\n"
+        "<blockquote>"
+        f"• Current Engagement: <code>{current_match}/{total_matches}</code> battles\n"
+        "• Outcome updating in real-time."
+        "</blockquote>\n\n"
+        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    )

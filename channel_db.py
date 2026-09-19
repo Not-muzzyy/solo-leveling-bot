@@ -13,8 +13,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
-from pyrogram import Client
+from pyrogram import Client, utils
 from pyrogram.errors import RPCError
+
+utils.MIN_CHANNEL_ID = -10099999999999
 
 from models import Hunter, Item, Inventory, Guild, RedeemCode
 

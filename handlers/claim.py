@@ -18,6 +18,7 @@ from channel_db import ChannelDB
 from game.hunter import add_xp
 from game.formatting import format_not_registered
 from game.rich_text import escape_html
+from game.captions import build_claim_caption
 
 logger = logging.getLogger(__name__)
 
@@ -92,31 +93,14 @@ async def handle(client: Client, message: Message) -> None:
     # Save
     await db.save_hunter(user.id)
 
-    # Build message
-    h_name = escape_html(hunter.hunter_name)
-    extra_lines = []
-    if leveled_up:
-        extra_lines.append(f"⚡ <b>LEVEL UP!</b> Reached <b>Level {hunter.level}</b>")
-    if new_rank:
-        extra_lines.append(f"🔥 <b>RANK ADVANCEMENT!</b> Awakened as <b>[{escape_html(new_rank)}] Hunter</b>")
-
-    extra_block = ""
-    if extra_lines:
-        extra_block = f"\n<blockquote>{' '.join(extra_lines)}</blockquote>\n"
-
-    msg_text = (
-        "<b>╭━━━「 💰 DAILY SYSTEM STIPEND 」━━━╮</b>\n\n"
-        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n\n"
-        "<blockquote>"
-        "<b>✅ Daily Ration Dispatched:</b>\n"
-        f"• EXP Bounty: ✨ <code>+{xp_reward:,} XP</code>\n"
-        f"• Treasury Bonus: 💰 <code>+{gold_reward:,} G</code>\n"
-        f"• Total Vault: 💰 <code>{hunter.gold:,} G</code>\n"
-        f"• Current EXP: <code>{hunter.xp:,} / {hunter.xp_needed:,} XP</code>\n"
-        "</blockquote>\n"
-        f"{extra_block}\n"
-        "<blockquote><i>「 Return tomorrow for your next allocation, Hunter. 」</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+    # Build message using centralized rich text template
+    msg_text = build_claim_caption(
+        hunter,
+        gold_reward,
+        xp_reward,
+        streak=1,
+        leveled_up=leveled_up,
+        new_rank=new_rank,
     )
 
     await message.reply_text(msg_text, parse_mode=enums.ParseMode.HTML)
