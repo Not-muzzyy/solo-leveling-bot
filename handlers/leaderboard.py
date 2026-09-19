@@ -34,17 +34,20 @@ CATEGORY_TITLES = {
 
 def _leaderboard_keyboard(active_cat: str = "power") -> InlineKeyboardMarkup:
     """Inline tabs to switch between leaderboard categories."""
-    def btn_label(cat: str, icon: str, name: str) -> str:
-        return f"[ {icon} {name} ]" if cat == active_cat else f"{icon} {name}"
+    def btn(cat: str, icon: str, name: str) -> InlineKeyboardButton:
+        is_active = (cat == active_cat)
+        label = f"• {icon} {name} •" if is_active else f"{icon} {name}"
+        style = enums.ButtonStyle.PRIMARY if is_active else enums.ButtonStyle.DEFAULT
+        return InlineKeyboardButton(label, callback_data=f"lb_{cat}", style=style)
 
     buttons = [
         [
-            InlineKeyboardButton(btn_label("power", "⚡", "Power"), callback_data="lb_power"),
-            InlineKeyboardButton(btn_label("level", "🏆", "Level"), callback_data="lb_level"),
+            btn("power", "⚡", "Power"),
+            btn("level", "🏆", "Level"),
         ],
         [
-            InlineKeyboardButton(btn_label("wealth", "💰", "Wealth"), callback_data="lb_wealth"),
-            InlineKeyboardButton(btn_label("victories", "⚔️", "Victories"), callback_data="lb_victories"),
+            btn("wealth", "💰", "Wealth"),
+            btn("victories", "⚔️", "Victories"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -106,12 +109,11 @@ async def handle(client: Client, message: Message) -> None:
     all_hunters = await db.get_all_hunters()
     if not all_hunters:
         await message.reply_text(
-            "<b>╭━━━「 🏆 SYSTEM LEADERBOARD 」━━━╮</b>\n\n"
+            "<b>[ HALL OF FAME // 명예의 전당 ]</b>\n\n"
             "<i>No hunters have awakened yet in the System registry!</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• Use <code>/start</code> to awaken as the first registered Hunter."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -135,6 +137,7 @@ async def handle(client: Client, message: Message) -> None:
             caption=caption,
             reply_markup=_leaderboard_keyboard(category),
             parse_mode=enums.ParseMode.HTML,
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render leaderboard image: %s", exc, exc_info=True)
@@ -189,6 +192,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 caption=caption,
                 reply_markup=_leaderboard_keyboard(category),
                 parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):

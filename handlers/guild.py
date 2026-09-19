@@ -21,7 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from pyrogram.errors import BadRequest
@@ -45,15 +45,15 @@ def _format_guild_info(guild: Guild, db_guild_stats: dict | None = None) -> str:
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
     return (
-        f"<b>╭━━━「 🏰 GUILD DIRECTORY // {g_name.upper()} 」━━━╮</b>\n\n"
+        f"<b>[ GUILD DIRECTORY // {g_name.upper()} ]</b>\n"
+        "<b>길드 정보 // 길드 상세</b>\n\n"
         f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{guild.guild_id}</code>)\n"
         f"👥 <b>Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
         f"👑 <b>Sovereign:</b> <code>#{guild.owner_id}</code>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"📝 <b>Guild Creed:</b> <i>{desc}</i>\n"
         "• Active Syndicate Perk: 🎁 <b>+10% EXP on all Hunts</b>\n"
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
 
 
@@ -75,30 +75,30 @@ def _guild_view_keyboard(
                 InlineKeyboardButton("👥 Members", callback_data=f"gmembers_{gid}"),
             ])
             buttons.append([
-                InlineKeyboardButton("⚔️ Challenge War", callback_data=f"gwar_{gid}"),
-                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+                InlineKeyboardButton("⚔️ Challenge War", callback_data=f"gwar_{gid}", style=enums.ButtonStyle.PRIMARY),
+                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power", style=enums.ButtonStyle.PRIMARY),
             ])
         else:
             buttons.append([
-                InlineKeyboardButton("🚪 Leave Guild", callback_data=f"gleave_{gid}"),
+                InlineKeyboardButton("🚪 Leave Guild", callback_data=f"gleave_{gid}", style=enums.ButtonStyle.DANGER),
                 InlineKeyboardButton("👥 Members", callback_data=f"gmembers_{gid}"),
             ])
             buttons.append([
-                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+                InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power", style=enums.ButtonStyle.PRIMARY),
             ])
     elif viewer_guild:
         # Viewer belongs to a different guild
         buttons.append([
             InlineKeyboardButton(f"⚠️ In Guild: {viewer_guild.name}", callback_data="gnoop_switch"),
-            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power", style=enums.ButtonStyle.PRIMARY),
         ])
     else:
         # Viewer is guildless -> PROMINENT JOIN BUTTON!
         buttons.append([
-            InlineKeyboardButton(f"⚔️ Join {target_guild.name}", callback_data=f"gjoin_{gid}"),
+            InlineKeyboardButton(f"⚔️ Join {target_guild.name}", callback_data=f"gjoin_{gid}", style=enums.ButtonStyle.PRIMARY),
         ])
         buttons.append([
-            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power"),
+            InlineKeyboardButton("🏆 Guild Leaderboard", callback_data="glb_power", style=enums.ButtonStyle.PRIMARY),
         ])
 
     # Row 2 (Optional): Navigation when browsing directory
@@ -146,13 +146,13 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         guild = all_guilds[0]
     else:
         await message.reply_text(
-            "<b>╭━━━「 🏰 HUNTER GUILD REGISTRY 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM DIRECTIVE // GUILD REGISTRY ]</b>\n"
+            "<b>시스템 안내 // 길드 목록 없음</b>\n\n"
             "<i>No Hunter Guilds have been established yet in the System!</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• Be the pioneer and establish the first Guild:\n"
-            "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)\n"
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -172,7 +172,7 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         photo_buf = await asyncio.to_thread(
             render_guild_image, guild, member_hunters, total_power
         )
-        await message.reply_photo(photo=photo_buf, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        await message.reply_photo(photo=photo_buf, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML, show_caption_above_media=True)
     except Exception as exc:
         logger.error("Failed to render hallmark guild image: %s", exc, exc_info=True)
         # Fallback to text
@@ -201,8 +201,9 @@ async def handle(client: Client, message: Message) -> None:
     # ── /guild (no args) — show help ──────────────────────
     if not sub:
         text = (
-            "<b>╭━━━「 🏰 HUNTER GUILD DIRECTORY 」━━━╮</b>\n\n"
-            "<blockquote>"
+            "<b>[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]</b>\n"
+            "<b>시스템 안내 // 헌터 길드 본부</b>\n\n"
+            "<blockquote expandable>"
             "<b>⚔️ Syndicate Directives:</b>\n"
             "• <code>/guild view [name]</code> — View guild card & join\n"
             "• <code>/guild create &lt;name&gt;</code> — Establish guild (<code>500 Gold</code>)\n"
@@ -215,13 +216,12 @@ async def handle(client: Client, message: Message) -> None:
             "• <code>/guild disband</code> — Dissolve guild (owner only)\n"
             "• <code>/guild edit &lt;desc&gt;</code> — Update syndicate creed\n"
             "</blockquote>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>🎁 Gifting Protocols:</b>\n"
             "• <code>/gift gold &lt;amount&gt; @user</code> — Gift gold to guildmate\n"
             "• <code>/gift item &lt;id&gt; @user</code> — Gift equipment to guildmate\n"
             "</blockquote>\n\n"
-            "<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>"
         )
         await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
@@ -230,10 +230,10 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "create":
         if len(args) < 2:
             await message.reply_text(
-                "<b>╭━━━「 🏰 GUILD ESTABLISHMENT 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]</b>\n"
+                "<b>시스템 안내 // 길드 창설 지침</b>\n\n"
                 "⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n"
-                "<i>Example:</i> <code>/guild create Shadow Legion</code>\n\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                "<i>Example:</i> <code>/guild create Shadow Legion</code>",
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -283,15 +283,15 @@ async def handle(client: Client, message: Message) -> None:
         await db.save_hunter(user.id)
 
         await message.reply_text(
-            "<b>╭━━━「 🏰 GUILD CHARTER ESTABLISHED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]</b>\n"
+            "<b>길드 창설 // 시스템 인가 완료</b>\n\n"
             f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"👑 <b>Founder / Sovereign:</b> <b>{escape_html(hunter.display_full_name)}</b>\n"
             f"👥 <b>Initial Roster:</b> <code>1/{GUILD_MAX_MEMBERS}</code>\n"
             "• Perk Active: 🎁 <b>+10% Hunt EXP</b> unlocked for all members\n"
             "</blockquote>\n\n"
-            "<i>Use <code>/guild info</code> to review your visual syndicate card.</i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<i>Use <code>/guild info</code> to review your visual syndicate card.</i>",
             parse_mode=ParseMode.HTML,
         )
         logger.info(f"Guild created: {guild_name} by {hunter.hunter_name}")
@@ -301,10 +301,10 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "join":
         if len(args) < 2:
             await message.reply_text(
-                "<b>╭━━━「 🏰 JOIN SYNDICATE 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM NOTICE // JOIN SYNDICATE ]</b>\n"
+                "<b>시스템 안내 // 길드 가입 지침</b>\n\n"
                 "⚠️ <b>Syntax:</b> <code>/guild join &lt;name&gt;</code>\n"
-                "<i>Example:</i> <code>/guild join Shadow Legion</code>\n\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                "<i>Example:</i> <code>/guild join Shadow Legion</code>",
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -336,13 +336,13 @@ async def handle(client: Client, message: Message) -> None:
         success = await db.add_guild_member(guild.guild_id, user.id)
         if success:
             await message.reply_text(
-                "<b>╭━━━「 🏰 GUILD PLEDGE ACCEPTED 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]</b>\n"
+                "<b>길드 가입 // 연맹 맹세 수락</b>\n\n"
                 f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!\n\n"
-                "<blockquote>"
+                "<blockquote expandable>"
                 f"👥 <b>Updated Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
                 "🎁 <b>Active Buff:</b> <code>+10% EXP</code> applied to all dungeon hunts!\n"
-                "</blockquote>\n\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                "</blockquote>",
                 parse_mode=ParseMode.HTML,
             )
         else:
@@ -394,12 +394,12 @@ async def handle(client: Client, message: Message) -> None:
                 member_lines.append(f"• {role}: <b>{escape_html(h.display_full_name)}</b> [Rank <b>{h.rank}</b> | Lv.<code>{h.level}</code> | ⚡<code>{h.power:,}</code>]")
 
         text = (
-            f"<b>╭━━━「 👥 GUILD ROSTER // {escape_html(guild.name.upper())} 」━━━╮</b>\n\n"
+            f"<b>[ GUILD ROSTER // {escape_html(guild.name.upper())} ]</b>\n"
+            "<b>길드 명단 // 소속 헌터 목록</b>\n\n"
             f"🏰 <b>Syndicate:</b> <b>{escape_html(guild.name)}</b> (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>)\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             + "\n".join(member_lines) +
-            "\n</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "\n</blockquote>"
         )
         await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
@@ -539,15 +539,15 @@ async def handle_gift(client: Client, message: Message) -> None:
 
     if not args:
         await message.reply_text(
-            "<b>╭━━━「 🎁 GUILD GIFTING PROTOCOL 」━━━╮</b>\n\n"
+            "<b>[ GUILD PROTOCOL // GIFT DISPATCH ]</b>\n"
+            "<b>길드 지원 // 물품 및 자금 지원</b>\n\n"
             "<i>Distribute treasury or equipment directly to your guildmates!</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Directives:</b>\n"
             "• <code>/gift item &lt;id&gt; @user</code> — Gift unequipped gear\n"
             "• <code>/gift gold &lt;amount&gt; @user</code> — Gift treasury gold\n\n"
-            "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>.\n"
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -623,13 +623,13 @@ async def handle_gift(client: Client, message: Message) -> None:
         s_name = escape_html(sender.display_full_name)
         r_name = escape_html(recipient.display_full_name)
         await message.reply_text(
-            "<b>╭━━━「 🎁 GUILD TREASURY DISPATCH 」━━━╮</b>\n\n"
+            "<b>[ GUILD PROTOCOL // TREASURY TRANSFER ]</b>\n"
+            "<b>길드 금고 // 자금 이체 완료</b>\n\n"
             f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Sender Vault: <code>{sender.gold:,} Gold</code>\n"
-            f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>\n"
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         logger.info(f"Gold gift: {sender.hunter_name} -> {recipient.hunter_name}: {amount} gold")
@@ -690,6 +690,7 @@ async def handle_gift(client: Client, message: Message) -> None:
         recipient_inv.add_item(removed)
 
         # Save both inventories
+        await db.save_hunter(user.id)
         await db.save_inventory(user.id)
         await db.save_inventory(recipient_id)
 
@@ -702,18 +703,16 @@ async def handle_gift(client: Client, message: Message) -> None:
         r_name = escape_html(recipient.display_full_name)
         it_name = escape_html(removed.name)
         await message.reply_text(
-            "<b>╭━━━「 🎁 GUILD ARTIFACT TRANSFER 」━━━╮</b>\n\n"
+            "<b>[ GUILD PROTOCOL // ARTIFACT TRANSFER ]</b>\n"
+            "<b>길드 보관소 // 장비 전달 완료</b>\n\n"
             f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Artifact: <code>[{escape_html(removed.rarity)}]</code> <b>{it_name}</b>\n"
             f"• Stats: <code>{escape_html(removed.stat_summary())}</code>\n"
-            f"• Slot: <b>{escape_html(removed.type.title())}</b>"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"• Slot: <b>{escape_html(removed.type.title())}</b>\n"
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
-        logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
-        return
         logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
         return
 
@@ -732,17 +731,20 @@ GLB_CATEGORY_TITLES = {
 
 def _glb_keyboard(active_cat: str = "power") -> InlineKeyboardMarkup:
     """Inline tabs to switch between guild leaderboard categories."""
-    def btn_label(cat: str, icon: str, name: str) -> str:
-        return f"[ {icon} {name} ]" if cat == active_cat else f"{icon} {name}"
+    def make_btn(cat: str, icon: str, name: str) -> InlineKeyboardButton:
+        is_active = (cat == active_cat)
+        label = f"[ {icon} {name} ]" if is_active else f"{icon} {name}"
+        style = enums.ButtonStyle.PRIMARY if is_active else enums.ButtonStyle.DEFAULT
+        return InlineKeyboardButton(label, callback_data=f"glb_{cat}", style=style)
 
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(btn_label("power", "⚡", "Power"), callback_data="glb_power"),
-            InlineKeyboardButton(btn_label("level", "🏆", "Level"), callback_data="glb_level"),
+            make_btn("power", "⚡", "Power"),
+            make_btn("level", "🏆", "Level"),
         ],
         [
-            InlineKeyboardButton(btn_label("wealth", "💰", "Gold"), callback_data="glb_wealth"),
-            InlineKeyboardButton(btn_label("members", "👥", "Members"), callback_data="glb_members"),
+            make_btn("wealth", "💰", "Gold"),
+            make_btn("members", "👥", "Members"),
         ],
     ])
 
@@ -805,12 +807,12 @@ async def handle_top(client: Client, message: Message) -> None:
     all_guilds = await db.get_all_guilds()
     if not all_guilds:
         await message.reply_text(
-            "<b>╭━━━「 🏆 GUILD LEADERBOARD 」━━━╮</b>\n\n"
+            "<b>[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]</b>\n"
+            "<b>길드 순위 // 연맹 랭킹 목록 없음</b>\n\n"
             "<i>No guilds have been established yet in the System!</i>\n\n"
-            "<blockquote>"
-            "• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote expandable>"
+            "• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild.\n"
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -832,20 +834,21 @@ async def handle_top(client: Client, message: Message) -> None:
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
         caption = (
-            f"<b>╭━━━「 🏆 GUILD LEADERBOARD // {cat_name.upper()} 」━━━╮</b>\n\n"
+            f"<b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
+            "<b>길드 순위 // 연맹 랭킹 차트</b>\n\n"
             f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Guild Standings Matrix:</b>\n"
             "• Visual rankings displayed on the Syndicate HUD card above.\n"
             "• Switch ranking criteria using the controls below.\n"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_glb_keyboard(category),
             parse_mode=ParseMode.HTML,
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render guild leaderboard image: %s", exc, exc_info=True)
@@ -893,14 +896,14 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
         caption = (
-            f"<b>╭━━━「 🏆 GUILD LEADERBOARD // {cat_name.upper()} 」━━━╮</b>\n\n"
+            f"<b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
+            "<b>길드 순위 // 연맹 랭킹 차트</b>\n\n"
             f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Guild Standings Matrix:</b>\n"
             "• Visual rankings displayed on the Syndicate HUD card above.\n"
             "• Switch ranking criteria using the controls below.\n"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
 
         if query.message and query.message.photo:
@@ -914,6 +917,7 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
                 caption=caption,
                 reply_markup=_glb_keyboard(category),
                 parse_mode=ParseMode.HTML,
+                show_caption_above_media=True,
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):

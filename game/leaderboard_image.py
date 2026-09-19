@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: leaderboard_hall_of_fame · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/leaderboard_image.py — Solo Leveling Visual Leaderboard Card Renderer.
 
 Generates a stylized, high-resolution RPG Leaderboard Card image using Pillow,
@@ -171,6 +172,8 @@ def render_leaderboard_image(
     viewing_hunter: Optional[Hunter] = None,
     requesting_user_id: Optional[int] = None,
     current_user_id: Optional[int] = None,
+    viewer_id: Optional[int] = None,
+    **kwargs,
 ) -> io.BytesIO:
     """
     Generate a high-definition static RPG Leaderboard Card.
@@ -178,6 +181,8 @@ def render_leaderboard_image(
     Highlights Top 3 podium, Ranks #4-#10, and user's personal rank card.
     Returns in-memory BytesIO buffer of the PNG file.
     """
+    if requesting_user_id is None and viewer_id is not None:
+        requesting_user_id = viewer_id
     if requesting_user_id is None and current_user_id is not None:
         requesting_user_id = current_user_id
 
@@ -202,15 +207,15 @@ def render_leaderboard_image(
     _draw_tech_border(draw, 18, 18, WIDTH - 18, HEIGHT - 18)
 
     # ── 1. Top HUD Header ──
-    sub_title = "SYSTEM PROTOCOL • GLOBAL POWER HIERARCHY"
+    sub_title = "SYSTEM DIRECTIVE // NATIONAL HUNTER ASSOCIATION"
     tb_sub = fonts["subtitle"].getbbox(sub_title)
     sub_w = tb_sub[2] - tb_sub[0]
     cx = WIDTH // 2
-    _draw_diamond(draw, cx - sub_w // 2 - 14, 34, size=4, fill=GOLD_COLOR)
-    _draw_diamond(draw, cx + sub_w // 2 + 14, 34, size=4, fill=GOLD_COLOR)
+    draw_diamond(draw, cx - sub_w // 2 - 14, 34, size=4, fill=GOLD_COLOR)
+    draw_diamond(draw, cx + sub_w // 2 + 14, 34, size=4, fill=GOLD_COLOR)
     draw.text((cx - sub_w // 2, 26), sub_title, font=fonts["subtitle"], fill=GOLD_COLOR)
 
-    main_title = "HUNTER LEADERBOARD"
+    main_title = "HALL OF FAME // 명예의 전당"
     tb = fonts["title"].getbbox(main_title)
     tw = tb[2] - tb[0]
     draw.text((WIDTH // 2 - tw // 2, 50), main_title, font=fonts["title"], fill=TEXT_WHITE)

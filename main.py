@@ -82,16 +82,16 @@ async def on_start(client):
                 commit_info = "Latest Build"
 
             online_text = (
-                "<b>╭━━━「 🟢 SYSTEM ONLINE 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE COMPLETE ]</b>\n"
+                "<b>시스템 재가동 // 정상 가동 개시</b>\n\n"
                 "<i>Solo Leveling Hunter System is back online!</i>\n\n"
-                "<blockquote>"
+                "<blockquote expandable>"
                 "• <b>Status:</b> Operational & Active ⚡\n"
                 f"• <b>Reboot Latency:</b> <code>{duration}s</code>\n"
                 f"• <b>Active Build:</b> <code>{commit_info}</code>\n"
                 "• <b>Modules:</b> All game systems initialized\n"
                 "</blockquote>\n\n"
-                "<blockquote>✨ <i>Updates applied successfully. Ready for commands.</i></blockquote>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+                "<blockquote>✨ <i>Updates applied successfully. Ready for commands.</i></blockquote>"
             )
 
             # Strictly edit the existing restart message (never send a new message)

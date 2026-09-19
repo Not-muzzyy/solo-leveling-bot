@@ -251,7 +251,7 @@ def render_guild_image(
 
     # 3. System Header & Guild Crest
     draw_diamond(draw, 122, 38, size=4, fill=INK_CYAN)
-    draw.text((134, 32), "SYSTEM NOTIFICATION  //  HUNTER GUILD REGISTRY", font=fonts["header_tag"], fill=INK_CYAN)
+    draw.text((134, 32), "GUILD REGISTRY // 길드 정보", font=fonts["header_tag"], fill=INK_CYAN)
     _draw_shield_crest(draw, 68, 64, size=24)
 
     # Guild Name via Font Cascade

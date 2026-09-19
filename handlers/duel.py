@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
 
@@ -44,13 +44,12 @@ async def handle(client: Client, message: Message) -> None:
     # 1. Enforce Group Chat Only (No Duels in PM)
     if chat.type == "private":
         await message.reply_text(
-            "<b>╭━━━「 ⚔️ HUNTER PVP ARENA 」━━━╮</b>\n\n"
+            "<b>[ COMBAT ARENA // 헌터 협회 대련 ]</b>\n\n"
             "⚠️ <b>Arena Protocol: Group Directives Only</b>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• Duels can only be initiated inside <b>Group Chats</b>!\n"
             "• To challenge a rival, reply to any of their messages with <code>/duel</code>."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -58,12 +57,11 @@ async def handle(client: Client, message: Message) -> None:
     # 2. Enforce Reply-To-Message Requirement
     if not message.reply_to_message or not message.reply_to_message.from_user:
         await message.reply_text(
-            "<b>╭━━━「 ⚔️ TARGET SPECIFICATION REQUIRED 」━━━╮</b>\n\n"
+            "<b>[ TARGET SPECIFICATION REQUIRED // 대련 상대 지정 필요 ]</b>\n\n"
             "⚠️ <b>Direct reply required to issue a challenge!</b>\n\n"
             "<blockquote>"
             "• <b>Reply</b> to a rival Hunter's message in this group with <code>/duel</code>."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -73,12 +71,11 @@ async def handle(client: Client, message: Message) -> None:
     # 3. Disallow Bot Challenges
     if opponent_user.is_bot:
         await message.reply_text(
-            "<b>╭━━━「 🤖 INVALID COMBAT TARGET 」━━━╮</b>\n\n"
+            "<b>[ INVALID COMBAT TARGET // 유효하지 않은 대상 ]</b>\n\n"
             "❌ <b>Target is a System Automaton!</b>\n\n"
             "<blockquote>"
             "• You cannot challenge non-awakened automata / bots to a duel."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -86,12 +83,11 @@ async def handle(client: Client, message: Message) -> None:
     # 4. Disallow Self-Duels
     if opponent_user.id == user.id:
         await message.reply_text(
-            "<b>╭━━━「 ⚔️ SELF-COMBAT PROHIBITED 」━━━╮</b>\n\n"
+            "<b>[ SELF-COMBAT PROHIBITED // 자해 행위 금지 ]</b>\n\n"
             "❌ <b>Internal mana clash disallowed!</b>\n\n"
             "<blockquote>"
             "• Reply to a worthy rival Hunter's message to issue an Arena challenge."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -109,13 +105,12 @@ async def handle(client: Client, message: Message) -> None:
     if not opponent_hunter:
         opp_name = escape_html(opponent_user.first_name or "Target")
         await message.reply_text(
-            "<b>╭━━━「 ⚠️ OPPONENT NOT AWAKENED 」━━━╮</b>\n\n"
+            "<b>[ OPPONENT NOT AWAKENED // 상대 미각성 ]</b>\n\n"
             f"❌ <b>{opp_name} has not awakened!</b>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• They have not registered with the System yet.\n"
             "• They must awaken via <code>/start</code> first before entering PvP."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -125,8 +120,8 @@ async def handle(client: Client, message: Message) -> None:
 
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⚔️ Accept Duel", callback_data=f"duel_accept_{user.id}_{opponent_user.id}"),
-            InlineKeyboardButton("❌ Decline", callback_data=f"duel_decline_{user.id}_{opponent_user.id}"),
+            InlineKeyboardButton("⚔️ Accept Duel", callback_data=f"duel_accept_{user.id}_{opponent_user.id}", style=enums.ButtonStyle.PRIMARY),
+            InlineKeyboardButton("❌ Decline", callback_data=f"duel_decline_{user.id}_{opponent_user.id}", style=enums.ButtonStyle.DANGER),
         ]
     ])
 
@@ -168,10 +163,9 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if action == "decline":
         await query.answer("Duel challenge declined.")
         await query.edit_message_text(
-            "<b>╭━━━「 🏳️ DUEL DECLINED 」━━━╮</b>\n\n"
+            "<b>[ DUEL DECLINED // 대련 거절 ]</b>\n\n"
             f"<b>{o_name}</b> declined the duel challenge from <b>{c_name}</b>.\n\n"
-            "<blockquote><i>Combat avoided. Peace maintained in the district.</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote><i>Combat avoided. Peace maintained in the district.</i></blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -180,10 +174,9 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if action == "accept":
         await query.answer("⚔️ Duel accepted! Entering Arena...")
         await query.edit_message_text(
-            "<b>╭━━━「 ⚔️ ARENA GATES OPENING 」━━━╮</b>\n\n"
+            "<b>[ ARENA GATES OPENING // 결투장 입장 ]</b>\n\n"
             f"<b>{c_name}</b> and <b>{o_name}</b> have stepped into the Arena!\n\n"
-            "<blockquote><i>The System is computing combat matrix resolution...</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote><i>The System is computing combat matrix resolution...</i></blockquote>",
             parse_mode=ParseMode.HTML,
         )
 
@@ -228,6 +221,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 photo=photo_buf,
                 caption=caption,
                 parse_mode=ParseMode.HTML,
+                show_caption_above_media=True,
             )
         except Exception as exc:
             logger.error("Failed to render duel card: %s", exc, exc_info=True)

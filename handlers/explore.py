@@ -79,8 +79,8 @@ def _explore_keyboard() -> InlineKeyboardMarkup:
     """Buttons for exploration card."""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🎒 Dimensional Inventory", callback_data="inv_weapon"),
-            InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu"),
+            InlineKeyboardButton("🎒 Dimensional Inventory", callback_data="inv_weapon", style=enums.ButtonStyle.PRIMARY),
+            InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu", style=enums.ButtonStyle.PRIMARY),
         ],
         [
             InlineKeyboardButton("🏆 System Leaderboard", callback_data="lb_power"),
@@ -109,15 +109,14 @@ async def handle(client: Client, message: Message) -> None:
     h_name = escape_html(hunter.hunter_name)
     if hunter.daily_explores >= DAILY_EXPLORE_LIMIT:
         await message.reply_text(
-            "<b>╭━━━「 🧭 DAILY EXPEDITIONS EXHAUSTED 」━━━╮</b>\n\n"
+            "<b>[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "The System's dimensional territory radar requires overnight recalibration.\n"
             "Your 3 daily exploration permits will reset at midnight UTC.\n\n"
             "💡 <i>You can continue training and earning loot with <code>/hunt</code> (1 min CD)!</i>"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -134,14 +133,13 @@ async def handle(client: Client, message: Message) -> None:
             secs = rem % 60
             timer_str = f"{mins}m {secs:02d}s" if hours == 0 else f"{hours}h {mins:02d}m"
             await message.reply_text(
-                "<b>╭━━━「 ⏳ EXPEDITION RADAR RECHARGING 」━━━╮</b>\n\n"
+                "<b>[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name}\n"
                 f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>\n\n"
-                "<blockquote>"
+                "<blockquote expandable>"
                 "Your survey squad is analyzing satellite telemetry from the last sector.\n"
-                f"Expeditions remaining today: <b>{DAILY_EXPLORE_LIMIT - hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</b>"
-                "</blockquote>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                f"Expeditions remaining today: <b>{DAILY_EXPLORE_LIMIT - hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</b>\n"
+                "</blockquote>",
                 parse_mode=enums.ParseMode.HTML,
             )
             return
@@ -236,6 +234,7 @@ async def handle(client: Client, message: Message) -> None:
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=_explore_keyboard(),
+            show_caption_above_media=True,
         )
         logger.info(f"Hunter {user.id} explored sector {sector_id} (+{gold_reward}g, +{xp_reward}xp, gift: {bool(gift_item)})")
     except Exception as exc:

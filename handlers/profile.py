@@ -10,7 +10,7 @@ import asyncio
 import io
 import logging
 from pyrogram import Client, enums
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CopyTextButton
 
 from channel_db import ChannelDB
 from game.captions import build_profile_caption
@@ -60,10 +60,15 @@ async def handle(client: Client, message: Message) -> None:
             full_name,
         )
         caption = build_profile_caption(hunter, inventory, full_name)
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📋 Copy Hunter ID", copy_text=CopyTextButton(text=str(hunter.user_id)), style=enums.ButtonStyle.PRIMARY)]
+        ])
         await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
+            reply_markup=keyboard,
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render profile image, falling back to text: %s", exc, exc_info=True)

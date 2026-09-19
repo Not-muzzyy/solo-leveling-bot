@@ -44,6 +44,7 @@ def _forge_keyboard(inventory: Inventory, selected_item: Item | None = None) -> 
             InlineKeyboardButton(
                 f"🔨 Upgrade to +{selected_item.upgrade_level + 1} ({cost:,} G)",
                 callback_data=f"forge_up_{selected_item.id}",
+                style=enums.ButtonStyle.PRIMARY,
             )
         ])
 
@@ -67,14 +68,14 @@ def _forge_keyboard(inventory: Inventory, selected_item: Item | None = None) -> 
     for r in ["Common", "Uncommon", "Rare"]:
         count = sum(1 for i in inventory.items if i.type in EQUIPPABLE_TYPES and i.rarity == r and not i.is_equipped)
         if count >= 3:
-            fuse_row.append(InlineKeyboardButton(f"🔮 Fuse {r} (3/{count})", callback_data=f"forge_fuse_{r}"))
+            fuse_row.append(InlineKeyboardButton(f"🔮 Fuse {r} (3/{count})", callback_data=f"forge_fuse_{r}", style=enums.ButtonStyle.SUCCESS))
 
     if fuse_row:
         buttons.append(fuse_row)
 
     # Navigation row
     buttons.append([
-        InlineKeyboardButton("🎒 Dimensional Inventory", callback_data="inv_weapon"),
+        InlineKeyboardButton("🎒 Dimensional Inventory", callback_data="inv_weapon", style=enums.ButtonStyle.PRIMARY),
         InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu"),
     ])
 
@@ -97,17 +98,16 @@ async def handle(client: Client, message: Message) -> None:
         bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=forge"
         gc_text = (
-            "<b>╭━━━「 ⚒️ DIMENSIONAL FORGE 」━━━╮</b>\n\n"
-            "<blockquote>"
+            "<b>[ BLACKSMITH FORGE // 대장간 장비 강화 ]</b>\n\n"
+            "<blockquote expandable>"
             "The Blacksmith's Anvil contains searing heat &amp; delicate runes.\n"
             "To keep public chat clean, manage equipment forging in Private Chat."
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         await message.reply_text(
             gc_text,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚒️ Open Forge in Bot PM", url=pm_url)]
+                [InlineKeyboardButton("⚒️ Open Forge in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
             ]),
             parse_mode=enums.ParseMode.HTML,
         )
@@ -141,6 +141,7 @@ async def handle(client: Client, message: Message) -> None:
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=_forge_keyboard(inventory, selected_item),
+            show_caption_above_media=True,
         )
     except Exception as e:
         logger.error("Failed to render forge image: %s", e, exc_info=True)
@@ -182,6 +183,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=_forge_keyboard(inventory, None),
+                show_caption_above_media=True,
             )
         return
 

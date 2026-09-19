@@ -72,15 +72,14 @@ async def handle(client: Client, message: Message) -> None:
     h_name = escape_html(hunter.hunter_name)
     if hunter.daily_hunts >= DAILY_HUNT_LIMIT:
         await message.reply_text(
-            "<b>╭━━━「 ⚔️ DAILY HUNT CAPACITY EXHAUSTED 」━━━╮</b>\n\n"
+            "<b>[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name}\n"
             f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "The dimensional rifts in this sector are closed for the day.\n"
             "Your hunt quota resets automatically at midnight UTC.\n\n"
             "💡 <i>Tip: Venture into uncharted territory with <code>/explore</code> (3x daily)!</i>"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -146,6 +145,7 @@ async def handle(client: Client, message: Message) -> None:
             photo=photo_buf,
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render hunt image, falling back to text: %s", exc, exc_info=True)

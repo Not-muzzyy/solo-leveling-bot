@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from pyrogram import Client
+from pyrogram import Client, enums
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from pyrogram.errors import BadRequest
@@ -96,8 +96,8 @@ def _init_war(
 
 def _war_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⚔️ Accept War", callback_data="war_accept"),
-         InlineKeyboardButton("❌ Decline", callback_data="war_decline")],
+        [InlineKeyboardButton("⚔️ Accept War", callback_data="war_accept", style=enums.ButtonStyle.PRIMARY),
+         InlineKeyboardButton("❌ Decline", callback_data="war_decline", style=enums.ButtonStyle.DANGER)],
     ])
 
 
@@ -124,9 +124,9 @@ async def handle_war(client: Client, message: Message) -> None:
         return
     if war and war["status"] == "pending":
         await message.reply_text(
-            "<b>╭━━━「 ⚠️ WAR PROTOCOL PENDING 」━━━╮</b>\n\n"
-            "<i>A syndicate war challenge is currently awaiting resolution.</i>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<b>[ SYSTEM NOTICE // WAR PROTOCOL PENDING ]</b>\n"
+            "<b>전쟁 프로토콜 // 대기 중인 도전 과제</b>\n\n"
+            "<i>A syndicate war challenge is currently awaiting resolution.</i>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -134,9 +134,10 @@ async def handle_war(client: Client, message: Message) -> None:
     # /guild war (no args) — show help
     if not args:
         text = (
-            "<b>╭━━━「 ⚔️ GUILD WARFARE SYSTEM 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM DIRECTIVE // GUILD WARFARE ]</b>\n"
+            "<b>길드 전쟁 // 연맹 간 총력전</b>\n\n"
             "<i>Challenge another Hunter Syndicate to official clan warfare!</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Declaration Directive:</b>\n"
             "• <code>/guild war &lt;guild_name&gt;</code> — Challenge a rival guild\n\n"
             "<b>Combat Structure:</b>\n"
@@ -146,8 +147,7 @@ async def handle_war(client: Client, message: Message) -> None:
             "4. Syndicate with the most victories claims the spoils!\n\n"
             f"🎁 <b>Spoils:</b> <code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>/fighter, <code>+{GUILD_WAR_WIN_SCORE} War Score</code>, bonus EXP\n"
             f"💀 <b>Defeat:</b> <code>-{GUILD_WAR_LOSS_SCORE} War Score</code>, <code>-{GUILD_WAR_XP_PENALTY} EXP</code>\n"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
@@ -244,6 +244,7 @@ async def handle_war(client: Client, message: Message) -> None:
             caption=caption,
             reply_markup=_war_keyboard(),
             parse_mode=ParseMode.HTML,
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render war challenge card: %s", exc, exc_info=True)
@@ -285,10 +286,10 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         _reset_war()
         def_name = escape_html(war['defender_guild_name'])
         await query.edit_message_text(
-            "<b>╭━━━「 🏳️ WAR CHALLENGE DECLINED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]</b>\n"
+            "<b>전쟁 거부 // 평화 협정 체결</b>\n\n"
             f"❌ <b>{def_name}</b> declined the war challenge.\n\n"
-            "<blockquote><i>Their leader chose diplomacy over bloodshed.</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote expandable><i>Their leader chose diplomacy over bloodshed.</i></blockquote>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -316,13 +317,13 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         ch_name = escape_html(war['challenger_guild_name'])
         def_name = escape_html(war['defender_guild_name'])
         caption = (
-            "<b>╭━━━「 ⚔️ GUILD WAR INITIATED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // GUILD WAR INITIATED ]</b>\n"
+            "<b>전쟁 개시 // 1:1 결투 개전</b>\n\n"
             f"🏰 <b>{ch_name}</b> vs <b>{def_name}</b>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Scheduled Clashes: <code>{len(active_war['matchups'])}</code> 1v1 Duels\n"
-            "• All duel outcomes will determine the victorious syndicate."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "• All duel outcomes will determine the victorious syndicate.\n"
+            "</blockquote>"
         )
         try:
             photo_buf = await asyncio.to_thread(
@@ -452,16 +453,16 @@ async def _resolve_war(
     w_name = escape_html(winner_guild.name)
     l_name = escape_html(loser_guild.name)
     result_text = (
-        "<b>╭━━━「 🏆 GUILD WAR CONCLUDED 」━━━╮</b>\n\n"
+        f"<b>[ GUILD WAR VICTORY // {w_name.upper()} ]</b>\n"
+        "<b>전쟁 종결 // 최종 승리 길드</b>\n\n"
         f"👑 <b>Victor Syndicate:</b> <b>{w_name}</b>\n"
         f"💀 <b>Defeated Syndicate:</b> <b>{l_name}</b>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• Final Standing: <code>{c_wins} — {d_wins}</code>\n"
         f"• Winner Spoils: 💰 <code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>, ✨ <code>+{GUILD_WAR_BASE_XP + GUILD_WAR_WIN_BONUS_XP:,} XP</code>/fighter\n"
         f"• Defeat Penalty: 💀 <code>-{GUILD_WAR_XP_PENALTY:,} XP</code>/member\n"
         f"• War Score: <b>{w_name}</b> <code>+{GUILD_WAR_WIN_SCORE}</code> ┊ <b>{l_name}</b> <code>-{GUILD_WAR_LOSS_SCORE}</code>\n"
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
 
     # Send result card

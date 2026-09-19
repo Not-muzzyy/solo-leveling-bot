@@ -24,7 +24,8 @@ try:
 except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from pyrogram import enums
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, CopyTextButton
 
 ALLOWED_TELEGRAM_TAGS = {
     "b", "strong", "i", "em", "u", "ins", "s", "strike", "del",
@@ -136,9 +137,9 @@ def system_lore(quote_text: str) -> str:
 
 
 def system_header(title: str, subtitle: Optional[str] = None) -> str:
-    """Generate an atmospheric holographic system header box."""
+    """Generate an authentic anime System popup header."""
     esc_title = escape_html(title.upper())
-    res = f"<b>╔══════════════════════════════╗</b>\n<b>║  ⚡ {esc_title}  ⚡  ║</b>\n<b>╚══════════════════════════════╝</b>"
+    res = f"<b>[ SYSTEM NOTIFICATION // {esc_title} ]</b>"
     if subtitle:
         res += f"\n<i>{escape_html(subtitle)}</i>"
     return res
@@ -254,16 +255,26 @@ def inline_button(
     web_app_url: Optional[str] = None,
     switch_inline_query: Optional[str] = None,
     switch_inline_query_current_chat: Optional[str] = None,
+    style: Optional[Any] = None,
+    copy_text: Optional[Any] = None,
 ) -> InlineKeyboardButton:
     """
-    Build a Pyrogram InlineKeyboardButton with rich convenience options.
+    Build a Pyrogram InlineKeyboardButton with rich convenience options and modern Telegram styling.
 
     Examples:
-        inline_button("⚔️ Hunt", callback_data="hunt")
+        inline_button("⚔️ Hunt", callback_data="hunt", style=enums.ButtonStyle.PRIMARY)
         inline_button("📢 Channel", url="https://t.me/example")
+        inline_button("📋 Copy Hunter ID", copy_text="12345678")
     """
     kwargs: dict[str, Any] = {"text": str(text)}
-    if url:
+    if style is not None:
+        kwargs["style"] = style
+    if copy_text is not None:
+        if isinstance(copy_text, str):
+            kwargs["copy_text"] = CopyTextButton(text=copy_text)
+        else:
+            kwargs["copy_text"] = copy_text
+    elif url:
         kwargs["url"] = url
     elif web_app_url:
         kwargs["web_app"] = WebAppInfo(url=web_app_url)
@@ -277,9 +288,31 @@ def inline_button(
     return InlineKeyboardButton(**kwargs)
 
 
-def callback_button(text: str, callback_data: str) -> InlineKeyboardButton:
-    """Convenience shortcut for an inline callback button."""
-    return InlineKeyboardButton(text=str(text), callback_data=callback_data)
+def callback_button(
+    text: str,
+    callback_data: str,
+    style: Optional[Any] = None,
+) -> InlineKeyboardButton:
+    """Convenience shortcut for an inline callback button with optional modern ButtonStyle."""
+    kwargs: dict[str, Any] = {"text": str(text), "callback_data": callback_data}
+    if style is not None:
+        kwargs["style"] = style
+    return InlineKeyboardButton(**kwargs)
+
+
+def copy_button(
+    text: str,
+    copy_value: str,
+    style: Optional[Any] = None,
+) -> InlineKeyboardButton:
+    """Convenience shortcut for a 1-tap CopyTextButton."""
+    kwargs: dict[str, Any] = {
+        "text": str(text),
+        "copy_text": CopyTextButton(text=str(copy_value)),
+    }
+    if style is not None:
+        kwargs["style"] = style
+    return InlineKeyboardButton(**kwargs)
 
 
 def url_button(text: str, url: str) -> InlineKeyboardButton:

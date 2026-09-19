@@ -311,20 +311,29 @@ def _draw_player_avatar_pin(
 
 def render_explore_image(
     hunter: Hunter,
-    sector_id: int,
-    event_story: str,
-    gold_reward: int,
-    xp_reward: int,
+    sector_id: Any = 0,
+    event_story: str = "",
+    gold_reward: int = 0,
+    xp_reward: int = 0,
     gift_item: Optional[Item] = None,
     pfp_image: Optional[Image.Image] = None,
     player_display_name: str = "",
+    **kwargs,
 ) -> io.BytesIO:
     """
     Render a complete Hallmark-compliant World Map Exploration Card.
     Returns in-memory PNG BytesIO.
     """
+    if isinstance(sector_id, dict):
+        event_dict = sector_id
+        sector_id = event_dict.get("sector_id", event_dict.get("node", 0))
+        event_story = event_dict.get("desc", event_dict.get("event_story", event_dict.get("title", "")))
+        gold_reward = event_dict.get("gold", event_dict.get("gold_reward", 0))
+        xp_reward = event_dict.get("xp", event_dict.get("xp_reward", 0))
+        gift_item = gift_item or event_dict.get("item", event_dict.get("gift_item", None))
+
     # 1. Base Canvas Ground with radial bloom centered near active sector
-    active_sector = EXPLORE_SECTORS[sector_id % len(EXPLORE_SECTORS)]
+    active_sector = EXPLORE_SECTORS[int(sector_id or 0) % len(EXPLORE_SECTORS)]
     bloom_x = active_sector["x"]
     bloom_y = active_sector["y"]
 
@@ -360,8 +369,8 @@ def render_explore_image(
     fonts = _get_fonts()
 
     # Top Header Bar
-    draw.text((42, 38), "SYSTEM EXPEDITION GRID", font=fonts["title"], fill=INK_PRIMARY)
-    draw.text((44, 74), "DIMENSIONAL TERRITORY CARTOGRAPHY // VER 3.2", font=fonts["mono"], fill=INK_CYAN)
+    draw.text((42, 38), "GATE RADAR // 게이트 탐색 지도", font=fonts["title"], fill=INK_PRIMARY)
+    draw.text((44, 74), "SYSTEM DIRECTIVE // TACTICAL TERRITORY CARTOGRAPHY", font=fonts["mono"], fill=INK_CYAN)
 
     status_tag = "LIVE TELEMETRY: ACTIVE"
     s_bbox = fonts["mono"].getbbox(status_tag)

@@ -1,15 +1,15 @@
 """
 game/formatting.py — Rich Telegram message formatting.
 
-Uses plain text with Unicode symbols (not MarkdownV2) to avoid
-escaping headaches. Telegram supports Unicode box-drawing, bars, and emoji natively.
+Uses clean HTML with authentic Solo Leveling anime "System" (시스템) headers,
+expandable blockquotes, and zero ASCII box-drawing fences.
 """
 
 from __future__ import annotations
 
 from config import RARITY_EMOJI, RANK_EMOJI
 from models import Hunter, Item, HuntResult, Inventory
-from game.rich_text import escape_html, bold, italic, code, blockquote, system_lore, pre, safe_message
+from game.rich_text import escape_html, safe_message
 
 
 def _stat_bar(value: int, max_val: int = 50) -> str:
@@ -45,27 +45,27 @@ def _rank_badge(rank: str) -> str:
     """Create a decorative rank badge."""
     rank_icon = RANK_EMOJI.get(rank, "❓")
     badges = {
-        "E":              f"┃  {rank_icon} 「 E-Rank Hunter 」",
-        "D":              f"┃  {rank_icon} 「 D-Rank Hunter 」",
-        "C":              f"┃  {rank_icon} 「 C-Rank Hunter 」",
-        "B":              f"┃  {rank_icon} 「 B-Rank Hunter 」",
-        "A":              f"┃  {rank_icon} 「 A-Rank Hunter 」",
-        "S":              f"┃  {rank_icon} 「 S-Rank Hunter 」",
-        "SS":             f"┃  {rank_icon} 「 SS-Rank Hunter 」",
-        "SSS":            f"┃  {rank_icon} 「 SSS-Rank Hunter 」",
-        "National Level": f"┃  {rank_icon} 「 National Level Hunter 」",
-        "Monarch":        f"┃  {rank_icon} 「 Monarch 」",
+        "E":              f"⚔️ [ E-Rank Hunter ]",
+        "D":              f"⚔️ [ D-Rank Hunter ]",
+        "C":              f"⚔️ [ C-Rank Hunter ]",
+        "B":              f"⚔️ [ B-Rank Hunter ]",
+        "A":              f"⚔️ [ A-Rank Hunter ]",
+        "S":              f"⚔️ [ S-Rank Hunter ]",
+        "SS":             f"⚔️ [ SS-Rank Hunter ]",
+        "SSS":            f"⚔️ [ SSS-Rank Hunter ]",
+        "National Level": f"👑 [ National Level Hunter ]",
+        "Monarch":        f"👑 [ Shadow Monarch ]",
     }
-    return badges.get(rank, f"┃  {rank_icon} 「 {rank}-Rank 」")
+    return badges.get(rank, f"{rank_icon} [ {rank}-Rank ]")
 
 
-def _format_equip_line(label: str, icon: str, item) -> str:
+def _format_equip_line(label: str, icon: str, item: Item | None) -> str:
     """Format a single equipment slot line."""
     if item:
         rarity_icon = RARITY_EMOJI.get(item.rarity, "")
         stats = item.stat_summary()
-        return f"┃  {icon} {item.name} {rarity_icon}\n┃     └ {stats}"
-    return f"┃  {icon} — empty —"
+        return f"• {icon} <b>{item.name}</b> {rarity_icon} (<i>{stats}</i>)"
+    return f"• {icon} <i>— empty —</i>"
 
 
 def format_profile(hunter: Hunter, inventory: Inventory) -> str:
@@ -102,7 +102,7 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         return f"• {icon} <i>— empty —</i>"
 
     lines = [
-        "<b>╭━━━「 ⚔️ HUNTER STATUS MATRIX 」━━━╮</b>",
+        "<b>[ STATUS WINDOW // 상태창 ]</b>",
         "",
         f"👤 <b>Hunter:</b> {h_name} [Rank <b>{escape_html(hunter.rank)}</b> {rank_icon}]",
         f"🏅 <b>Title:</b> <i>{title_esc}</i>",
@@ -110,22 +110,22 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         f"✨ <b>XP:</b> <code>{hunter.xp}/{hunter.xp_needed}</code>  {_progress_bar(hunter.xp, hunter.xp_needed)}",
         f"❤️ <b>Vitality:</b> {_hp_bar(hunter.hp, hunter.max_hp)}",
         "",
-        "<blockquote>",
-        "📈 <b>Core Attributes:</b>",
+        "<blockquote expandable>",
+        "<b>📈 Core Attributes:</b>",
         f"• STR: <code>{hunter.str_stat:>3}</code>  {_stat_bar(hunter.str_stat)}",
         f"• AGI: <code>{hunter.agi:>3}</code>  {_stat_bar(hunter.agi)}",
         f"• VIT: <code>{hunter.vit:>3}</code>  {_stat_bar(hunter.vit)}",
         f"• INT: <code>{hunter.int_stat:>3}</code>  {_stat_bar(hunter.int_stat)}",
         f"• PER: <code>{hunter.per:>3}</code>  {_stat_bar(hunter.per)}",
         "",
-        "⚔️ <b>Equipped Loadout:</b>",
+        "<b>⚔️ Equipped Loadout:</b>",
         _equip_html("🗡️", weapon),
         _equip_html("🛡️", armor),
         _equip_html("💍", accessory),
         "</blockquote>",
         "",
-        "<blockquote>",
-        "📋 <b>Association Records:</b>",
+        "<blockquote expandable>",
+        "<b>📋 Association Records:</b>",
         f"• 💰 Gold: <code>{hunter.gold:,} G</code>",
         f"• 🎒 Stored Items: <code>{total_items}</code>",
         f"• 🗡️ Hunts: <code>{hunter.total_hunts}</code> (Win Rate: <code>{win_rate}</code>)",
@@ -133,7 +133,6 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         "</blockquote>",
         "",
         "<blockquote><i>「 The System sees all, Hunter. 」</i></blockquote>",
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ]
 
     return safe_message("\n".join(lines))
@@ -144,12 +143,12 @@ def format_welcome(hunter: Hunter) -> str:
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return safe_message(
-        "<b>╭━━━「 ⚡ SYSTEM AWAKENING NOTICE 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
         "<i>A new Hunter has been detected and registered by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Rank:</b> <code>{r_name}-Rank</code>\n"
         f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
-        "<blockquote>\n"
+        "<blockquote expandable>\n"
         "<b>📈 Awakened Core Attributes:</b>\n"
         f"• STR: <code>{hunter.str_stat}</code> ┊ AGI: <code>{hunter.agi}</code>\n"
         f"• VIT: <code>{hunter.vit}</code> ┊ INT: <code>{hunter.int_stat}</code> ┊ PER: <code>{hunter.per}</code>\n"
@@ -160,8 +159,7 @@ def format_welcome(hunter: Hunter) -> str:
         "<i>「 The System has acknowledged your awakening. 」</i>\n\n"
         "Your journey begins now, Hunter.\n"
         "Use <code>/hunt</code> to exterminate your first dungeon beast.\n"
-        "</blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
 
 
@@ -174,14 +172,14 @@ def format_hunt_victory(result: HuntResult) -> str:
     crit_text = " 💥 <b>CRITICAL!</b>" if result.critical_hit else ""
 
     lines = [
-        "<b>╭━━━「 ⚔️ GATE HUNT // VICTORY 」━━━╮</b>",
+        "<b>[ GATE RAID // 던전 클리어 ]</b>",
         "",
         f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
         f"⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>",
         "",
-        "<blockquote>",
-        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt}</code>{crit_text}",
-        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken}</code>",
+        "<blockquote expandable>",
+        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt:,}</code>{crit_text}",
+        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken:,}</code>",
         "",
         "<b>✨ EXPEDITION REWARDS:</b>",
         f"• EXP Gained: ✨ <code>+{result.xp_gained:,} XP</code>",
@@ -208,7 +206,6 @@ def format_hunt_victory(result: HuntResult) -> str:
         lines.append("")
         lines.append(f"<blockquote>{escape_html(result.special_event)}</blockquote>")
 
-    lines.append("<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>")
     return safe_message("\n".join(lines))
 
 
@@ -219,14 +216,14 @@ def format_hunt_defeat(result: HuntResult) -> str:
     m_name = escape_html(monster.name)
 
     lines = [
-        "<b>╭━━━「 ☠️ GATE HUNT // CASUALTY 」━━━╮</b>",
+        "<b>[ GATE CASUALTY // 공략 실패 ]</b>",
         "",
         f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
         f"⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>",
         "",
-        "<blockquote>",
-        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt}</code>",
-        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken}</code>",
+        "<blockquote expandable>",
+        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt:,}</code>",
+        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken:,}</code>",
         "",
         "<b>💸 PENALTIES:</b>",
         f"• Gold Lost: <code>-{result.gold_lost:,} G</code>",
@@ -234,7 +231,6 @@ def format_hunt_defeat(result: HuntResult) -> str:
         "</blockquote>",
         "",
         "<blockquote><i>Recover your vitality with <code>/use</code> or <code>/heal</code> and try again, Hunter.</i></blockquote>",
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ]
 
     if result.special_event:
@@ -277,7 +273,7 @@ def format_inventory(
     total_items = len(inventory.items)
 
     lines = [
-        f"<b>╭━━━「 🎒 DIMENSIONAL INVENTORY // {name.upper()} 」━━━╮</b>",
+        f"<b>[ SHADOW STORAGE // {name.upper()} ]</b>",
         "",
     ]
 
@@ -300,7 +296,7 @@ def format_inventory(
         ])
 
     lines.extend([
-        "<blockquote>",
+        "<blockquote expandable>",
         f"<b>{icon} CATEGORY: {name.upper()} ({len(items)})</b>",
         "",
     ])
@@ -335,7 +331,6 @@ def format_inventory(
         "• Tap tabs to switch categories",
         "• Tap ⚡ Equip buttons below to bind gear",
         "• Tap 🛒 Hunter Shop to buy new items",
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ])
 
     return safe_message("\n".join(lines))
@@ -381,15 +376,14 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
     diff_body = "\n".join(stat_diffs)
 
     return safe_message(
-        "<b>╭━━━「 ⚔️ EQUIPMENT BINDING COMPLETE 」━━━╮</b>\n\n"
+        "<b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
         f"⚡ <b>Equipped:</b> <code>[{escape_html(item.rarity)}]</code> <b>{i_name}</b> {rarity_icon}\n"
         f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>Attribute Alterations:</b>\n"
         f"{diff_body}\n"
         "</blockquote>\n\n"
-        "<i>Gear soulbound to hunter status matrix.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>Gear soulbound to hunter status matrix.</i>"
     )
 
 
@@ -398,13 +392,12 @@ def format_cooldown(remaining_seconds: int) -> str:
     minutes = remaining_seconds // 60
     seconds = remaining_seconds % 60
     return safe_message(
-        "<b>╭━━━「 ⏳ RECOVERY IN PROGRESS 」━━━╮</b>\n\n"
+        "<b>[ RECOVERY IN PROGRESS // 피로도 회복 중 ]</b>\n\n"
         "<i>You are still catching your breath from your previous hunt.</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"⏱️ <b>Ready In:</b> <code>{minutes}m {seconds:02d}s</code>\n"
         "• Mana fatigue is dissipating. Please stand by before entering another gate.\n"
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
 
 
@@ -413,31 +406,28 @@ def format_already_registered(hunter: Hunter) -> str:
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return safe_message(
-        "<b>╭━━━「 ⚡ HUNTER SYSTEM CONNECTED 」━━━╮</b>\n\n"
+        "<b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Rank:</b> <b>{r_name}-Rank</b> ┊ 📊 <b>Level:</b> <code>{hunter.level}</code>\n"
         f"⚡ <b>Power:</b> <code>{hunter.power:,}</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>Available Directives:</b>\n"
         "• <code>/profile</code> — Status matrix & attributes\n"
         "• <code>/hunt</code> — Enter dungeon gates\n"
         "• <code>/inventory</code> — Manage equipped artifacts\n"
         "• <code>/help</code> — Operational manual\n"
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
 
 
 def format_not_registered() -> str:
     """Message when unregistered user tries a command."""
     return safe_message(
-        "<b>╭━━━「 ⚠️ SYSTEM AWAKENING REQUIRED 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
         "<i>The System detects no awakened mana signature for your identity.</i>\n\n"
         "<blockquote>"
         "<b>Status:</b> ❌ <b>Unawakened Citizen</b>\n"
         "• To awaken as a Hunter and receive your starter gear, tap or type:\n"
         "👉 <code>/start</code>\n"
-        "</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
-

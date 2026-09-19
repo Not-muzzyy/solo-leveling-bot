@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: shop_window · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/shop_image.py — Solo Leveling Hunter Shop Image Card Renderer.
 
 Generates a stylized, high-resolution RPG Shop Card image using Pillow,
@@ -19,6 +20,7 @@ from game.font_manager import get_font_cascade, clean_and_normalize_name, load_f
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
+    CANVAS_BORDER,
     SURFACE_BASE,
     SURFACE_ELEVATED,
     SURFACE_ACCENT,
@@ -46,7 +48,6 @@ WIDTH = 860
 HEIGHT = 1060
 
 HUD_CYAN = INK_CYAN
-HUD_BLUE = (37, 99, 235)
 HUD_SKY = INK_SKY
 ALERT_RED = (239, 68, 68)
 GOLD_COLOR = INK_GOLD
@@ -284,12 +285,14 @@ def render_shop_image(
     _draw_tech_border(draw, 18, 18, WIDTH - 18, HEIGHT - 18)
 
     # ── 1. Top HUD Header ──
-    sub_title = "SYSTEM EXCHANGE DEPOT"
-    _draw_diamond(draw, WIDTH // 2 - 130, 36, size=4, fill=GOLD_COLOR)
-    _draw_diamond(draw, WIDTH // 2 + 130, 36, size=4, fill=GOLD_COLOR)
-    draw.text((WIDTH // 2 - 110, 28), sub_title, font=fonts["subtitle"], fill=GOLD_COLOR)
+    sub_title = "SYSTEM DIRECTIVE // HUNTER ASSOCIATION TREASURY EXCHANGE"
+    draw_diamond(draw, WIDTH // 2 - 240, 36, size=4, fill=GOLD_COLOR)
+    draw_diamond(draw, WIDTH // 2 + 240, 36, size=4, fill=GOLD_COLOR)
+    tb_sub = fonts["subtitle"].getbbox(sub_title)
+    sw = tb_sub[2] - tb_sub[0]
+    draw.text((WIDTH // 2 - sw // 2, 28), sub_title, font=fonts["subtitle"], fill=GOLD_COLOR)
 
-    main_title = "HUNTER SHOP"
+    main_title = "EXCHANGE DEPOT // 헌터협회 상점"
     tb = fonts["title"].getbbox(main_title)
     tw = tb[2] - tb[0]
     draw.text((WIDTH // 2 - tw // 2, 54), main_title, font=fonts["title"], fill=TEXT_WHITE)

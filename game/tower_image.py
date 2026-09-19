@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: demon_castle_tower · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/tower_image.py — Solo Leveling Demon Castle Tower Image Renderer.
 
 Generates a Hallmark-standard 860x1000 visual Demon Castle Spire Card:
@@ -47,10 +48,23 @@ DEMON_PURPLE = (168, 85, 247)
 
 def render_tower_image(
     hunter: Hunter,
-    guardian: TowerGuardian,
+    guardian: Any,
     notice: Optional[str] = None,
+    **kwargs,
 ) -> io.BytesIO:
     """Render a high-resolution Hallmark Demon Castle Spire Card."""
+    if isinstance(guardian, dict):
+        guardian = TowerGuardian(
+            floor=guardian.get("floor", getattr(hunter, "tower_floor", 1)),
+            name=guardian.get("boss", guardian.get("name", "Floor Guardian")),
+            hp=guardian.get("hp", 1200),
+            atk=guardian.get("atk", 140),
+            defense=guardian.get("defense", 80),
+            is_boss=guardian.get("is_boss", True),
+            reward_gold=guardian.get("gold", guardian.get("reward_gold", 500)),
+            reward_xp=guardian.get("xp", guardian.get("reward_xp", 250)),
+        )
+
     img = Image.new("RGBA", (WIDTH, HEIGHT), CANVAS_TOP)
 
     # 1. Atmospheric Demonic Canvas with deep purple/crimson bloom
@@ -97,7 +111,7 @@ def render_tower_image(
     draw_diamond(draw, WIDTH - 156, header_y + 11, size=3, fill=BLOOD_RED)
     font_badge.draw_text(draw, (WIDTH - 142, header_y + 5), status_text, fill=INK_PRIMARY)
 
-    font_title.draw_text(draw, (34, header_y + 26), "THE DEMON CASTLE TRIAL", fill=INK_PRIMARY)
+    font_title.draw_text(draw, (34, header_y + 26), "DEMON CASTLE // 악마성 100층 시험", fill=INK_PRIMARY)
     font_subtitle.draw_text(
         draw, (34, header_y + 64),
         "Conquer each floor guardian to climb the tower and challenge Demon King Baran.",

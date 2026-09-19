@@ -49,12 +49,12 @@ def _format_cooldown(remaining: int) -> str:
     hours = remaining // 3600
     minutes = (remaining % 3600) // 60
     return (
-        "<b>╭━━━「 ⏳ DAILY STIPEND COOLDOWN 」━━━╮</b>\n\n"
-        "<blockquote>"
+        "<b>[ SYSTEM DAILY ALLOCATION // 보급품 대기 ]</b>\n\n"
+        "<blockquote expandable>"
         "You have already collected your daily ration from the System.\n"
-        f"⏱️ <b>Next ration ready in:</b> <code>{hours}h {minutes:02d}m</code>"
-        "</blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        f"⏱️ <b>Next ration ready in:</b> <code>{hours}h {minutes:02d}m</code>\n"
+        "• Return after the cooldown expires to claim your next ration.\n"
+        "</blockquote>"
     )
 
 

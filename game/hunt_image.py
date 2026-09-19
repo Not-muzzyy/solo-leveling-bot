@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: hunt_combat_resolution · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/hunt_image.py — Solo Leveling Combat Result Image Card Generator.
 
 Enhanced with Hallmark Atmospheric design principles:
@@ -211,7 +212,7 @@ def render_hunt_image(hunter: Hunter, result: HuntResult) -> io.BytesIO:
     draw_hud_corners(draw, (m, m, WIDTH - m, HEIGHT - m), color=glow_color, length=22, width=2)
 
     # ── Top HUD Header ──
-    header_text = "SYSTEM COMBAT RESOLUTION // VICTORY" if is_vic else "SYSTEM COMBAT RESOLUTION // DEFEAT"
+    header_text = "GATE RAID // 던전 클리어 완료 [VICTORY]" if is_vic else "GATE RAID // 던전 공략 실패 [DEFEAT]"
     acc_color = INK_GREEN if is_vic else INK_RED
 
     tb = fonts["sub"].getbbox(header_text)
@@ -219,7 +220,7 @@ def render_hunt_image(hunter: Hunter, result: HuntResult) -> io.BytesIO:
     cx = WIDTH // 2
     draw_diamond(draw, cx - tw // 2 - 14, 24, size=4, fill=acc_color)
     draw_diamond(draw, cx + tw // 2 + 14, 24, size=4, fill=acc_color)
-    draw.text((cx - tw // 2, 16), header_text, font=fonts["sub"], fill=acc_color)
+    draw.text((cx - tw // 2, 17), header_text, font=fonts["sub"], fill=acc_color)
 
     # ── Draw Left Panel (Monster & Hunter Cards) ──
     _draw_left_panel(draw, fonts, hunter, monster, is_vic)
@@ -306,7 +307,7 @@ def render_hunt_image(hunter: Hunter, result: HuntResult) -> io.BytesIO:
             draw.text((rx + 38, cur_y + 28), f"[{item.rarity}] {type_label} • {item.stat_summary()}", font=fonts["small_bold"], fill=rc)
             cur_y += 60
 
-        # Special Event Notice
+        # Special Event or Shadow Extraction Notice
         if result.special_event:
             ev = result.special_event.encode("ascii", "ignore").decode().strip() or result.special_event
             if len(ev) > 52:
@@ -314,6 +315,11 @@ def render_hunt_image(hunter: Hunter, result: HuntResult) -> io.BytesIO:
             draw.rounded_rectangle([rx + 14, cur_y, rx + rw - 14, cur_y + 32], radius=6, fill=SURFACE_ELEVATED, outline=INK_SKY, width=1)
             draw_diamond(draw, rx + 24, cur_y + 16, size=3, fill=INK_SKY)
             draw.text((rx + 34, cur_y + 8), ev, font=fonts["small_bold"], fill=INK_SKY)
+            cur_y += 42
+        elif monster.rank in ["A", "S", "SS", "SSS", "National Level", "Monarch"]:
+            draw.rounded_rectangle([rx + 14, cur_y, rx + rw - 14, cur_y + 32], radius=6, fill=(28, 16, 44, 240), outline=INK_PURPLE, width=1)
+            draw_diamond(draw, rx + 24, cur_y + 16, size=3, fill=INK_PURPLE)
+            draw.text((rx + 34, cur_y + 8), "SHADOW EXTRACTION AVAILABLE // Phrase: 'ARISE' (일어나라)", font=fonts["small_bold"], fill=INK_PURPLE)
             cur_y += 42
 
     else:

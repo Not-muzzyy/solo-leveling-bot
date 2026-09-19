@@ -46,7 +46,7 @@ def _quest_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
 
     if not hunter.daily_quest_claimed and all_done:
         buttons.append([
-            InlineKeyboardButton("🎁 Claim Daily Quest Rewards (+3 Stat Pts)", callback_data="quest_claim")
+            InlineKeyboardButton("🎁 Claim Daily Quest Rewards (+3 Stat Pts)", callback_data="quest_claim", style=enums.ButtonStyle.SUCCESS)
         ])
     elif hunter.daily_quest_claimed:
         buttons.append([
@@ -59,11 +59,11 @@ def _quest_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
 
     if hunter.unspent_stat_points > 0:
         buttons.append([
-            InlineKeyboardButton(f"⚡ Allocate {hunter.unspent_stat_points} Unspent Stat Points", callback_data="stats_menu")
+            InlineKeyboardButton(f"⚡ Allocate {hunter.unspent_stat_points} Unspent Stat Points", callback_data="stats_menu", style=enums.ButtonStyle.PRIMARY)
         ])
 
     buttons.append([
-        InlineKeyboardButton("⚔️ Hunt Gate", callback_data="inv_weapon"),
+        InlineKeyboardButton("⚔️ Hunt Gate", callback_data="inv_weapon", style=enums.ButtonStyle.PRIMARY),
         InlineKeyboardButton("🗺️ World Explore", callback_data="inv_consumable"),
     ])
 
@@ -75,18 +75,18 @@ def _stats_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
     buttons = []
     if hunter.unspent_stat_points > 0:
         buttons.append([
-            InlineKeyboardButton(f"💪 +1 STR ({hunter.str_stat})", callback_data="stats_add_str_1"),
-            InlineKeyboardButton(f"⚡ +1 AGI ({hunter.agi})", callback_data="stats_add_agi_1"),
-            InlineKeyboardButton(f"🛡️ +1 VIT ({hunter.vit})", callback_data="stats_add_vit_1"),
+            InlineKeyboardButton(f"💪 +1 STR ({hunter.str_stat})", callback_data="stats_add_str_1", style=enums.ButtonStyle.PRIMARY),
+            InlineKeyboardButton(f"⚡ +1 AGI ({hunter.agi})", callback_data="stats_add_agi_1", style=enums.ButtonStyle.PRIMARY),
+            InlineKeyboardButton(f"🛡️ +1 VIT ({hunter.vit})", callback_data="stats_add_vit_1", style=enums.ButtonStyle.PRIMARY),
         ])
         buttons.append([
-            InlineKeyboardButton(f"🔮 +1 INT ({hunter.int_stat})", callback_data="stats_add_int_1"),
-            InlineKeyboardButton(f"👁️ +1 PER ({hunter.per})", callback_data="stats_add_per_1"),
+            InlineKeyboardButton(f"🔮 +1 INT ({hunter.int_stat})", callback_data="stats_add_int_1", style=enums.ButtonStyle.PRIMARY),
+            InlineKeyboardButton(f"👁️ +1 PER ({hunter.per})", callback_data="stats_add_per_1", style=enums.ButtonStyle.PRIMARY),
         ])
         if hunter.unspent_stat_points >= 3:
             buttons.append([
-                InlineKeyboardButton(f"💥 Dump All ({hunter.unspent_stat_points}) into STR", callback_data=f"stats_add_str_{hunter.unspent_stat_points}"),
-                InlineKeyboardButton(f"🛡️ Dump All ({hunter.unspent_stat_points}) into VIT", callback_data=f"stats_add_vit_{hunter.unspent_stat_points}"),
+                InlineKeyboardButton(f"💥 Dump All ({hunter.unspent_stat_points}) into STR", callback_data=f"stats_add_str_{hunter.unspent_stat_points}", style=enums.ButtonStyle.PRIMARY),
+                InlineKeyboardButton(f"🛡️ Dump All ({hunter.unspent_stat_points}) into VIT", callback_data=f"stats_add_vit_{hunter.unspent_stat_points}", style=enums.ButtonStyle.PRIMARY),
             ])
 
     buttons.append([
@@ -118,6 +118,7 @@ async def handle_daily(client: Client, message: Message) -> None:
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=_quest_keyboard(hunter),
+            show_caption_above_media=True,
         )
     except Exception as e:
         logger.error("Failed to render daily quest image: %s", e, exc_info=True)
@@ -179,24 +180,23 @@ async def handle_stats(client: Client, message: Message) -> None:
         await db.save_all(user.id)
 
         await message.reply_text(
-            "<b>╭━━━「 ⚡ ATTRIBUTE ENHANCED 」━━━╮</b>\n\n"
+            "<b>[ ATTRIBUTE ENHANCED // 능력치 강화 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}\n"
             f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Total Combat Power: <code>{hunter.power:,}</code>\n"
             f"• Remaining Unspent Points: <code>{hunter.unspent_stat_points}</code>\n"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
 
     # Default /stats menu
     text = (
-        "<b>╭━━━「 📊 HUNTER STAT ALLOCATION 」━━━╮</b>\n\n"
+        "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
         f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>Current Attributes:</b>\n"
         f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
         f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
@@ -205,8 +205,7 @@ async def handle_stats(client: Client, message: Message) -> None:
         f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
         f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
         "</blockquote>\n\n"
-        "<i>Tap an attribute button below to invest points:</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>Tap an attribute button below to invest points:</i>"
     )
     await message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
 
@@ -266,16 +265,15 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             gift_line = f"\n• 🎁 Blessed Gift: [<b>{escape_html(gift_item.rarity)}</b>] <i>{escape_html(gift_item.name)}</i>"
 
         caption = (
-            "<b>╭━━━「 📋 DAILY QUEST COMPLETED 」━━━╮</b>\n\n"
+            "<b>[ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]</b>\n\n"
             f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b>\n"
             f"⚡ <b>Stat Points Available:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>✨ Rewards Granted:</b>\n"
             "• ⚡ <code>+3</code> Unallocated Stat Points\n"
             f"• 💰 <code>+600 Gold</code> ┊ ✨ <code>+250 XP</code>"
             f"{gift_line}\n"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
 
         photo_buf = await asyncio.to_thread(render_quest_image, hunter, notice)
@@ -310,10 +308,10 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             await query.answer(f"Allocated +{amount} into {stat_name.upper()}! Power: {hunter.power}")
 
         text = (
-            "<b>╭━━━「 📊 HUNTER STAT ALLOCATION 」━━━╮</b>\n\n"
+            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
             f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Current Attributes:</b>\n"
             f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
             f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
@@ -322,8 +320,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
             f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
             "</blockquote>\n\n"
-            "<i>Tap an attribute button below to invest points:</i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<i>Tap an attribute button below to invest points:</i>"
         )
         if query.message and query.message.photo:
             await query.message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
@@ -335,17 +332,16 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if data == "stats_menu":
         await query.answer()
         text = (
-            "<b>╭━━━「 📊 HUNTER STAT ALLOCATION 」━━━╮</b>\n\n"
+            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
             f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Current Attributes:</b>\n"
             f"• <b>STR:</b> <code>{hunter.str_stat}</code> ┊ • <b>AGI:</b> <code>{hunter.agi}</code>\n"
             f"• <b>VIT:</b> <code>{hunter.vit}</code> ┊ • <b>INT:</b> <code>{hunter.int_stat}</code> ┊ • <b>PER:</b> <code>{hunter.per}</code>\n\n"
             f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
             "</blockquote>\n\n"
-            "<i>Tap an attribute below to invest points:</i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<i>Tap an attribute below to invest points:</i>"
         )
         await query.message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
         return
@@ -354,7 +350,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         await query.answer()
         caption = build_quest_caption(hunter)
         photo_buf = await asyncio.to_thread(render_quest_image, hunter)
-        await query.message.reply_photo(photo=photo_buf, caption=caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
+        await query.message.reply_photo(photo=photo_buf, caption=caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML, show_caption_above_media=True)
         return
 
     if data == "quest_noop":

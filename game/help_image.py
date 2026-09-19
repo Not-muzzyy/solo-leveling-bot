@@ -110,7 +110,7 @@ def generate_help_image() -> io.BytesIO:
     font_title.draw_text(
         draw,
         (34, header_y + 26),
-        "HUNTER OPERATIONAL MANUAL",
+        "SYSTEM DIRECTIVE // 시스템 가이드",
         fill=INK_PRIMARY,
     )
 
@@ -337,4 +337,10 @@ def generate_help_image() -> io.BytesIO:
     img.save(buf, format="PNG", optimize=True)
     buf.seek(0)
     return buf
+
+
+def render_help_image(*args, **kwargs) -> io.BytesIO:
+    """Convenience alias for generate_help_image accepting optional arguments."""
+    return generate_help_image()
+
 

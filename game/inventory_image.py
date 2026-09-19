@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: inventory_window · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/inventory_image.py — Solo Leveling Dimensional Inventory Image Renderer.
 
 Generates a stylized, high-resolution RPG Inventory Card image using Pillow,
@@ -20,6 +21,7 @@ from game.font_manager import get_font_cascade, clean_and_normalize_name, load_f
 from game.design_tokens import (
     CANVAS_TOP,
     CANVAS_BOTTOM,
+    CANVAS_BORDER,
     SURFACE_BASE,
     SURFACE_ELEVATED,
     SURFACE_ACCENT,
@@ -47,7 +49,6 @@ HEIGHT = 1060
 
 HUD_CYAN = INK_CYAN
 HUD_SKY = INK_SKY
-HUD_BLUE = (37, 99, 235)
 ALERT_RED = (239, 68, 68)
 GOLD_COLOR = INK_GOLD
 GREEN_COLOR = INK_GREEN
@@ -297,14 +298,14 @@ def render_inventory_image(
     _draw_tech_border(draw, 20, 20, WIDTH - 20, HEIGHT - 20)
 
     # 1. Header Banner with vector diamond accents
-    title_text = "SYSTEM NOTIFICATION • DIMENSIONAL STORAGE"
+    title_text = "SHADOW STORAGE // 그림자 보관함"
     t_bbox = fonts["title"].getbbox(title_text)
     t_w = t_bbox[2] - t_bbox[0]
     draw.text(((WIDTH - t_w) // 2, 34), title_text, font=fonts["title"], fill=HUD_CYAN)
-    _draw_diamond(draw, (WIDTH - t_w) // 2 - 18, 48, size=5, fill=HUD_CYAN)
-    _draw_diamond(draw, (WIDTH + t_w) // 2 + 18, 48, size=5, fill=HUD_CYAN)
+    draw_diamond(draw, (WIDTH - t_w) // 2 - 18, 48, size=5, fill=HUD_CYAN)
+    draw_diamond(draw, (WIDTH + t_w) // 2 + 18, 48, size=5, fill=HUD_CYAN)
 
-    sub_text = "Hunter Inventory & Equipment Matrix"
+    sub_text = "SYSTEM DIRECTIVE // DIMENSIONAL INVENTORY MATRIX"
     s_bbox = fonts["small_bold"].getbbox(sub_text)
     s_w = s_bbox[2] - s_bbox[0]
     draw.text(((WIDTH - s_w) // 2, 68), sub_text, font=fonts["small_bold"], fill=TEXT_MUTED)

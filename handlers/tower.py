@@ -41,6 +41,7 @@ def _tower_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 f"⚔️ Ascend Floor {hunter.tower_floor} (🔑 1 Key)",
                 callback_data="tower_climb",
+                style=enums.ButtonStyle.PRIMARY,
             )
         ])
     elif hunter.tower_floor > 100:
@@ -53,7 +54,7 @@ def _tower_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
         ])
 
     buttons.append([
-        InlineKeyboardButton("🎒 Inventory & Potions", callback_data="inv_consumable"),
+        InlineKeyboardButton("🎒 Inventory & Potions", callback_data="inv_consumable", style=enums.ButtonStyle.PRIMARY),
         InlineKeyboardButton("⚒️ Blacksmith Forge", callback_data="shop_menu"),
     ])
     return InlineKeyboardMarkup(buttons)
@@ -91,6 +92,7 @@ async def handle(client: Client, message: Message) -> None:
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=_tower_keyboard(hunter),
+            show_caption_above_media=True,
         )
     except Exception as e:
         logger.error("Failed to render tower image: %s", e, exc_info=True)
@@ -109,13 +111,12 @@ async def _execute_climb(
 
     if hunter.tower_keys <= 0:
         msg = (
-            "<b>╭━━━「 🏰 DEMON CASTLE NOTICE 」━━━╮</b>\n\n"
+            "<b>[ DEMON CASTLE // 열쇠 소진 ]</b>\n\n"
             "❌ <b>Daily Keys Depleted!</b>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• You have exhausted all <code>3/3</code> daily Demon Castle Keys.\n"
             "• Keys automatically replenish at <code>00:00 UTC</code>."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         if isinstance(target, CallbackQuery):
             await target.answer("❌ You have exhausted your 3 daily Demon Castle Keys!", show_alert=True)
@@ -125,13 +126,12 @@ async def _execute_climb(
 
     if hunter.tower_floor > 100:
         msg = (
-            "<b>╭━━━「 👑 DEMON CASTLE CONQUERED 」━━━╮</b>\n\n"
+            "<b>[ DEMON CASTLE // 악마성 정복 ]</b>\n\n"
             "🏆 <b>Apex Monarch Achievement!</b>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "• You have already conquered all <code>100 Floors</code> of the Demon Castle!\n"
             "• The Spire has bowed to your supreme dominance."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         if isinstance(target, CallbackQuery):
             await target.answer("👑 You have already conquered all 100 floors of the Demon Castle!", show_alert=True)
@@ -183,7 +183,11 @@ async def _execute_climb(
         if isinstance(target, CallbackQuery) and target.message and target.message.photo:
             await target.answer("Ascension battle concluded!", show_alert=False)
             await target.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                media=InputMediaPhoto(
+                    media=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                ),
                 reply_markup=_tower_keyboard(hunter),
             )
         elif isinstance(target, CallbackQuery):
@@ -193,6 +197,7 @@ async def _execute_climb(
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=_tower_keyboard(hunter),
+                show_caption_above_media=True,
             )
         else:
             await target.reply_photo(
@@ -200,6 +205,7 @@ async def _execute_climb(
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=_tower_keyboard(hunter),
+                show_caption_above_media=True,
             )
     except Exception as e:
         logger.error("Failed to render tower result: %s", e, exc_info=True)
@@ -231,7 +237,11 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         photo_buf = await asyncio.to_thread(render_tower_image, hunter, guardian)
         if query.message and query.message.photo:
             await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                media=InputMediaPhoto(
+                    media=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                ),
                 reply_markup=_tower_keyboard(hunter),
             )
         elif query.message:
@@ -240,6 +250,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
                 caption=caption,
                 reply_markup=_tower_keyboard(hunter),
                 parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
             )
     elif query.data == "tower_noop":
         await query.answer("Daily keys depleted. Resets at midnight UTC.", show_alert=True)

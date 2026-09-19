@@ -192,23 +192,24 @@ async def handle_admin_help(client: Client, message: Message) -> None:
         return
 
     text = (
-        "<b>╭━━━「 👑 SYSTEM SUPERADMIN CONSOLE 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]</b>\n"
+        "<b>관리자 제어 // 최고 관리자 터미널</b>\n\n"
         "<i>Executive Hunter Management & Balances</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "⚡ <b>Gold & Economy Controls:</b>\n"
         "• <code>/addgold &lt;amount&gt;</code> — Add gold to your own treasury\n"
         "• <code>/addgold &lt;amount&gt; &lt;user_id|@username&gt;</code> — Credit gold to target Hunter\n"
         "• <code>/setgold &lt;amount&gt; [target]</code> — Overwrite exact gold balance\n"
         "<i>(Aliases: <code>/addcoins</code>, <code>/setcoins</code>)</i>\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "✨ <b>XP & Level Progression:</b>\n"
         "• <code>/addxp &lt;amount&gt;</code> — Grant XP to yourself (triggers level & rank ups)\n"
         "• <code>/addxp &lt;amount&gt; &lt;user_id|@username&gt;</code> — Grant XP to target Hunter\n"
         "• <code>/setlevel &lt;level&gt; [target]</code> — Force set hunter level & stats\n"
         "<i>(Aliases: <code>/addep</code>, <code>/setep</code>)</i>\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "🎁 <b>Promo & Gift Code System:</b>\n"
         "• <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge gold gift code\n"
         "• <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code> — Forge item code\n"
@@ -217,18 +218,17 @@ async def handle_admin_help(client: Client, message: Message) -> None:
         "• <code>/listcodes</code> (or <code>/codes</code>) — View all promo codes & telemetry\n"
         "• <code>/deletecode &lt;CODE&gt;</code> — Purge / revoke a promo code\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "🔍 <b>Diagnostics & Inspection:</b>\n"
         "• <code>/inspect [user_id|@username]</code> — Deep telemetry & raw attributes\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "🚀 <b>Lifecycle & Remote Updates:</b>\n"
         "• <code>/update</code> — Check remote git commits, changed files & code lines\n"
         "• <code>/restart</code> — Pull latest commits & reboot bot process\n"
         "• <code>/stop</code> (or <code>/shutdown</code>) — Terminate & kill bot process\n"
         "</blockquote>\n\n"
-        "<blockquote>💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<blockquote>💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i></blockquote>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
 
@@ -258,15 +258,15 @@ async def handle_add_gold(client: Client, message: Message) -> None:
     h_name = escape_html(target_hunter.hunter_name)
 
     text = (
-        "<b>╭━━━「 💰 TREASURY TRANSACTION 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]</b>\n"
+        "<b>자금 조정 // 국고 잔액 변경</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
         f"⚡ <b>Adjustment:</b> {verb} <b>{abs_amt:,}</b> Gold\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• Previous Balance: <code>{old_gold:,}</code> 💰\n"
         f"• New Balance: <b>{target_hunter.gold:,}</b> 💰\n"
         "</blockquote>\n\n"
-        "<i>✅ Database synchronized successfully.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>✅ Database synchronized successfully.</i>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"Superadmin {user.id} modified gold for {target_hunter.user_id} by {amount} (New: {target_hunter.gold})")
@@ -294,14 +294,14 @@ async def handle_set_gold(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>╭━━━「 💰 TREASURY OVERWRITE 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]</b>\n"
+        "<b>자금 재설정 // 국고 강제 조정</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• Previous Balance: <code>{old_gold:,}</code> 💰\n"
         f"• Set Balance: <b>{target_hunter.gold:,}</b> 💰\n"
         "</blockquote>\n\n"
-        "<i>✅ Database synchronized successfully.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>✅ Database synchronized successfully.</i>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"Superadmin {user.id} set gold for {target_hunter.user_id} to {amount}")
@@ -338,17 +338,17 @@ async def handle_add_xp(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>╭━━━「 ✨ ENERGY INFUSION (XP) 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // ENERGY INFUSION ]</b>\n"
+        "<b>마력 주입 // 경험치 직접 지급</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
         f"⚡ <b>XP Injected:</b> +<b>{amount:,}</b> XP\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• Progress: <code>{target_hunter.xp} / {target_hunter.xp_needed} XP</code>\n"
         f"• Rank & Level: [<code>{target_hunter.rank}</code>] Lv <b>{target_hunter.level}</b>\n"
         f"• Combat Power: <code>{old_power}</code> ➜ <b>{target_hunter.power}</b>"
         f"{level_notice}\n"
         "</blockquote>\n\n"
-        "<i>✅ Database synchronized successfully.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>✅ Database synchronized successfully.</i>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"Superadmin {user.id} granted {amount} XP to {target_hunter.user_id} (New Lv: {target_hunter.level})")
@@ -394,15 +394,15 @@ async def handle_set_level(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>╭━━━「 👑 LEVEL OVERRIDE 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]</b>\n"
+        "<b>레벨 재설정 // 헌터 등급 강제 조정</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• Level Adjustment: Lv {old_lvl} ➜ <b>Lv {target_hunter.level}</b>\n"
         f"• Rank: <code>{target_hunter.rank}</code>\n"
         f"• Max HP: <code>{target_hunter.max_hp}</code> ┊ Combat Power: <b>{target_hunter.power}</b>\n"
         "</blockquote>\n\n"
-        "<i>✅ Database synchronized successfully.</i>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<i>✅ Database synchronized successfully.</i>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"Superadmin {user.id} set level for {target_hunter.user_id} to {new_lvl}")
@@ -442,29 +442,29 @@ async def handle_inspect(client: Client, message: Message) -> None:
     g_id = escape_html(target_hunter.guild_id or 'None')
 
     text = (
-        "<b>╭━━━「 🔍 HUNTER TELEMETRY DOSSIER 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM DOSSIER // HUNTER TELEMETRY ]</b>\n"
+        "<b>헌터 정보 // 상세 데이터 열람</b>\n\n"
         f"👤 <b>Name:</b> {h_name}\n"
         f"🆔 <b>User ID:</b> <code>{target_hunter.user_id}</code> ┊ 🏷 <b>Username:</b> @{u_name}\n"
         f"🏅 <b>Rank:</b> [<code>{target_hunter.rank}</code>] ┊ <b>Level:</b> Lv <b>{target_hunter.level}</b>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"• XP: <code>{target_hunter.xp:,} / {target_hunter.xp_needed:,}</code>\n"
         f"• Treasury: 💰 <code>{target_hunter.gold:,} G</code>\n"
         f"• Combat Power: ⚡ <b>{target_hunter.power:,}</b>\n"
         f"• Vitality: ❤️ <code>{target_hunter.hp} / {target_hunter.max_hp}</code>\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>📊 Core Attributes:</b>\n"
         f"• STR: <code>{target_hunter.str_stat}</code> ┊ AGI: <code>{target_hunter.agi}</code>\n"
         f"• VIT: <code>{target_hunter.vit}</code> ┊ INT: <code>{target_hunter.int_stat}</code> ┊ PER: <code>{target_hunter.per}</code>\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>🎒 Association Records:</b>\n"
         f"• Inventory: <code>{inv_count}</code> items (<code>{equipped}</code> equipped)\n"
         f"• Guild ID: <code>{g_id}</code>\n"
         f"• Duels: <code>{target_hunter.duel_wins}W - {target_hunter.duel_losses}L</code>\n"
         f"• Hunts: <code>{target_hunter.victories}W - {target_hunter.defeats}L</code> (Total: <code>{target_hunter.total_hunts}</code>)\n"
-        "</blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "</blockquote>"
     )
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
 
@@ -481,9 +481,10 @@ async def handle_create_code(client: Client, message: Message) -> None:
     args = message.command[1:] if len(message.command) > 1 else []
     if len(args) < 3:
         await message.reply_text(
-            "<b>╭━━━「 🎁 SYSTEM CODE FORGE DIRECTIVE 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM DIRECTIVE // CODE FORGE ]</b>\n"
+            "<b>코드 생성 // 프로모션 코드 제작 지침</b>\n\n"
             "<i>Create Promo &amp; Gift Codes for Hunters</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "⚡ <b>Supported Syntaxes:</b>\n"
             "1. <b>Gold Code:</b>\n"
             "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
@@ -497,8 +498,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
             "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
             "   <i>Example:</i> <code>/createcode xp FASTXP 2500 100</code>\n"
             "</blockquote>\n\n"
-            "<blockquote>💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote>💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -533,15 +533,15 @@ async def handle_create_code(client: Client, message: Message) -> None:
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
         await message.reply_text(
-            "<b>╭━━━「 ✅ SYSTEM CODE FORGED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // CODE FORGED ]</b>\n"
+            "<b>코드 생성 완료 // 골드 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"💰 <b>Reward:</b> +{amount:,} Gold\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
             parse_mode=enums.ParseMode.HTML,
         )
         logger.info(f"Superadmin {user.id} created gold code {code_obj.code} (+{amount}g, limit: {max_uses})")
@@ -581,16 +581,16 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
         await message.reply_text(
-            "<b>╭━━━「 ✅ ARTIFACT CODE FORGED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]</b>\n"
+            "<b>코드 생성 완료 // 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Attributes: <i>{esc_stats}</i>\n"
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
             parse_mode=enums.ParseMode.HTML,
         )
         logger.info(f"Superadmin {user.id} created item code {code_obj.code} ({item_obj.name}, limit: {max_uses})")
@@ -650,17 +650,17 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
         await message.reply_text(
-            "<b>╭━━━「 ✅ CUSTOM ARTIFACT CODE FORGED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]</b>\n"
+            "<b>코드 생성 완료 // 특수 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]\n"
             f"📊 <b>Type:</b> {escape_html(item_obj.type.capitalize())}\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Attributes: <i>{esc_stats}</i>\n"
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
             parse_mode=enums.ParseMode.HTML,
         )
         logger.info(f"Superadmin {user.id} created custom item code {code_obj.code} ({item_obj.name}, limit: {max_uses})")
@@ -693,15 +693,15 @@ async def handle_create_code(client: Client, message: Message) -> None:
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
         await message.reply_text(
-            "<b>╭━━━「 ✅ SYSTEM XP CODE FORGED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // XP CODE FORGED ]</b>\n"
+            "<b>코드 생성 완료 // 경험치 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"✨ <b>Reward:</b> +{amount:,} XP\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
             parse_mode=enums.ParseMode.HTML,
         )
         logger.info(f"Superadmin {user.id} created XP code {code_obj.code} (+{amount}xp, limit: {max_uses})")
@@ -723,20 +723,21 @@ async def handle_list_codes(client: Client, message: Message) -> None:
     all_codes = await db.get_all_redeem_codes()
     if not all_codes:
         await message.reply_text(
-            "<b>╭━━━「 📭 CODE REGISTRY EMPTY 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]</b>\n"
+            "<b>코드 목록 // 등록된 코드 없음</b>\n\n"
             "<i>No promotional redeem codes currently registered.</i>\n\n"
-            "<blockquote>"
-            "• Use <code>/createcode</code> to generate a new gift code."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote expandable>"
+            "• Use <code>/createcode</code> to generate a new gift code.\n"
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
 
     lines = [
-        "<b>╭━━━「 🎁 PROMO CODE REGISTRY 」━━━╮</b>",
+        "<b>[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]</b>",
+        "<b>코드 등록소 // 활성 프로모션 목록</b>",
         "",
-        "<blockquote>",
+        "<blockquote expandable>",
     ]
     for c in sorted(all_codes, key=lambda x: x.created_at, reverse=True):
         claimed_count = len(c.claimed_by)
@@ -762,7 +763,6 @@ async def handle_list_codes(client: Client, message: Message) -> None:
         "</blockquote>",
         "",
         "<blockquote>💡 <i>Use <code>/deletecode &lt;CODE&gt;</code> to deactivate any code.</i></blockquote>",
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ])
     await message.reply_text("\n".join(lines), parse_mode=enums.ParseMode.HTML)
 
@@ -788,12 +788,12 @@ async def handle_delete_code(client: Client, message: Message) -> None:
     deleted = await db.delete_redeem_code(code_str)
     if deleted:
         await message.reply_text(
-            "<b>╭━━━「 🗑️ CODE REVOKED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM NOTIFICATION // CODE REVOKED ]</b>\n"
+            "<b>코드 삭제 // 프로모션 코드 폐기 완료</b>\n\n"
             f"Redemption key <code>{escape_html(code_str)}</code> was successfully purged from the System.\n\n"
-            "<blockquote>"
-            "Hunters can no longer redeem this code."
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote expandable>"
+            "Hunters can no longer redeem this code.\n"
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         logger.info(f"Superadmin {user.id} deleted redeem code {code_str}")
@@ -906,10 +906,10 @@ async def handle_update(client: Client, message: Message) -> None:
         return
 
     status_msg = await message.reply_text(
-        "<b>╭━━━「 🔍 CHECKING UPDATES 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM TELEMETRY // CHECKING UPDATES ]</b>\n"
+        "<b>업데이트 확인 // 원격 저장소 조회</b>\n\n"
         "<i>Contacting remote repository origin...</i>\n\n"
-        "<blockquote>• Fetching git refs from origin...</blockquote>\n\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        "<blockquote expandable>• Fetching git refs from origin...</blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 
@@ -920,10 +920,10 @@ async def handle_update(client: Client, message: Message) -> None:
     ret, _, stderr = await _run_git_async("fetch", "origin")
     if ret != 0:
         await status_msg.edit_text(
-            "<b>╭━━━「 ⚠️ UPDATE CHECK FAILED 」━━━╮</b>\n\n"
-            f"❌ Failed to reach remote git origin.\n\n"
-            f"<blockquote><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<b>[ SYSTEM ERROR // UPDATE CHECK FAILED ]</b>\n"
+            "<b>조회 실패 // 원격 연결 오류</b>\n\n"
+            "❌ Failed to reach remote git origin.\n\n"
+            f"<blockquote expandable><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -939,17 +939,17 @@ async def handle_update(client: Client, message: Message) -> None:
         _, author, _ = await _run_git_async("log", "-1", "--format=%an")
 
         text = (
-            "<b>╭━━━「 ✨ SYSTEM UP TO DATE 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]</b>\n"
+            "<b>시스템 상태 // 최신 버전 유지 중</b>\n\n"
             "<i>The Solo Leveling Hunter System is synchronized with remote origin.</i>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"• <b>Branch:</b> <code>{escape_html(branch)}</code>\n"
             f"• <b>Active Commit:</b> <code>{escape_html(current_hash)}</code>\n"
             f"• <b>Latest Change:</b> {escape_html(commit_msg)}\n"
             f"• <b>Author:</b> {escape_html(author)}\n"
             "• <b>Status:</b> 🟢 No pending remote commits found.\n"
             "</blockquote>\n\n"
-            "<blockquote>💡 <i>Use <code>/restart</code> anytime to reboot the bot process.</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<blockquote>💡 <i>Use <code>/restart</code> anytime to reboot the bot process.</i></blockquote>"
         )
         await status_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
         return
@@ -990,28 +990,28 @@ async def handle_update(client: Client, message: Message) -> None:
     total_lines = insertions + deletions
 
     text = (
-        "<b>╭━━━「 🚀 SYSTEM UPDATE AVAILABLE 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM TELEMETRY // UPDATE AVAILABLE ]</b>\n"
+        "<b>업데이트 감지 // 신규 패치 대기</b>\n\n"
         f"<i>{commit_count} new commit{'s' if commit_count != 1 else ''} detected on <code>{escape_html(upstream)}</code>!</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"<b>📦 Incoming Commits ({commit_count}):</b>\n"
         f"{commits_block}\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         f"<b>📂 Changed Files ({files_count}):</b>\n"
         f"{files_block}\n"
         "</blockquote>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "<b>📊 Code Total Lines:</b>\n"
         f"• Insertions: <b>+{insertions:,}</b>\n"
         f"• Deletions: <b>-{deletions:,}</b>\n"
         f"• Total Lines Changed: <b>{total_lines:,}</b>\n"
         "</blockquote>\n\n"
-        "<blockquote>💡 <i>Tap <b>[ 🔄 Pull & Restart ]</b> below or run <code>/restart</code> to apply.</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+        "<blockquote>💡 <i>Tap <b>[ 🔄 Pull & Restart ]</b> below or run <code>/restart</code> to apply.</i></blockquote>"
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Pull & Restart", callback_data="admin_restart")]
+        [InlineKeyboardButton("🔄 Pull & Restart", callback_data="admin_restart", style=enums.ButtonStyle.PRIMARY)]
     ])
     await status_msg.edit_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
 
@@ -1025,15 +1025,15 @@ async def handle_restart(client: Client, message: Message) -> None:
         return
 
     status_msg = await message.reply_text(
-        "<b>╭━━━「 🔄 SYSTEM REBOOTING 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
+        "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Initiating automated reboot sequence...</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "• <b>Step 1:</b> Pulling remote code changes...\n"
         "• <b>Step 2:</b> Saving telemetry state...\n"
         "• <b>Step 3:</b> Spawning fresh process...\n"
         "</blockquote>\n\n"
-        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 
@@ -1051,15 +1051,15 @@ async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
     await query.answer("Initiating System restart...", show_alert=False)
 
     await query.edit_message_text(
-        "<b>╭━━━「 🔄 SYSTEM REBOOTING 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
+        "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Applying updates and restarting System...</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "• <b>Step 1:</b> Pulling remote commits from origin...\n"
         "• <b>Step 2:</b> Preserving state telemetry...\n"
         "• <b>Step 3:</b> Launching new engine instance...\n"
         "</blockquote>\n\n"
-        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 
@@ -1078,15 +1078,15 @@ async def handle_stop(client: Client, message: Message) -> None:
 
     name = escape_html(user.first_name or "Sovereign")
     await message.reply_text(
-        "<b>╭━━━「 🛑 SYSTEM SHUTDOWN 」━━━╮</b>\n\n"
+        "<b>[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]</b>\n"
+        "<b>시스템 정지 // 엔진 가동 중단</b>\n\n"
         "<i>Terminating Hunter System engine as commanded...</i>\n\n"
-        "<blockquote>"
+        "<blockquote expandable>"
         "• <b>Status:</b> Offline 🔴\n"
         f"• <b>Authorized By:</b> {name}\n"
         "• <b>Action:</b> Process terminated (task killed)\n"
         "</blockquote>\n\n"
-        "<blockquote>💤 <i>System power disconnected. All sessions safely released.</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        "<blockquote>💤 <i>System power disconnected. All sessions safely released.</i></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 

@@ -79,11 +79,11 @@ def _inventory_keyboard(
             rarity_icon = RARITY_EMOJI.get(item.rarity, "")
             stats = item.stat_summary()
             label = f"⚡ Equip: {rarity_icon} {item.name} ({stats})"
-            rows.append([InlineKeyboardButton(label, callback_data=f"equip_{item.id}_{active_cat}")])
+            rows.append([InlineKeyboardButton(label, callback_data=f"equip_{item.id}_{active_cat}", style=enums.ButtonStyle.PRIMARY)])
 
         if len(unequipped_items) > 4:
             rows.append([
-                InlineKeyboardButton(f"⚡ All Equippable Gear ({len(unequipped_items)} items)", callback_data="inv_to_equip")
+                InlineKeyboardButton(f"⚡ All Equippable Gear ({len(unequipped_items)} items)", callback_data="inv_to_equip", style=enums.ButtonStyle.PRIMARY)
             ])
     elif inventory and active_cat == "consumable":
         # Group consumables by name for sleek 1-tap usage
@@ -99,7 +99,7 @@ def _inventory_keyboard(
             count = len(items)
             count_str = f" x{count}" if count > 1 else ""
             label = f"🧪 Use: {rarity_icon} {first_item.name}{count_str} ({stats})"
-            rows.append([InlineKeyboardButton(label, callback_data=f"use_{first_item.id}")])
+            rows.append([InlineKeyboardButton(label, callback_data=f"use_{first_item.id}", style=enums.ButtonStyle.SUCCESS)])
     elif inventory:
         unequipped_total = sum(
             1 for item in inventory.items
@@ -107,12 +107,12 @@ def _inventory_keyboard(
         )
         if unequipped_total > 0:
             rows.append([
-                InlineKeyboardButton(f"⚡ Equip Gear ({unequipped_total} available)", callback_data="inv_to_equip")
+                InlineKeyboardButton(f"⚡ Equip Gear ({unequipped_total} available)", callback_data="inv_to_equip", style=enums.ButtonStyle.PRIMARY)
             ])
 
     # Bottom Actions: Shop & Refresh
     rows.append([
-        InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu"),
+        InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu", style=enums.ButtonStyle.PRIMARY),
         InlineKeyboardButton("🔄 Refresh", callback_data=f"inv_{active_cat}"),
     ])
 
@@ -145,7 +145,7 @@ def _shop_items_keyboard(item_type: str) -> InlineKeyboardMarkup:
         rarity_icon = RARITY_EMOJI.get(entry["rarity"], "")
         label = f"{rarity_icon} {entry['name']} — {entry['price']}💰"
         buttons.append(
-            [InlineKeyboardButton(label, callback_data=f"buy_{entry['key']}")]
+            [InlineKeyboardButton(label, callback_data=f"buy_{entry['key']}", style=enums.ButtonStyle.PRIMARY)]
         )
     buttons.append(
         [InlineKeyboardButton("⬅️ Shop Menu", callback_data="shop_menu")]
@@ -166,11 +166,11 @@ def _format_shop_category(item_type: str, gold: int) -> str:
     items = get_shop_items_by_type(item_type)
 
     lines = [
-        f"<b>╭━━━「 🛒 EXCHANGE DEPOT // {label} 」━━━╮</b>",
+        f"<b>[ EXCHANGE DEPOT // {label} ]</b>",
         "",
         f"💰 <b>Available Treasury:</b> <code>{gold:,} G</code>",
         "",
-        "<blockquote>",
+        "<blockquote expandable>",
         "<b>Catalog Inventory:</b>",
     ]
 
@@ -197,7 +197,6 @@ def _format_shop_category(item_type: str, gold: int) -> str:
         "</blockquote>",
         "",
         "<i>Tap an item button below to complete purchase:</i>",
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
     ])
     return "\n".join(lines)
 
@@ -225,13 +224,12 @@ async def handle(client: Client, message: Message) -> None:
         if not hunter:
             u_name = escape_html(user.first_name)
             gc_text = (
-                "<b>╭━━━「 ⚠️ SYSTEM AWAKENING REQUIRED 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
                 f"👤 <b>Citizen:</b> <b>{u_name}</b>\n\n"
                 "<blockquote>"
                 "• You have not awakened as an active Hunter yet.\n"
                 "• Tap below to awaken in private chat and claim your starter inventory."
-                "</blockquote>\n\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+                "</blockquote>"
             )
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
@@ -253,6 +251,7 @@ async def handle(client: Client, message: Message) -> None:
                 caption=caption,
                 reply_markup=_inventory_keyboard(inventory, "weapon"),
                 parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
             )
             direct_sent = True
         except Exception:
@@ -265,20 +264,19 @@ async def handle(client: Client, message: Message) -> None:
         )
 
         gc_text = (
-            "<b>╭━━━「 🎒 DIMENSIONAL STORAGE 」━━━╮</b>\n\n"
+            "<b>[ SHADOW STORAGE // 그림자 보관함 ]</b>\n\n"
             f"👤 <b>Hunter:</b> <b>{h_name}</b> [Rank <b>{hunter.rank}</b>]\n"
             f"📦 <b>Vault:</b> <code>{len(inventory.items)} items</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>Notice: Group Chat Privacy Protocol</b>\n"
             "• Dimensional inventory operations are restricted to private chat.\n"
             f"• {status_notice}\n"
             "</blockquote>\n\n"
-            "<i>Tap below to open your dimensional vault:</i>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<i>Tap below to open your dimensional vault:</i>"
         )
 
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎒 Open Inventory in Bot PM", url=pm_url)]
+            [InlineKeyboardButton("🎒 Open Inventory in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
         ])
         await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
         return
@@ -298,6 +296,7 @@ async def handle(client: Client, message: Message) -> None:
             caption=caption,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=_inventory_keyboard(inventory, "weapon"),
+            show_caption_above_media=True,
         )
     except Exception as exc:
         logger.error("Failed to render inventory image, falling back to text: %s", exc, exc_info=True)
@@ -348,18 +347,17 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             type_icon = "⚔️" if item.type == "weapon" else ("🛡️" if item.type == "armor" else "💍")
             label = f"⚡ {type_icon} {rarity_icon} {item.name} ({item.stat_summary()})"
             buttons.append(
-                [InlineKeyboardButton(label, callback_data=f"equip_{item.id}_{item.type}")]
+                [InlineKeyboardButton(label, callback_data=f"equip_{item.id}_{item.type}", style=enums.ButtonStyle.PRIMARY)]
             )
         buttons.append(
             [InlineKeyboardButton("⬅️ Back to Inventory", callback_data="inv_weapon")]
         )
         equip_caption = (
-            "<b>╭━━━「 ⚡ BIND EQUIPMENT 」━━━╮</b>\n\n"
+            "<b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code>\n\n"
             "<blockquote>"
             "Select an equipment piece below to bind it to your Hunter's soul resonance:"
-            "</blockquote>\n\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         if query.message and query.message.photo:
             await query.edit_message_caption(caption=equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML)
@@ -738,14 +736,13 @@ async def handle_use(client: Client, message: Message) -> None:
         h_name = escape_html(hunter.hunter_name)
         if not healing_item:
             await message.reply_text(
-                "<b>╭━━━「 ❌ NO HEALING POTIONS FOUND 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM ALERT // 회복 포션 부재 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name}\n"
                 f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
                 "<blockquote>"
                 "You do not possess any Health Potions in storage.\n"
                 "Visit <code>/shop</code> to purchase recovery elixirs!"
-                "</blockquote>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                "</blockquote>",
                 parse_mode=enums.ParseMode.HTML,
             )
             return
@@ -753,11 +750,10 @@ async def handle_use(client: Client, message: Message) -> None:
         success, result_msg = apply_consumable(hunter, healing_item)
         if not success:
             await message.reply_text(
-                "<b>╭━━━「 ⚠️ VITALITY RESTORATION UNNECESSARY 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM NOTICE // 체력 회복 불필요 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name}\n"
                 f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
-                f"<blockquote>{escape_html(result_msg)}</blockquote>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                f"<blockquote>{escape_html(result_msg)}</blockquote>",
                 parse_mode=enums.ParseMode.HTML,
             )
             return
@@ -768,14 +764,13 @@ async def handle_use(client: Client, message: Message) -> None:
         await db.save_all(user.id)
 
         await message.reply_text(
-            "<b>╭━━━「 🧪 SYSTEM RESTORATION APPLIED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM RESTORATION // 활력 회복 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
             f"✨ <b>Item Used:</b> {escape_html(healing_item.name)}\n"
             f"📊 <b>Recovery:</b> {escape_html(result_msg)}\n"
             f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
             f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
-            "<blockquote><i>「 Your wounds knit together as mana circulates through your core. 」</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote><i>「 Your wounds knit together as mana circulates through your core. 」</i></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -785,13 +780,12 @@ async def handle_use(client: Client, message: Message) -> None:
     if not arg:
         if not consumables:
             await message.reply_text(
-                "<b>╭━━━「 🎒 DIMENSIONAL STORAGE — CONSUMABLES 」━━━╮</b>\n\n"
+                "<b>[ SHADOW STORAGE // 소비 아이템 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name}\n\n"
                 "<blockquote>"
                 "You do not have any potions, elixirs, or scrolls in storage.\n"
                 "Visit <code>/shop</code> to browse available consumable items!"
-                "</blockquote>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+                "</blockquote>",
                 parse_mode=enums.ParseMode.HTML,
             )
             return
@@ -808,20 +802,19 @@ async def handle_use(client: Client, message: Message) -> None:
             cnt_str = f" x{cnt}" if cnt > 1 else ""
             stats = first.stat_summary()
             buttons.append([
-                InlineKeyboardButton(f"🧪 Use: {r_icon} {first.name}{cnt_str} ({stats})", callback_data=f"use_{first.id}")
+                InlineKeyboardButton(f"🧪 Use: {r_icon} {first.name}{cnt_str} ({stats})", callback_data=f"use_{first.id}", style=enums.ButtonStyle.SUCCESS)
             ])
         buttons.append([
             InlineKeyboardButton("🎒 Open Full Inventory", callback_data="inv_consumable"),
-            InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_consumable")
+            InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_consumable", style=enums.ButtonStyle.PRIMARY)
         ])
 
         await message.reply_text(
-            "<b>╭━━━「 🧪 AVAILABLE CONSUMABLES 」━━━╮</b>\n\n"
+            "<b>[ AVAILABLE CONSUMABLES // 사용 가능 아이템 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} ┊ ❤️ <b>HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
             "<blockquote>"
             "Select an item below to consume immediately, or type <code>/use &lt;item name&gt;</code>:"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "</blockquote>",
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML,
         )
@@ -861,9 +854,8 @@ async def handle_use(client: Client, message: Message) -> None:
     success, result_msg = apply_consumable(hunter, target_item)
     if not success:
         await message.reply_text(
-            "<b>╭━━━「 ⚠️ ACTION CANCELLED 」━━━╮</b>\n\n"
-            f"<blockquote>{escape_html(result_msg)}</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<b>[ ACTION CANCELLED // 사용 취소 ]</b>\n\n"
+            f"<blockquote>{escape_html(result_msg)}</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -874,15 +866,14 @@ async def handle_use(client: Client, message: Message) -> None:
     await db.save_all(user.id)
 
     await message.reply_text(
-        "<b>╭━━━「 🧪 ITEM CONSUMED 」━━━╮</b>\n\n"
+        "<b>[ ITEM CONSUMED // 아이템 사용 완료 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
         f"✨ <b>Used:</b> {escape_html(target_item.name)} [<code>{target_item.rarity}</code>]\n"
         f"📊 <b>Effect:</b> {escape_html(result_msg)}\n"
         f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
         f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n"
         f"💪 <b>Total Power:</b> <code>{hunter.power:,}</code>\n\n"
-        "<blockquote><i>「 The System records your enhanced status. 」</i></blockquote>\n"
-        "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+        "<blockquote><i>「 The System records your enhanced status. 」</i></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 

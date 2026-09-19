@@ -52,7 +52,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
             pm_url = f"https://t.me/{bot_user}?start=redeem"
 
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎁 Open Bot DM & Redeem", url=pm_url)]
+            [InlineKeyboardButton("🎁 Open Bot DM & Redeem", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
         ])
 
         warning_subtext = (
@@ -64,11 +64,11 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await client.send_message(
             chat_id=chat.id,
             text=(
-                "<b>╭━━━「 🔒 CONFIDENTIAL TRANSMISSION 」━━━╮</b>\n\n"
+                "<b>[ SYSTEM DIRECTIVE // CONFIDENTIAL TRANSMISSION ]</b>\n"
+                "<b>기밀 전송 // 개인 통신망 전용</b>\n\n"
                 "The <code>/redeem</code> terminal is strictly confidential and <b>only works in the Bot's Direct Messages (DM)</b>.\n\n"
-                f"<blockquote>{warning_subtext}</blockquote>\n\n"
-                "👉 <i>Tap the button below to redeem your reward safely in private chat:</i>\n"
-                "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+                f"<blockquote expandable>{warning_subtext}</blockquote>\n\n"
+                "👉 <i>Tap the button below to redeem your reward safely in private chat:</i>"
             ),
             reply_markup=keyboard,
             parse_mode=enums.ParseMode.HTML,
@@ -79,12 +79,12 @@ async def handle_redeem(client: Client, message: Message) -> None:
     hunter = await db.get_hunter(user.id)
     if not hunter:
         await message.reply_text(
-            "<b>╭━━━「 ❌ SYSTEM NOTICE 」━━━╮</b>\n\n"
-            "<blockquote>"
+            "<b>[ SYSTEM NOTICE // UNREGISTERED ENTITY ]</b>\n"
+            "<b>시스템 경고 // 미각성자 접근 제한</b>\n\n"
+            "<blockquote expandable>"
             "You have not awakened as a Hunter yet.\n"
-            "Use <code>/start</code> to awaken and initialize your Hunter License!"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "Use <code>/start</code> to awaken and initialize your Hunter License!\n"
+            "</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -92,8 +92,9 @@ async def handle_redeem(client: Client, message: Message) -> None:
     args = message.command[1:] if len(message.command) > 1 else []
     if not args:
         await message.reply_text(
-            "<b>╭━━━「 🎁 SYSTEM REDEMPTION TERMINAL 」━━━╮</b>\n\n"
-            "<blockquote>"
+            "<b>[ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]</b>\n"
+            "<b>코드 교환 // 보상 수령 터미널</b>\n\n"
+            "<blockquote expandable>"
             "Enter a secret System promo code to receive dimensional supplies, rare artifacts, or gold.\n\n"
             "<b>Command Syntax:</b>\n"
             "<code>/redeem &lt;CODE&gt;</code>\n\n"
@@ -101,8 +102,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
             "• <code>/redeem WELCOME1000</code>\n"
             "• <code>/redeem SHADOWBLADE</code>\n"
             "</blockquote>\n\n"
-            "<blockquote><i>「 The System rewards those who remain vigilant. 」</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<blockquote><i>「 The System rewards those who remain vigilant. 」</i></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -113,9 +113,9 @@ async def handle_redeem(client: Client, message: Message) -> None:
     success, err_msg, code_obj = await db.claim_redeem_code(code_str, user.id)
     if not success:
         await message.reply_text(
-            "<b>╭━━━「 🎁 SYSTEM TERMINAL ERROR 」━━━╮</b>\n\n"
-            f"<blockquote>{escape_html(err_msg)}</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>",
+            "<b>[ SYSTEM ERROR // REDEMPTION FAILED ]</b>\n"
+            "<b>교환 오류 // 코드 인식 실패</b>\n\n"
+            f"<blockquote expandable>{escape_html(err_msg)}</blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
         return
@@ -130,15 +130,15 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await db.save_hunter(hunter)
 
         text = (
-            "<b>╭━━━「 🎁 SYSTEM REWARD GRANTED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM REWARD // CLAIM GRANTED ]</b>\n"
+            "<b>시스템 보상 // 지급 완료</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"💰 <b>Reward:</b> <code>+{gold_amount:,} Gold</code>\n"
             f"🪙 <b>New Vault Balance:</b> <b>{hunter.gold:,} G</b>\n\n"
             "<i>Gold has been deposited directly into your dimensional vault.</i>\n"
-            "</blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "</blockquote>"
         )
         await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
         logger.info(f"Hunter {hunter.user_id} redeemed gold code {code_str} (+{gold_amount}g)")
@@ -177,18 +177,18 @@ async def handle_redeem(client: Client, message: Message) -> None:
         stats_str = escape_html(added_item.stat_summary())
         item_name = escape_html(added_item.name)
         text = (
-            "<b>╭━━━「 🎁 SYSTEM REWARD GRANTED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM REWARD // ARTIFACT RECEIVED ]</b>\n"
+            "<b>시스템 보상 // 아티팩트 지급</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             "<b>🎒 Dimensional Artifact Received:</b>\n"
             f"• <b>{item_name}</b> [<code>{added_item.rarity}</code>]\n"
             f"• <b>Type:</b> {escape_html(added_item.type.capitalize())}\n"
             f"• <b>Stats:</b> <i>{stats_str}</i>\n"
             f"• <b>Slot:</b> #{added_item.id}\n"
             "</blockquote>\n\n"
-            "<blockquote>💡 <i>Use <code>/inventory</code> to inspect and equip your new gear.</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<blockquote>💡 <i>Use <code>/inventory</code> to inspect and equip your new gear.</i></blockquote>"
         )
         await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
         logger.info(f"Hunter {hunter.user_id} redeemed item code {code_str} ({added_item.name})")
@@ -211,16 +211,16 @@ async def handle_redeem(client: Client, message: Message) -> None:
             ascend_block = f"\n<blockquote>{' '.join(ascend_lines)}</blockquote>\n"
 
         text = (
-            "<b>╭━━━「 🎁 SYSTEM REWARD GRANTED 」━━━╮</b>\n\n"
+            "<b>[ SYSTEM REWARD // XP INFUSION ]</b>\n"
+            "<b>시스템 보상 // 마력 주입 완료</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
-            "<blockquote>"
+            "<blockquote expandable>"
             f"✨ <b>Reward:</b> <code>+{xp_amount:,} XP</code>\n"
             f"📊 <b>Current EXP:</b> <code>{hunter.xp:,} / {hunter.xp_needed:,}</code> (Lv <code>{hunter.level}</code>)\n"
             "</blockquote>\n"
             f"{ascend_block}\n"
-            "<blockquote><i>「 The Monarch's energy flows through your veins. 」</i></blockquote>\n"
-            "<b>╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯</b>"
+            "<blockquote><i>「 The Monarch's energy flows through your veins. 」</i></blockquote>"
         )
         await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
         logger.info(f"Hunter {hunter.user_id} redeemed XP code {code_str} (+{xp_amount}xp)")

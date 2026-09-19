@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: daily_quest_board · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/quest_image.py — Solo Leveling System Daily Quest Board Renderer.
 
 Generates a Hallmark-standard 860x960 System Quest Card:
@@ -106,7 +107,7 @@ def render_quest_image(
     draw_diamond(draw, WIDTH - 176, header_y + 11, size=3, fill=st_col)
     font_badge.draw_text(draw, (WIDTH - 162, header_y + 5), st_text, fill=INK_PRIMARY)
 
-    font_title.draw_text(draw, (34, header_y + 26), "DAILY QUEST : PREPARATION TO BE STRONG", fill=INK_PRIMARY)
+    font_title.draw_text(draw, (34, header_y + 26), "DAILY QUEST // 일일 퀘스트: 강해지기 위한 준비", fill=INK_PRIMARY)
     font_subtitle.draw_text(
         draw, (34, header_y + 64),
         "Complete all physical conditioning objectives before midnight UTC to claim stat points.",
@@ -139,10 +140,11 @@ def render_quest_image(
     # ── Notice Banner ─────────────────────────────────────────
     curr_y = info_y + info_h + 14
     if notice:
-        n_col = INK_GREEN if "CLAIMED" in notice or "ALLOCATED" in notice else INK_CYAN
+        notice_str = str(notice) if not isinstance(notice, str) else notice
+        n_col = INK_GREEN if "CLAIMED" in notice_str or "ALLOCATED" in notice_str else INK_CYAN
         draw.rounded_rectangle([34, curr_y, WIDTH - 34, curr_y + 38], radius=6, fill=SURFACE_ELEVATED, outline=n_col, width=1)
         draw_diamond(draw, 50, curr_y + 19, size=4, fill=n_col)
-        clean_notice = notice.replace("🎁", "").replace("⚡", "").replace("✅", "").strip()
+        clean_notice = notice_str.replace("🎁", "").replace("⚡", "").replace("✅", "").strip()
         font_body_bold.draw_text(draw, (64, curr_y + 11), clean_notice, fill=n_col, max_w=WIDTH - 120)
         curr_y += 52
 

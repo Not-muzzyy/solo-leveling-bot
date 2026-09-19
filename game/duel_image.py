@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: duel_resolution_card · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/duel_image.py — Solo Leveling Duel Combat Resolution Image Card Renderer.
 
 Generates a stylized, high-resolution 920 × 580 px image card representing
@@ -215,16 +216,23 @@ def _draw_progress_bar(
 
 
 def render_duel_card(
-    result: DuelResult,
+    result: Any,
+    *args,
     challenger_pfp: Optional[Image.Image | bytes] = None,
     opponent_pfp: Optional[Image.Image | bytes] = None,
     challenger_inv: Optional[Inventory] = None,
     opponent_inv: Optional[Inventory] = None,
+    **kwargs,
 ) -> io.BytesIO:
     """
     Render a high-definition 920 × 580 px Duel Combat Resolution Card.
     Returns BytesIO containing PNG bytes.
     """
+    if not isinstance(result, DuelResult):
+        for a in args:
+            if isinstance(a, DuelResult):
+                result = a
+                break
     # 1. Base Canvas & Atmospheric Radial Bloom
     base = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
     draw_atmospheric_canvas(
@@ -252,10 +260,10 @@ def render_duel_card(
     draw.polygon([(25, 45), (32, 41), (32, 49)], fill=HUD_CYAN)
     draw.polygon([(WIDTH - 25, 45), (WIDTH - 32, 41), (WIDTH - 32, 49)], fill=HUD_CYAN)
 
-    header_text = "HUNTER ASSOCIATION ARENA  •  SYSTEM DUEL RESOLUTION"
+    header_text = "COMBAT ARENA // 헌터 협회 대련 [PVP RESOLUTION]"
     draw.text((WIDTH // 2, 25), header_text, font=font_header, fill=HUD_CYAN, anchor="mm")
-    _draw_swords(draw, WIDTH // 2 - 240, 25, fill=HUD_CYAN)
-    _draw_swords(draw, WIDTH // 2 + 240, 25, fill=HUD_CYAN)
+    _draw_swords(draw, WIDTH // 2 - 250, 25, fill=HUD_CYAN)
+    _draw_swords(draw, WIDTH // 2 + 250, 25, fill=HUD_CYAN)
 
     # 3. Fighter Columns Dimensions
     col_w = 380

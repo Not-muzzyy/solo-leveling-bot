@@ -40,6 +40,11 @@ INK_RED_DARK = (60, 16, 24)       # Defeat card background
 INK_GREEN = (34, 197, 94)         # Health / victory emerald
 INK_GREEN_DARK = (14, 48, 28)     # Victory card background
 INK_PURPLE = (168, 85, 247)       # Arcane Monarch violet
+MANA_BLUE = (0, 145, 234)         # Holographic MP mana blue
+SILVER_COLOR = (226, 232, 240)    # Podium #2 Silver
+BRONZE_COLOR = (217, 119, 6)      # Podium #3 Bronze
+WAR_RED = (220, 38, 38)           # Guild war red
+WAR_GOLD = (234, 179, 8)          # Guild war victory gold
 
 # ── Rank Color Mapping ────────────────────────────────────────────────────────
 RANK_COLORS = {
@@ -261,3 +266,88 @@ def draw_rounded_gauge(
         pct = min(1.0, max(0.0, current / maximum))
         fill_w = max(h, int(w * pct))
         draw.rounded_rectangle([x, y, x + fill_w, y + h], radius=h // 2, fill=fill_color)
+
+
+def draw_shield_icon(
+    draw: ImageDraw.ImageDraw,
+    cx: int,
+    cy: int,
+    fill: Tuple[int, int, int] = INK_CYAN,
+    scale: float = 1.0,
+) -> None:
+    """Draw a vector guardian defense shield."""
+    w = int(8 * scale)
+    h = int(10 * scale)
+    pts = [
+        (cx - w, cy - h),
+        (cx + w, cy - h),
+        (cx + w, cy + int(h * 0.2)),
+        (cx, cy + h),
+        (cx - w, cy + int(h * 0.2)),
+    ]
+    draw.polygon(pts, fill=fill)
+    # Highlight rim
+    inner_pts = [
+        (cx - w + 2, cy - h + 2),
+        (cx + w - 2, cy - h + 2),
+        (cx + w - 2, cy + int(h * 0.15)),
+        (cx, cy + h - 2),
+        (cx - w + 2, cy + int(h * 0.15)),
+    ]
+    draw.polygon(inner_pts, outline=(fill[0] // 2, fill[1] // 2, fill[2] // 2), width=1)
+
+
+def draw_anvil_icon(
+    draw: ImageDraw.ImageDraw,
+    cx: int,
+    cy: int,
+    size: int = 24,
+    fill: Tuple[int, int, int] = (245, 158, 11),
+) -> None:
+    """Draw vector blacksmith anvil silhouette."""
+    # Top horn & face
+    draw.polygon([
+        (cx - size, cy - size // 3),
+        (cx + size, cy - size // 3),
+        (cx + size - 6, cy + size // 6),
+        (cx - size + 8, cy + size // 6),
+    ], fill=fill)
+    # Waist & base
+    draw.polygon([
+        (cx - size // 2, cy + size // 6),
+        (cx + size // 2, cy + size // 6),
+        (cx + size * 2 // 3, cy + size * 2 // 3),
+        (cx - size * 2 // 3, cy + size * 2 // 3),
+    ], fill=fill)
+
+
+def draw_system_bracket(
+    draw: ImageDraw.ImageDraw,
+    box: Tuple[int, int, int, int],
+    color: Tuple[int, int, int] = INK_CYAN,
+    length: int = 16,
+    width: int = 2,
+) -> None:
+    """Draw futuristic Solo Leveling System HUD brackets [ ... ]."""
+    draw_hud_corners(draw, box, color=color, length=length, width=width)
+
+
+def draw_hp_mp_bars(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    w: int,
+    hp: int,
+    max_hp: int,
+    mp: Optional[int] = None,
+    max_mp: Optional[int] = None,
+    h: int = 14,
+) -> None:
+    """Draw anime-accurate dual HP (Emerald) and MP (Azure Mana) vitals bars."""
+    # 1. HP Bar
+    draw_rounded_gauge(draw, x, y, w, h, hp, max_hp, fill_color=INK_GREEN, bg_color=(12, 32, 20))
+    
+    # 2. MP Bar (if specified)
+    if mp is not None and max_mp is not None and max_mp > 0:
+        draw_rounded_gauge(draw, x, y + h + 6, w, h, mp, max_mp, fill_color=MANA_BLUE, bg_color=(10, 24, 48))
+

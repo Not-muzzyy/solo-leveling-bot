@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from pyrogram import Client, enums
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from channel_db import ChannelDB
 from game.captions import (
@@ -24,7 +24,7 @@ from game.hunter import create_new_hunter
 from game.items import create_starter_weapon
 from game.formatting import format_welcome, format_already_registered, format_inventory
 from game.inventory_image import render_inventory_image
-from game.rich_text import escape_html
+from game.rich_text import escape_html, copy_button
 from handlers.inventory import _inventory_keyboard
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ async def handle(client: Client, message: Message) -> None:
                     caption=caption,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_category_keyboard(),
+                    show_caption_above_media=True,
                 )
             except Exception:
                 await message.reply_text(
@@ -113,6 +114,7 @@ async def handle(client: Client, message: Message) -> None:
                     caption=caption,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_inventory_keyboard(inventory, "weapon"),
+                    show_caption_above_media=True,
                 )
             except Exception:
                 text = format_inventory(inventory, existing, "weapon")
@@ -122,7 +124,10 @@ async def handle(client: Client, message: Message) -> None:
                     parse_mode=enums.ParseMode.HTML,
                 )
             return
-        await message.reply_text(format_already_registered(existing), parse_mode=enums.ParseMode.HTML)
+        kb = InlineKeyboardMarkup([
+            [copy_button("📋 Copy Hunter ID", str(existing.user_id), style=enums.ButtonStyle.PRIMARY)],
+        ])
+        await message.reply_text(format_already_registered(existing), reply_markup=kb, parse_mode=enums.ParseMode.HTML)
         return
 
     # Create new hunter
@@ -135,8 +140,11 @@ async def handle(client: Client, message: Message) -> None:
     # Persist to channel
     await db.create_hunter(hunter, starter)
 
-    # Send welcome message
-    await message.reply_text(format_welcome(hunter), parse_mode=enums.ParseMode.HTML)
+    # Send welcome message with copy ID button
+    welcome_kb = InlineKeyboardMarkup([
+        [copy_button("📋 Copy Hunter ID", str(hunter.user_id), style=enums.ButtonStyle.PRIMARY)],
+    ])
+    await message.reply_text(format_welcome(hunter), reply_markup=welcome_kb, parse_mode=enums.ParseMode.HTML)
     logger.info(f"New hunter created: {hunter.hunter_name} (ID: {user.id})")
 
     # If awakened via redeem deep-link, immediately trigger redemption
@@ -169,6 +177,7 @@ async def handle(client: Client, message: Message) -> None:
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=_shop_category_keyboard(),
+                show_caption_above_media=True,
             )
         except Exception:
             await message.reply_text(
@@ -189,6 +198,7 @@ async def handle(client: Client, message: Message) -> None:
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=_inventory_keyboard(inv, "weapon"),
+                show_caption_above_media=True,
             )
         except Exception:
             text = format_inventory(inv, hunter, "weapon")

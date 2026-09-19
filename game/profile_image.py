@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: profile_status_window · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/profile_image.py — Solo Leveling System Status Window Image Renderer.
 
 Enhanced with Hallmark Atmospheric design principles:
@@ -190,7 +191,7 @@ def render_profile_image(
 
     # 3. Top System Header
     header_y = 52
-    tag_text = "S Y S T E M   S T A T U S   W I N D O W"
+    tag_text = "STATUS WINDOW // 상태창"
     tag_bbox = fonts["header_tag"].getbbox(tag_text)
     tag_w = tag_bbox[2] - tag_bbox[0]
     center_x = WIDTH // 2
@@ -202,7 +203,7 @@ def render_profile_image(
     draw.line([(center_x + tag_w // 2 + 35, header_y + 8), (center_x + 260, header_y + 8)], fill=(0, 180, 255, 120), width=1)
     draw.text((center_x - tag_w // 2, header_y), tag_text, font=fonts["header_tag"], fill=INK_CYAN)
 
-    sub_notice = "OFFICIAL HUNTER ASSOCIATION REGISTRY // V2.6"
+    sub_notice = "SYSTEM DIRECTIVE // HUNTER ASSOCIATION REGISTRY"
     sub_bbox = fonts["small"].getbbox(sub_notice)
     sub_w = sub_bbox[2] - sub_bbox[0]
     draw.text((center_x - sub_w // 2, header_y + 22), sub_notice, font=fonts["small"], fill=INK_SECONDARY)

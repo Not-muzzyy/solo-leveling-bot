@@ -140,15 +140,15 @@ class FontCascade:
         # Global fallbacks covering Korean, Chinese, Japanese, Emojis, Symbols, and Cyrillic
         fallback_names = (
             [
-                "malgunbd.ttf", "msyhbd.ttc", "simsun.ttc", "meiryo.ttc",
+                "malgun.ttf", "malgunbd.ttf", "batang.ttc", "gulim.ttc", "msyh.ttc", "meiryo.ttc",
                 "seguiemj.ttf", "SegoeIcons.ttf", "arial.ttf",
-                "DejaVuSans.ttf", "LiberationSans-Regular.ttf", "NotoSans-Regular.ttf",
+                "DejaVuSans.ttf", "LiberationSans-Regular.ttf", "NotoSans-Regular.ttf", "NotoSansCJK-Regular.ttc",
             ]
             if not is_bold
             else [
-                "malgunbd.ttf", "msyhbd.ttc", "simsun.ttc", "meiryo.ttc",
+                "malgunbd.ttf", "malgun.ttf", "batang.ttc", "gulim.ttc", "msyhbd.ttc", "meiryo.ttc",
                 "seguiemj.ttf", "SegoeIcons.ttf", "arial.ttf",
-                "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf", "NotoSans-Bold.ttf",
+                "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf", "NotoSans-Bold.ttf", "NotoSansCJK-Bold.ttc",
             ]
         )
 

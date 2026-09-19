@@ -1,4 +1,5 @@
 """
+/* Hallmark · component: forge_blacksmith_workshop · genre: atmospheric · theme: Midnight (Abyssal Monarch) */
 game/forge_image.py — Solo Leveling Blacksmith Forge Image Renderer.
 
 Generates an atmospheric Hallmark-standard RPG Blacksmith Forge Card:
@@ -120,7 +121,7 @@ def render_forge_image(
     font_badge.draw_text(draw, (WIDTH - 142, header_y + 5), status_text, fill=INK_PRIMARY)
 
     # Title & Subtitle
-    font_title.draw_text(draw, (34, header_y + 26), "BLACKSMITH'S FORGE & SYNTHESIS", fill=INK_PRIMARY)
+    font_title.draw_text(draw, (34, header_y + 26), "BLACKSMITH FORGE // 대장간 장비 강화", fill=INK_PRIMARY)
     font_subtitle.draw_text(
         draw, (34, header_y + 64),
         "Temper weapons & armor with dungeon materials to unlock transcendent power.",
