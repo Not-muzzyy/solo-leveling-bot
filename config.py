@@ -12,6 +12,19 @@ BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
 API_ID: int = int(os.getenv("API_ID", "0"))
 API_HASH: str = os.getenv("API_HASH", "")
 DATA_CHANNEL_ID: int = int(os.getenv("DATA_CHANNEL_ID", "0"))
+SHADOWS_CHANNEL_ID: int = int(os.getenv("SHADOWS_CHANNEL_ID", "0"))
+
+# ── Shadow Monarch Spawning & Extraction ─────────────────────
+SHADOW_SPAWN_MESSAGE_THRESHOLD: int = 250
+SHADOW_SPAWN_EXPIRY_SECONDS: int = 900  # 15 minutes before shadow disappears
+SHADOW_EXTRACTION_REWARDS: dict[str, dict[str, int]] = {
+    "Common": {"gold": 300, "xp": 150},
+    "Uncommon": {"gold": 600, "xp": 300},
+    "Rare": {"gold": 1200, "xp": 600},
+    "Epic": {"gold": 2500, "xp": 1200},
+    "Legendary": {"gold": 5000, "xp": 2500},
+    "Mythic": {"gold": 10000, "xp": 5000},
+}
 
 # ── Superadmin / Bot Owner ─────────────────────────────────
 OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))

@@ -53,6 +53,9 @@ HELP_FALLBACK_TEXT = (
     "• <code>/claim</code> — Daily System stipend (24h CD)\n"
     "• <code>/redeem &lt;CODE&gt;</code> — Claim promotional codes\n"
     "• <code>/guild</code> — Manage syndicate & declare wars\n\n"
+    "👑 <b>Shadow Monarch Army:</b>\n"
+    "• <code>/arise &lt;name&gt;</code> — Extract wild shadows spawned in group rifts\n"
+    "• <code>/shadows</code> — Inspect your Shadow Monarch Army collection\n\n"
     "⭐ <b>Hunter Rank Progression:</b>\n"
     "E → D → C → B → A → S → SS → SSS → National Level → Monarch\n\n"
     "💎 <b>Item Rarity Spectrum:</b>\n"
@@ -176,6 +179,22 @@ TOPIC_TEXTS = {
         "• 🔴 <b>Mythic:</b> 0.5% — Divine dimensional armaments\n"
         "</blockquote>"
     ),
+    "shadows": (
+        "<b>[ SYSTEM DIRECTIVE // SHADOW MONARCH ARISE ]</b>\n\n"
+        "<blockquote expandable>"
+        "👥 <b>Dimensional Rifts & Spawning</b>\n"
+        "• As hunters converse in group chats, dimensional rifts manifest every <b>250 messages</b>!\n"
+        "• A wild shadow soldier appears with an encrypted True Name and displayed image.\n\n"
+        "🗣️ <b>Extracting Shadows (<code>/arise &lt;name&gt;</code>)</b>\n"
+        "• Be the first hunter in the group to type <code>/arise &lt;character name&gt;</code>.\n"
+        "• Correctly commanding its true name extracts the shadow entity into your army!\n"
+        "• Grants massive <b>Gold & XP extraction bounties</b> scaled to its rarity.\n\n"
+        "👑 <b>Reviewing Your Army (<code>/shadows</code>)</b>\n"
+        "• Inspect your complete Shadow Monarch Army, soldier counts, and army power.\n"
+        "• Interactive pagination and rarity filters (Mythic, Legendary, Epic).\n"
+        "• View other players' armies with <code>/shadows @username</code>.\n"
+        "</blockquote>"
+    ),
     "admin": (
         "<b>[ SYSTEM DIRECTIVE // SUPERADMIN CONSOLE ]</b>\n\n"
         "<blockquote expandable>"
@@ -190,7 +209,13 @@ TOPIC_TEXTS = {
         "• <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Create gold gift code\n"
         "• <code>/createcode item &lt;CODE&gt; &lt;item_id&gt; [max_uses]</code> — Create item gift code\n"
         "• <code>/listcodes</code> — Inspect active promotional codes\n"
-        "• <code>/deletecode &lt;CODE&gt;</code> — Revoke a promotional gift code\n"
+        "• <code>/deletecode &lt;CODE&gt;</code> — Revoke a promotional gift code\n\n"
+        "👥 <b>Shadow Catalog:</b>\n"
+        "• <code>/addshadow &lt;Rarity&gt; &lt;Name&gt; [| aliases]</code> — Enroll character\n"
+        "• <code>/listshadows [page]</code> — Inspect catalog characters\n"
+        "• <code>/delshadow &lt;id&gt;</code> — Remove character from pool\n"
+        "• <code>/spawnshadow [id]</code> — Force rift spawn in chat\n"
+        "• <code>/shadowstats</code> — Global rift telemetry\n"
         "</blockquote>"
     ),
 }
@@ -208,12 +233,12 @@ def _help_pm_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🏰 Guilds & War", callback_data="help_guild"),
         ],
         [
+            InlineKeyboardButton("👑 Shadows & Arise", callback_data="help_shadows"),
             InlineKeyboardButton("💎 Ranks & Drops", callback_data="help_tiers"),
-            InlineKeyboardButton("🎒 Inventory", callback_data="inv_weapon"),
         ],
         [
+            InlineKeyboardButton("🎒 Inventory", callback_data="inv_weapon"),
             InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_menu"),
-            InlineKeyboardButton("🏆 Leaderboard", callback_data="lb_power"),
         ]
     ])
 
@@ -225,10 +250,11 @@ def _topic_keyboard(active_topic: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton("⚔️ Combat", callback_data="help_combat"),
             InlineKeyboardButton("⚒️ Forge", callback_data="help_forge"),
             InlineKeyboardButton("📋 Quests", callback_data="help_quests"),
-            InlineKeyboardButton("🏰 Guilds", callback_data="help_guild"),
+            InlineKeyboardButton("👑 Shadows", callback_data="help_shadows"),
         ],
         [
-            InlineKeyboardButton("💎 Ranks & Rarities", callback_data="help_tiers"),
+            InlineKeyboardButton("🏰 Guilds", callback_data="help_guild"),
+            InlineKeyboardButton("💎 Ranks", callback_data="help_tiers"),
             InlineKeyboardButton("🔙 Master Manual", callback_data="help_main"),
         ],
     ]

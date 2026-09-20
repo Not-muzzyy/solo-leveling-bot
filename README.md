@@ -93,6 +93,18 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - All player data, inventories, and guilds persist safely in a **private Telegram channel** as JSON message payloads.
 - High-speed in-memory caching with per-user asynchronous locks prevents race conditions while maintaining sub-millisecond read times.
 
+### 🌌 Shadow Army & Dimensional Rifts (`/arise` & `/shadows`)
+- **Automated Wild Shadow Spawns**: Every 250 group messages, a dimensional rift opens, summoning a wild Solo Leveling shadow entity with its image and rarity.
+- **Minigame & Alias Matching**: Hunters compete to identify the character from the anime. The first player to invoke `/arise <character name>` claims the entity into their permanent army, earning substantial Gold and XP bounties.
+- **Clean Hallmark Shadow Army Card (`920 × 640` px)**:
+  - **Atmospheric Visual Design**: Smooth velvet dark purple/abyss canvas with subtle Monarch violet aura.
+  - **Streamlined 3-Metric Summary**: Instant reading for `TOTAL SOLDIERS`, `UNIQUE FORMS`, and active `PAGE`.
+  - **Spacious Soldier Cards**: Clear rarity indicators, multiplier badges (`×3`), bold character names, extraction counts, and elevated rarity tags.
+  - **Instant-Read Caption**: Current page shadows are directly listed in clear Telegram HTML with rarity dots and quantities.
+  - **Single-Row Pagination**: Clean `[ ◀ Prev ] [ Page X/Y ] [ Next ▶ ]` inline navigation (automatically hidden on single-page armies).
+- **Dedicated Telegram Channel Database (`ShadowsDB`)**: Operates on a dedicated database channel (`SHADOWS_CHANNEL_ID`) for character catalogs, soldier counts, and spawn logs.
+- **Superadmin Directives**: Complete CLI suite for bot superadmins (`/addshadow`, `/delshadow`, `/listshadows`, `/spawnshadow`, `/shadowstats`).
+
 ---
 
 ## 🎮 Command Reference
@@ -106,10 +118,17 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | `/shop` | PM & Groups | Open visual Hunter Shop & Exchange Depot (redirects to PM in groups) |
 | `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |
 | `/duel` | Groups (Reply) | Challenge another Hunter to a PvP Arena duel with visual resolution |
+| `/arise <name>` | Groups | Claim active wild shadow entities appearing in chat |
+| `/shadows` | PM & Groups | Browse your personal Shadow Monarch Army collection |
 | `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
 | `/guild` | PM & Groups | Manage your Hunter Guild (create, join, top, info, etc.) |
 | `/gift` | PM & Groups | Gift items or gold to guildmates (reply to their message) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
+| `/addshadow` | Admin (Reply) | Add a new shadow character with photo and aliases (Superadmin) |
+| `/delshadow` | Admin | Remove a shadow character by ID (Superadmin) |
+| `/listshadows` | Admin | View registered shadow character catalog (Superadmin) |
+| `/spawnshadow` | Admin | Instantly force-spawn a shadow entity for testing (Superadmin) |
+| `/shadowstats` | Admin | View global shadow extraction and spawn metrics (Superadmin) |
 
 ---
 
@@ -183,12 +202,16 @@ BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 API_ID=12345678
 API_HASH=your_api_hash_here
 DATA_CHANNEL_ID=-1001234567890
+SHADOWS_CHANNEL_ID=-1009876543210
+SUPERADMIN_IDS=123456789,987654321
 ```
 
 > **How to get your credentials:**
 > 1. **BOT_TOKEN**: Talk to [@BotFather](https://t.me/BotFather) on Telegram, create a bot with `/newbot`, and copy the token.
 > 2. **API_ID & API_HASH**: Go to [my.telegram.org](https://my.telegram.org), create an application, and copy the API_ID and API_HASH.
 > 3. **DATA_CHANNEL_ID**: Create a private Telegram channel, add your bot as an **Administrator** with permission to *Post Messages* and *Edit Messages*, then forward any message from the channel to [@userinfobot](https://t.me/userinfobot) to get the ID (must start with `-100`).
+> 4. **SHADOWS_CHANNEL_ID**: (Optional) Dedicated private database channel for shadow army records (defaults to `DATA_CHANNEL_ID` if unset).
+> 5. **SUPERADMIN_IDS**: Comma-separated Telegram User IDs authorized for `/addshadow`, `/delshadow`, etc.
 
 ### 6. Run the Bot
 ```powershell
@@ -206,8 +229,9 @@ solo-leveling-bot/
 ├── requirements.txt         # Dependencies (kurigram, Pillow, python-dotenv)
 ├── main.py                  # Entry point — registers handlers, initializes DB
 ├── config.py                # Game balances: ranks, rarities, XP curves, shop items, guild settings
-├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild
-├── channel_db.py            # Telegram channel database with in-memory caching
+├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild, ShadowCharacter, UserShadow
+├── channel_db.py            # Primary Telegram channel database with in-memory caching
+├── shadows_db.py            # Dedicated Shadows database for character catalog, spawns & user armies
 ├── game/
 │   ├── hunter.py            # Hunter creation, XP gain, level/rank up calculations
 │   ├── combat.py            # Monster generation, combat damage formula, hunt simulation
@@ -218,6 +242,7 @@ solo-leveling-bot/
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer: Dimensional Storage image with equipment artwork
 │   ├── shop_image.py        # Pillow renderer: High-res Hunter Shop image with vector catalogue
+│   ├── shadows_image.py     # Pillow renderer: Clean Hallmark Shadow Army collection card
 │   ├── guild_image.py       # Pillow renderer: Guild Card with owner, top 5, and roster
 │   ├── guild_leaderboard_image.py # Pillow renderer: Guild Leaderboard HUD card
 │   ├── guild_war_image.py   # Pillow renderer: War challenge, status, and result cards
@@ -231,6 +256,7 @@ solo-leveling-bot/
     ├── shop.py              # /shop — visual exchange depot image cards
     ├── leaderboard.py       # /leaderboard — visual Hall of Fame with category tabs
     ├── duel.py              # /duel — PvP arena with visual resolution card
+    ├── arise.py             # /arise & /shadows — shadow entity spawning, claiming, and collection browser
     ├── guild.py             # /guild — create, join, leave, info, top, war, kick, disband, edit
     ├── guild_war.py         # /guild war — guild-vs-guild war system with visual cards
     ├── claim.py             # /claim — daily reward (24h cooldown)

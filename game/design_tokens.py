@@ -112,12 +112,15 @@ def draw_atmospheric_canvas(
         img.alpha_composite(bloom_blurred)
         draw = ImageDraw.Draw(img)
 
-    # 3. Micro Grid lines (low contrast)
+    # 3. Micro Grid lines (low contrast, properly alpha-composited)
     if grid_spacing > 0:
+        grid_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        g_draw = ImageDraw.Draw(grid_layer)
         for gx in range(grid_spacing // 2, w, grid_spacing):
-            draw.line([(gx, 0), (gx, h)], fill=(20, 36, 68, 25), width=1)
+            g_draw.line([(gx, 0), (gx, h)], fill=(40, 60, 95, 20), width=1)
         for gy in range(grid_spacing // 2, h, grid_spacing):
-            draw.line([(0, gy), (w, gy)], fill=(20, 36, 68, 25), width=1)
+            g_draw.line([(0, gy), (w, gy)], fill=(40, 60, 95, 20), width=1)
+        img.alpha_composite(grid_layer)
 
 
 # ── Technical HUD Drawing Primitives ──────────────────────────────────────────

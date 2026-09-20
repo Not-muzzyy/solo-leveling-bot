@@ -22,12 +22,13 @@ from pyrogram import Client, filters, enums, utils
 # Support modern 64-bit Telegram channel IDs (e.g. -1004250848098)
 utils.MIN_CHANNEL_ID = -10099999999999
 
-from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID
+from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID, SHADOWS_CHANNEL_ID
 from channel_db import ChannelDB
+from shadows_db import ShadowsDB
 from handlers import (
     start, profile, hunt, inventory, help, claim, shop,
     leaderboard, duel, guild, guild_war, admin, redeem, explore,
-    forge, tower, quest
+    forge, tower, quest, arise
 )
 
 # ── Logging ───────────────────────────────────────────────
@@ -55,6 +56,11 @@ async def on_start(client):
     db = ChannelDB(client, DATA_CHANNEL_ID)
     client.db = db  # ponytail: attach DB to client for handler access
     await db.initialize()
+
+    # Dedicated Shadows Database Channel
+    shadows_db = ShadowsDB(client, SHADOWS_CHANNEL_ID)
+    client.shadows_db = shadows_db
+    await shadows_db.initialize()
 
     # ── Post-Restart Online State Notification (In-Place Edit Only) ──
     state_file = os.path.join(os.getcwd(), ".restart_state.json")
@@ -143,6 +149,12 @@ async def _log_incoming_callback(client, query):
     logger.info(f"Incoming callback from {u_info}: {query.data}")
 
 
+# ── Group Message Counter (Dimensional Rifts) ─────────────
+@app.on_message(filters.group & ~filters.service, group=1)
+async def _group_message_listener(client, message):
+    await arise.count_group_message(client, message)
+
+
 # ── Command Handlers ──────────────────────────────────────
 app.on_message(filters.command("start"))(start.handle)
 app.on_message(filters.command("profile"))(profile.handle)
@@ -162,6 +174,8 @@ app.on_message(filters.command(["forge", "craft", "upgrade"]))(forge.handle)
 app.on_message(filters.command(["tower", "trial"]))(tower.handle)
 app.on_message(filters.command("daily"))(quest.handle_daily)
 app.on_message(filters.command(["stats", "addstat"]))(quest.handle_stats)
+app.on_message(filters.command("arise"))(arise.handle_arise)
+app.on_message(filters.command(["shadows", "shadow", "army"]))(arise.handle_shadows)
 
 # ── Superadmin / Owner Command Handlers ───────────────────
 app.on_message(filters.command(["admin", "superadmin"]))(admin.handle_admin_help)
@@ -176,6 +190,11 @@ app.on_message(filters.command("inspect"))(admin.handle_inspect)
 app.on_message(filters.command("createcode"))(admin.handle_create_code)
 app.on_message(filters.command(["listcodes", "codes"]))(admin.handle_list_codes)
 app.on_message(filters.command("deletecode"))(admin.handle_delete_code)
+app.on_message(filters.command(["addshadow", "addcharacter"]))(arise.handle_add_shadow)
+app.on_message(filters.command("listshadows"))(arise.handle_list_shadows)
+app.on_message(filters.command("delshadow"))(arise.handle_del_shadow)
+app.on_message(filters.command("spawnshadow"))(arise.handle_spawn_shadow)
+app.on_message(filters.command(["shadowstats", "riftstats"]))(arise.handle_shadow_stats)
 
 # ── Inline Button Callbacks ───────────────────────────────
 app.on_callback_query(filters.regex(r"^equip_"))(inventory.equip_callback)
@@ -193,6 +212,7 @@ app.on_callback_query(filters.regex(r"^forge_"))(forge.callback)
 app.on_callback_query(filters.regex(r"^tower_"))(tower.callback)
 app.on_callback_query(filters.regex(r"^(quest_|stats_)"))(quest.callback)
 app.on_callback_query(filters.regex(r"^help_"))(help.callback)
+app.on_callback_query(filters.regex(r"^shadow_"))(arise.shadows_callback)
 
 
 # ── Run ───────────────────────────────────────────────────

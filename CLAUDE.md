@@ -19,8 +19,9 @@ solo-leveling-bot/
 ├── idea.md                  # Original game design document
 ├── main.py                  # Entry point — registers handlers, initializes DB, runs polling
 ├── config.py                # All game constants: ranks, rarities, XP curve, cooldowns, item/monster name parts
-├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult (all have to_json/from_json)
-├── channel_db.py            # ChannelDB class — Telegram channel as persistent storage with in-memory cache
+├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild, ShadowCharacter, UserShadow
+├── channel_db.py            # Primary ChannelDB class — Telegram channel as persistent storage with in-memory cache
+├── shadows_db.py            # Dedicated ShadowsDB class — Telegram channel storage for shadow characters, spawns, user armies
 ├── game/
 │   ├── __init__.py
 │   ├── hunter.py            # create_new_hunter(), add_xp(), check_rank_up()
@@ -28,10 +29,12 @@ solo-leveling-bot/
 │   ├── items.py             # generate_loot(), create_starter_weapon(), rarity rolls
 │   ├── shop.py              # 21 purchasable items across 5 categories, get_shop_item(), create_item_from_shop()
 │   ├── font_manager.py      # Universal Unicode Font Cascade & Normalizer (Fraktur, Hangul, CJK, Emoji, zero tofu)
+│   ├── design_tokens.py     # Hallmark design system tokens, atmospheric canvas, and vector shapes
 │   ├── hunt_image.py        # Pillow renderer — 16:9 Combat Cards (Victory & Defeat) for /hunt
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
 │   ├── inventory_image.py   # Pillow renderer — High-res Dimensional Inventory image with equipment visuals
 │   ├── shop_image.py        # Pillow renderer — High-res Hunter Shop image with vector catalogue & treasury
+│   ├── shadows_image.py     # Pillow renderer — Clean Hallmark Shadow Army collection card with 3-stat bar
 │   ├── leaderboard_image.py # Pillow renderer — High-res System Hall of Fame with real names & podium
 │   ├── duel.py              # Pure combat simulation engine for PvP arena duels
 │   ├── duel_image.py        # Pillow renderer — 920x580 High-def Duel Card with VS clash, WON/LOST banners
@@ -45,7 +48,9 @@ solo-leveling-bot/
     ├── shop.py              # /shop — visual Hunter Shop cards, 5 departments, in-place purchases
     ├── leaderboard.py       # /leaderboard — visual System Hall of Fame with interactive category tabs
     ├── duel.py              # /duel — group reply PvP duel challenge, accept/decline buttons, image resolution
-    ├── equip.py             # (Deprecated) Forwarding wrapper delegating to handlers.inventory
+    ├── arise.py             # /arise & /shadows — automated 250-msg spawns, name guessing, army browser, superadmin suite
+    ├── guild.py             # /guild — create, join, leave, info, top, war, kick, disband, edit
+    ├── guild_war.py         # /guild war — guild-vs-guild war system with visual cards
     ├── claim.py             # /claim — daily reward (24h cooldown), level-scaled XP+Gold
     └── help.py              # /help — command list + how to play guide
 ```

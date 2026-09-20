@@ -269,11 +269,12 @@ class FontCascade:
         fill,
         clean: bool = True,
         max_w: Optional[int] = None,
+        anchor: Optional[str] = None,
     ) -> int:
         """
         Draw text on the image with automatic character-level fallback.
         Returns total width drawn in pixels.
-        If `max_w` is provided, automatically truncates with '...' to fit.
+        Supports optional max_w truncation and Pillow-style anchor ('mt', 'ra', 'mm', etc.).
         """
         if clean:
             text = clean_and_normalize_name(text)
@@ -290,6 +291,22 @@ class FontCascade:
                 text += "..."
 
         x, y = xy
+
+        # Handle anchor alignment
+        if anchor:
+            bb = self.getbbox(text, clean=False)
+            tw = bb[2] - bb[0]
+            th = bb[3] - bb[1]
+            if anchor.startswith("m"):  # mt, mm, mb
+                x -= tw // 2
+            elif anchor.startswith("r"):  # ra, rt, rm, rb
+                x -= tw
+            if len(anchor) > 1:
+                if anchor[1] == "m":
+                    y -= th // 2
+                elif anchor[1] == "b":
+                    y -= th
+
         cur_x = x
         for font, run_text in self._split_runs(text):
             draw.text((cur_x, y), run_text, font=font, fill=fill)

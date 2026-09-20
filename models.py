@@ -446,3 +446,79 @@ class RedeemCode:
     def from_json(cls, text: str) -> RedeemCode:
         """Deserialize from JSON string."""
         return cls.from_dict(json.loads(text))
+
+
+@dataclass
+class ShadowCharacter:
+    """Represents a registered Solo Leveling character in the shadow spawning catalog."""
+
+    id: int
+    name: str
+    rarity: str  # Common, Uncommon, Rare, Epic, Legendary, Mythic
+    photo_file_id: str
+    aliases: list[str] = field(default_factory=list)
+    channel_msg_id: Optional[int] = None
+    created_by: int = 0
+    created_at: float = 0.0
+    times_spawned: int = 0
+    times_claimed: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "shadow_character",
+            "id": self.id,
+            "name": self.name,
+            "rarity": self.rarity,
+            "photo_file_id": self.photo_file_id,
+            "aliases": self.aliases,
+            "channel_msg_id": self.channel_msg_id,
+            "created_by": self.created_by,
+            "created_at": self.created_at,
+            "times_spawned": self.times_spawned,
+            "times_claimed": self.times_claimed,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), separators=(",", ":"))
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ShadowCharacter:
+        import dataclasses
+        d = dict(data)
+        d.pop("type", None)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
+
+
+@dataclass
+class UserShadow:
+    """Represents an extracted shadow soldier in a player's army collection."""
+
+    character_id: int
+    name: str
+    rarity: str
+    count: int = 1
+    first_acquired: float = 0.0
+    last_acquired: float = 0.0
+    photo_file_id: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "character_id": self.character_id,
+            "name": self.name,
+            "rarity": self.rarity,
+            "count": self.count,
+            "first_acquired": self.first_acquired,
+            "last_acquired": self.last_acquired,
+            "photo_file_id": self.photo_file_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UserShadow:
+        import dataclasses
+        d = dict(data)
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
+
