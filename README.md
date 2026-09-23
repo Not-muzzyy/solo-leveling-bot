@@ -42,7 +42,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 ### 🏰 Hunter Guild System (`/guild`)
 - **Create & Manage Guilds**: Establish your own Hunter Guild for a 500💰 investment.
 - **Guild XP Bonus**: All guild members receive **+10% XP** on every hunt.
-- **Visual Guild Card (`860 × 720` px)**: High-resolution guild roster with owner card, top 5 hunters, and remaining members.
+- **Visual Guild Card (`860 × 720` px)**: High-resolution guild froster with owner card, top 5 hunters, and remaining members.
 - **Guild Leaderboard (`/guild top`)**: Top 10 guilds ranked by Total Power, Average Level, Total Gold, or Member Count — with interactive category tabs.
 - **Guild Wars (`/guild war`)**: Challenge another guild to a 1v1 bracket war. Winner gets gold, XP, and war_score. Loser loses XP and war_score. Visual challenge, status, and result cards.
 - **Full Guild Management**:
