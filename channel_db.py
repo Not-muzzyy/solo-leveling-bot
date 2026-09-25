@@ -543,6 +543,17 @@ class ChannelDB:
         """Check if a hunter is registered."""
         return user_id in self._cache
 
+    async def get_hunter_by_username(self, username: str) -> Optional[Hunter]:
+        """Look up a hunter by Telegram username (case-insensitive, optional @)."""
+        clean = username.strip().lstrip("@").lower()
+        if not clean:
+            return None
+        for entry in self._cache.values():
+            h = entry.hunter
+            if h.username and h.username.lower() == clean:
+                return h
+        return None
+
     async def create_hunter(
         self, hunter: Hunter, starter_item: Item
     ) -> None:

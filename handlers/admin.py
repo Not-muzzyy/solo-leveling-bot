@@ -165,18 +165,18 @@ async def _resolve_hunter_and_int(
 
 
 async def _find_hunter_by_identifier(db, identifier: str) -> Optional[Hunter]:
-    """Find a hunter by numeric user ID or username."""
+    """Find a hunter by numeric user ID, username, or hunter name."""
     clean_id = identifier.strip().lstrip("@")
     if clean_id.isdigit():
         h = await db.get_hunter(int(clean_id))
         if h:
             return h
 
-    # Search cache by username
-    all_hunters = await db.get_all_hunters()
-    for h in all_hunters:
-        if h.username and h.username.lower() == clean_id.lower():
-            return h
+    h = await db.get_hunter_by_username(clean_id)
+    if h:
+        return h
+
+    for h in await db.get_all_hunters():
         if h.hunter_name and h.hunter_name.lower() == clean_id.lower():
             return h
 

@@ -355,10 +355,15 @@ async def handle_shadows(client: Client, message: Message) -> None:
     elif len(message.command) > 1:
         arg = message.command[1].strip()
         if arg.startswith("@"):
-            h_obj = await client.db.get_hunter_by_username(arg.lstrip("@"))
-            if h_obj:
-                target_user_id = h_obj.user_id
-                target_user_name = h_obj.hunter_name
+            h_obj = await client.db.get_hunter_by_username(arg)
+            if not h_obj:
+                await message.reply_text(
+                    f"❌ <b>No registered Hunter found for</b> <code>{escape_html(arg)}</code>",
+                    parse_mode=enums.ParseMode.HTML,
+                )
+                return
+            target_user_id = h_obj.user_id
+            target_user_name = h_obj.hunter_name
         elif arg.isdigit():
             target_user_id = int(arg)
 
