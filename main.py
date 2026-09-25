@@ -62,6 +62,12 @@ async def on_start(client):
     client.shadows_db = shadows_db
     await shadows_db.initialize()
 
+    # Resume any persisted guild war
+    try:
+        await guild_war.restore_war(client)
+    except Exception as exc:
+        logger.error(f"Failed to restore guild war state: {exc}")
+
     # ── Post-Restart Online State Notification (In-Place Edit Only) ──
     state_file = os.path.join(os.getcwd(), ".restart_state.json")
     if os.path.exists(state_file):

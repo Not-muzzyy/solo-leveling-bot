@@ -117,3 +117,29 @@ def test_war_expiry():
     assert guild_war._war_expired(stale)
     assert not guild_war._war_expired(running)
     assert guild_war._war_expired(old_run)
+
+
+def test_war_serialize_roundtrip():
+    from handlers import guild_war
+    h1 = Hunter(user_id=1, username="a", hunter_name="A")
+    h2 = Hunter(user_id=2, username="b", hunter_name="B")
+
+    pending = {"status": "pending", "created_at": time.time(),
+               "challenger_guild_id": 1, "defender_guild_id": 2,
+               "challenger_guild_name": "A", "defender_guild_name": "B",
+               "challenger_members": [h1], "defender_members": [h2],
+               "challenger_power": 35, "defender_power": 35,
+               "message_chat_id": -1001, "message_id": 77}
+    sp = json.loads(json.dumps(guild_war._serialize_war(pending)))  # must not raise
+    assert sp["challenger_member_ids"] == [1] and sp["defender_member_ids"] == [2]
+    assert sp["message_id"] == 77 and "challenger_members" not in sp
+
+    active = {"status": "active", "started_at": time.time(),
+              "challenger_guild_id": 1, "defender_guild_id": 2,
+              "challengers": {1: h1}, "defenders": {2: h2},
+              "matchups": [(1, 2, 1), (2, 1, None)],
+              "current_match": 1, "challenger_wins": 1, "defender_wins": 0}
+    sa = json.loads(json.dumps(guild_war._serialize_war(active)))
+    assert sa["matchups"] == [[1, 2, 1], [2, 1, None]]
+    assert sa["challenger_ids"] == [1] and "challengers" not in sa
+    assert sa["matchups"][0][2] == 1 and sa["matchups"][1][2] is None

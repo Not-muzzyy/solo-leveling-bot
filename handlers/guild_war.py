@@ -12,12 +12,13 @@ Flow:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from pyrogram import Client, enums
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
-from pyrogram.errors import BadRequest
+from pyrogram.errors import BadRequest, RPCError
 
 from channel_db import ChannelDB
 from config import (
@@ -57,6 +58,98 @@ def _war_expired(war: dict) -> bool:
     if war.get("status") == "active":
         return time.time() - war.get("started_at", 0) > ACTIVE_WAR_EXPIRY_SECONDS
     return True
+
+
+def _serialize_war(war: dict) -> dict:
+    """JSON-safe copy of war state — Hunter objects reduced to user ids."""
+    drop = ("challengers", "defenders", "challenger_members", "defender_members")
+    out = {k: v for k, v in war.items() if k not in drop}
+    if "challenger_members" in war:
+        out["challenger_member_ids"] = [h.user_id for h in war["challenger_members"]]
+        out["defender_member_ids"] = [h.user_id for h in war["defender_members"]]
+    if "challengers" in war:
+        out["challenger_ids"] = list(war["challengers"].keys())
+        out["defender_ids"] = list(war["defenders"].keys())
+    if "matchups" in war:
+        out["matchups"] = [list(m) for m in war["matchups"]]
+    return out
+
+
+async def _persist_war(db: ChannelDB) -> None:
+    """Write war state to its channel message; clear the message when no war is active."""
+    if _active_war is None:
+        if db._war_msg_id:
+            try:
+                await db.bot.delete_messages(db.channel_id, db._war_msg_id)
+            except Exception:
+                pass
+            await db.set_war_msg_id(None)
+        return
+
+    payload = json.dumps({"type": "guild_war", **_serialize_war(_active_war)}, separators=(",", ":"))
+    if db._war_msg_id:
+        try:
+            await db.bot.edit_message_text(
+                chat_id=db.channel_id, message_id=db._war_msg_id, text=payload
+            )
+            return
+        except RPCError as e:
+            if "not modified" in str(e).lower():
+                return
+            logger.warning(f"War state message invalid, re-posting: {e}")
+    msg = await db.bot.send_message(chat_id=db.channel_id, text=payload)
+    await db.set_war_msg_id(msg.id)
+
+
+async def restore_war(client: Client) -> None:
+    """Load persisted war state after DB init; resume active wars, clear expired ones."""
+    global _active_war
+    db: ChannelDB = client.db
+    if not db._war_msg_id:
+        return
+    try:
+        msg = await db.bot.get_messages(db.channel_id, db._war_msg_id)
+        if not msg or not msg.text or '"type":"guild_war"' not in msg.text:
+            await db.set_war_msg_id(None)
+            return
+        data = json.loads(msg.text)
+        if _war_expired(data):
+            await _persist_war(db)  # _active_war is None → deletes message, clears index slot
+            logger.info("Persisted guild war expired before restart; cleared.")
+            return
+
+        if data.get("status") == "pending":
+            c_ids = data.pop("challenger_member_ids", [])
+            d_ids = data.pop("defender_member_ids", [])
+            data["challenger_members"] = [h for h in (await db.get_hunter(u) for u in c_ids) if h]
+            data["defender_members"] = [h for h in (await db.get_hunter(u) for u in d_ids) if h]
+            if not data["challenger_members"] or not data["defender_members"]:
+                await _persist_war(db)
+                return
+            _active_war = data
+            logger.info(
+                f"Restored pending war: {data['challenger_guild_name']} vs {data['defender_guild_name']}"
+            )
+            return
+
+        # Active war: rebuild rosters and resume remaining matchups
+        c_ids = data.pop("challenger_ids", [])
+        d_ids = data.pop("defender_ids", [])
+        data["challengers"] = {u: h for u in c_ids if (h := await db.get_hunter(u))}
+        data["defenders"] = {u: h for u in d_ids if (h := await db.get_hunter(u))}
+        data["matchups"] = [tuple(m) for m in data.get("matchups", [])]
+        if not (await db.get_guild(data["challenger_guild_id"])) or not (
+            await db.get_guild(data["defender_guild_id"])
+        ):
+            await _persist_war(db)
+            return
+        _active_war = data
+        logger.info(
+            f"Resuming guild war: {data['challenger_guild_name']} vs {data['defender_guild_name']}"
+        )
+        asyncio.create_task(_run_war_battles(client, db, data))
+    except Exception as exc:
+        logger.error(f"Failed to restore guild war state: {exc}", exc_info=True)
 
 
 def _reset_war() -> None:
@@ -273,6 +366,7 @@ async def handle_war(client: Client, message: Message) -> None:
     if sent and _active_war:
         _active_war["message_chat_id"] = sent.chat.id
         _active_war["message_id"] = sent.id
+    await _persist_war(db)
 
     logger.info(f"War challenge: {sender_guild.name} -> {target_guild.name}")
 
@@ -307,6 +401,7 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
 
     if query.data == "war_decline":
         _reset_war()
+        await _persist_war(db)
         def_name = escape_html(war['defender_guild_name'])
         await query.edit_message_text(
             "<b>[ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]</b>\n"
@@ -337,6 +432,7 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         )
         active_war["message_chat_id"] = war.get("message_chat_id")
         active_war["message_id"] = war.get("message_id")
+        await _persist_war(db)
 
         # Send initial status card
         ch_name = escape_html(war['challenger_guild_name'])
@@ -386,7 +482,9 @@ async def _run_war_battles(client: Client, db: ChannelDB, war: dict) -> None:
     c_lookup = war["challengers"]
     d_lookup = war["defenders"]
 
-    for i, (c_uid, d_uid, _) in enumerate(war["matchups"]):
+    for i, (c_uid, d_uid, winner) in enumerate(war["matchups"]):
+        if winner is not None:
+            continue  # resolved before a restart — never re-fight (no double rewards)
         war["current_match"] = i + 1
 
         c_hunter = c_lookup.get(c_uid)
@@ -418,6 +516,7 @@ async def _run_war_battles(client: Client, db: ChannelDB, war: dict) -> None:
         # Save updated hunters (duel_wins/duel_losses already updated by simulate_duel)
         await db.save_hunter(c_uid)
         await db.save_hunter(d_uid)
+        await _persist_war(db)
 
         # Small delay between matches for dramatic effect
         await asyncio.sleep(1.5)
@@ -532,6 +631,7 @@ async def _resolve_war(
 
     logger.info(f"War complete: {winner_guild.name} wins ({c_wins}-{d_wins})")
     _reset_war()
+    await _persist_war(db)
 
 
 async def _show_war_status(client: Client, message: Message, db: ChannelDB, war: dict) -> None:
