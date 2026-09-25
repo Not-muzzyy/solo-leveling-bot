@@ -47,6 +47,13 @@ logger = logging.getLogger(__name__)
 
 # ── In-memory war state (single active war at a time) ──────
 _active_war: dict | None = None
+_resumed_tasks: set[asyncio.Task] = set()
+
+
+def _resume_task_done(task: asyncio.Task) -> None:
+    _resumed_tasks.discard(task)
+    if not task.cancelled() and task.exception() is not None:
+        logger.error(f"Resumed guild war task failed: {task.exception()}")
 
 PENDING_WAR_EXPIRY_SECONDS = 1800   # ponytail: defender gets 30 min to answer
 ACTIVE_WAR_EXPIRY_SECONDS = 7200    # ponytail: 2 h to fight all duels
@@ -121,8 +128,8 @@ async def restore_war(client: Client) -> None:
         if data.get("status") == "pending":
             c_ids = data.pop("challenger_member_ids", [])
             d_ids = data.pop("defender_member_ids", [])
-            data["challenger_members"] = [h for h in (await db.get_hunter(u) for u in c_ids) if h]
-            data["defender_members"] = [h for h in (await db.get_hunter(u) for u in d_ids) if h]
+            data["challenger_members"] = [h for u in c_ids if (h := await db.get_hunter(u))]
+            data["defender_members"] = [h for u in d_ids if (h := await db.get_hunter(u))]
             if not data["challenger_members"] or not data["defender_members"]:
                 await _persist_war(db)
                 return
@@ -147,7 +154,9 @@ async def restore_war(client: Client) -> None:
         logger.info(
             f"Resuming guild war: {data['challenger_guild_name']} vs {data['defender_guild_name']}"
         )
-        asyncio.create_task(_run_war_battles(client, db, data))
+        task = asyncio.create_task(_run_war_battles(client, db, data))
+        _resumed_tasks.add(task)
+        task.add_done_callback(_resume_task_done)
     except Exception as exc:
         logger.error(f"Failed to restore guild war state: {exc}", exc_info=True)
 

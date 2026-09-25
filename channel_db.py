@@ -256,7 +256,6 @@ class ChannelDB:
             text=json.dumps(index_data, separators=(",", ":")),
         )
         self._index_msg_id = msg.id
-        self._index = {}
         try:
             await self.bot.pin_chat_message(
                 chat_id=self.channel_id,
@@ -297,7 +296,8 @@ class ChannelDB:
 
             full_text = json.dumps(data, separators=(",", ":"))
             if len(full_text) <= INDEX_SOFT_LIMIT:
-                await self._edit_index_text(full_text)
+                if not await self._edit_index_text(full_text):
+                    return  # edit failed — keep parts intact so the shell stays loadable
                 if self._index_part_ids:
                     await self._delete_index_parts()
                 return
@@ -338,24 +338,31 @@ class ChannelDB:
             shell["parts"] = part_ids
             await self._edit_index_text(json.dumps(shell, separators=(",", ":")))
 
-    async def _edit_index_text(self, text: str) -> None:
-        """Edit the pinned index message with recreate-on-deletion fallback."""
+    async def _edit_index_text(self, text: str) -> bool:
+        """Edit the pinned index message with recreate-on-deletion fallback.
+
+        Returns True when the message (or its replacement) carries `text`,
+        False when the edit failed for a transient reason (caller must not
+        delete anything that message still references).
+        """
         try:
             await self.bot.edit_message_text(
                 chat_id=self.channel_id, message_id=self._index_msg_id, text=text
             )
+            return True
         except RPCError as e:
             err_str = str(e).lower()
             if "not modified" in err_str:
-                return
+                return True
             if "message_id_invalid" in err_str or "message not found" in err_str:
                 logger.warning(f"Index message {self._index_msg_id} invalid/deleted. Re-creating...")
                 await self._create_index_message()
                 await self.bot.edit_message_text(
                     chat_id=self.channel_id, message_id=self._index_msg_id, text=text
                 )
-            else:
-                logger.error(f"Failed to update index: {e}")
+                return True
+            logger.error(f"Failed to update index: {e}")
+            return False
 
     async def _delete_index_parts(self) -> None:
         if self._index_part_ids:

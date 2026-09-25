@@ -94,7 +94,8 @@ Callbacks are registered in `main.py` and routed to handler functions.
 
 - `/hunt`: 60-second cooldown + 20 hunts/day — persisted on Hunter (`last_hunt_time`, `daily_hunts`) with an in-memory fallback cache in `handlers/hunt.py`
 - `/claim`: 24-hour cooldown — persisted on Hunter (`last_claim_time`) with an in-memory fallback cache in `handlers/claim.py`
-- Cooldowns reset on bot restart (in-memory only, not persisted)
+- Cooldowns persist on the Hunter (`last_hunt_time`, `last_claim_time`) — survive restart; handler-level caches are fallback only
+- Guild index may be sharded across `IndexPart` messages when pinned text exceeds 3900 chars (`INDEX_SOFT_LIMIT` in `channel_db.py`)
 
 ## Game Systems
 
