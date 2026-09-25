@@ -105,3 +105,15 @@ def test_merge_index_parts():
     assert merged["2"] == {"hunter_msg_id": 2}
     assert merged["redeem_msg_id"] == 9
     assert merged["type"] == "index"
+
+
+def test_war_expiry():
+    from handlers import guild_war
+    fresh = {"status": "pending", "created_at": time.time()}
+    stale = {"status": "pending", "created_at": time.time() - 1801}
+    running = {"status": "active", "started_at": time.time()}
+    old_run = {"status": "active", "started_at": time.time() - 7201}
+    assert not guild_war._war_expired(fresh)
+    assert guild_war._war_expired(stale)
+    assert not guild_war._war_expired(running)
+    assert guild_war._war_expired(old_run)

@@ -47,6 +47,17 @@ logger = logging.getLogger(__name__)
 # ── In-memory war state (single active war at a time) ──────
 _active_war: dict | None = None
 
+PENDING_WAR_EXPIRY_SECONDS = 1800   # ponytail: defender gets 30 min to answer
+ACTIVE_WAR_EXPIRY_SECONDS = 7200    # ponytail: 2 h to fight all duels
+
+
+def _war_expired(war: dict) -> bool:
+    if war.get("status") == "pending":
+        return time.time() - war.get("created_at", 0) > PENDING_WAR_EXPIRY_SECONDS
+    if war.get("status") == "active":
+        return time.time() - war.get("started_at", 0) > ACTIVE_WAR_EXPIRY_SECONDS
+    return True
+
 
 def _reset_war() -> None:
     global _active_war
@@ -116,8 +127,12 @@ async def handle_war(client: Client, message: Message) -> None:
         await message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML)
         return
 
-    # Check for active war
+    # Check for active war (clear expired state first)
     war = _get_war()
+    if war and _war_expired(war):
+        logger.info("Expired war state cleared")
+        _reset_war()
+        war = None
     if war and war["status"] == "active":
         # Show war status
         await _show_war_status(client, message, db, war)
@@ -222,6 +237,7 @@ async def handle_war(client: Client, message: Message) -> None:
         "defender_members": defender_members,
         "challenger_power": challenger_power,
         "defender_power": defender_power,
+        "created_at": time.time(),
     }
 
     caption = build_war_challenge_caption(
@@ -232,6 +248,7 @@ async def handle_war(client: Client, message: Message) -> None:
     )
 
     # Send challenge card
+    sent = None
     try:
         photo_buf = await asyncio.to_thread(
             render_war_challenge_card,
@@ -239,7 +256,7 @@ async def handle_war(client: Client, message: Message) -> None:
             target_guild, defender_members,
             challenger_power, defender_power,
         )
-        await message.reply_photo(
+        sent = await message.reply_photo(
             photo=photo_buf,
             caption=caption,
             reply_markup=_war_keyboard(),
@@ -248,11 +265,14 @@ async def handle_war(client: Client, message: Message) -> None:
         )
     except Exception as exc:
         logger.error("Failed to render war challenge card: %s", exc, exc_info=True)
-        await message.reply_text(
+        sent = await message.reply_text(
             caption,
             reply_markup=_war_keyboard(),
             parse_mode=ParseMode.HTML,
         )
+    if sent and _active_war:
+        _active_war["message_chat_id"] = sent.chat.id
+        _active_war["message_id"] = sent.id
 
     logger.info(f"War challenge: {sender_guild.name} -> {target_guild.name}")
 
@@ -269,6 +289,9 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
 
     db: ChannelDB = client.db
     war = _get_war()
+    if war and _war_expired(war):
+        _reset_war()
+        war = None
 
     if not war or war["status"] != "pending":
         await query.edit_message_text(
@@ -312,6 +335,8 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
             challenger_guild, defender_guild,
             war["challenger_members"], war["defender_members"],
         )
+        active_war["message_chat_id"] = war.get("message_chat_id")
+        active_war["message_id"] = war.get("message_id")
 
         # Send initial status card
         ch_name = escape_html(war['challenger_guild_name'])
