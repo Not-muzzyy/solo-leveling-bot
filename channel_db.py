@@ -18,6 +18,35 @@ from pyrogram.errors import RPCError
 
 utils.MIN_CHANNEL_ID = -10099999999999
 
+# Telegram caps messages at 4096 chars (core.telegram.org/bots/api); stay under with margin
+INDEX_SOFT_LIMIT = 3900
+
+
+def _chunk_dict(items: list[tuple[str, object]], limit: int) -> list[dict]:
+    """Greedy-pack (key, value) pairs into dicts whose compact JSON fits `limit` chars."""
+    parts: list[dict] = []
+    current: dict = {}
+    for key, value in items:
+        probe = {**current, key: value}
+        if current and len(json.dumps(probe, separators=(",", ":"))) > limit:
+            parts.append(current)
+            current = {key: value}
+        else:
+            current = probe
+    if current:
+        parts.append(current)
+    return parts  # ponytail: a single entry larger than `limit` ships alone; entries here are ~70 chars
+
+
+def _merge_index_parts(part_texts: list[str], scalars: dict) -> dict:
+    """Merge sharded part-message JSON texts with the pinned shell's scalar keys."""
+    merged: dict = {}
+    for raw in part_texts:
+        if raw:
+            merged.update(json.loads(raw))
+    merged.update(scalars)  # scalars win on key collision
+    return merged
+
 from models import Hunter, Item, Inventory, Guild, RedeemCode
 
 logger = logging.getLogger(__name__)
@@ -57,6 +86,10 @@ class ChannelDB:
         # ── Redeem codes storage ──────────────────────────
         self._redeem_codes: dict[str, RedeemCode] = {}  # CODE.upper() → RedeemCode
         self._redeem_msg_id: Optional[int] = None
+        # ── Sharded index + guild war state ───────────────
+        self._index_part_ids: list[int] = []     # sharded index part message ids
+        self._index_write_lock = asyncio.Lock()  # serializes index writes (parts must not interleave)
+        self._war_msg_id: Optional[int] = None   # guild-war state message (Task 8)
 
     def _get_lock(self, user_id: int) -> asyncio.Lock:
         """Get or create a per-user write lock."""
@@ -103,10 +136,20 @@ class ChannelDB:
 
                 try:
                     full_index = json.loads(raw)
+                    part_ids = full_index.pop("parts", None)
+                    if part_ids:
+                        try:
+                            part_msgs = await self.bot.get_messages(self.channel_id, part_ids)
+                            texts = [m.text for m in part_msgs if m and m.text]
+                            full_index = _merge_index_parts(texts, full_index)
+                            self._index_part_ids = [m.id for m in part_msgs if m and m.text]
+                        except Exception as pexc:
+                            logger.error(f"Failed to load index part messages: {pexc}")
                     full_index.pop("type", None)
                     self._guild_index = full_index.pop("guild_names", {})
                     full_index.pop("guild_ids", None)
                     self._redeem_msg_id = full_index.pop("redeem_msg_id", None)
+                    self._war_msg_id = full_index.pop("war_msg_id", None)
                     self._index = full_index
                     logger.info(
                         f"Loaded index with {len(self._index)} hunters, {len(self._guild_index)} guilds."
@@ -224,35 +267,82 @@ class ChannelDB:
             logger.warning(f"Could not pin index message: {e}")
 
     async def _update_index_message(self) -> None:
-        """Update the pinned index message with current mappings."""
+        """Update the pinned index (sharded into part messages when over the size limit)."""
         if not self._index_msg_id:
             await self._create_index_message()
             return
 
-        guild_ids_map = {
-            str(m.get("guild_id", m.get("owner_id"))): {
-                "name": name,
-                "guild_msg_id": m["guild_msg_id"],
-                "owner_id": m.get("owner_id"),
-                "guild_id": m.get("guild_id", m.get("owner_id")),
+        async with self._index_write_lock:
+            guild_ids_map = {
+                str(m.get("guild_id", m.get("owner_id"))): {
+                    "name": name,
+                    "guild_msg_id": m["guild_msg_id"],
+                    "owner_id": m.get("owner_id"),
+                    "guild_id": m.get("guild_id", m.get("owner_id")),
+                }
+                for name, m in self._guild_index.items()
+                if m.get("guild_id") or m.get("owner_id")
             }
-            for name, m in self._guild_index.items()
-            if m.get("guild_id") or m.get("owner_id")
-        }
 
-        data = {
-            "type": "index",
-            "guild_names": self._guild_index,
-            "guild_ids": guild_ids_map,
-            **self._index,
-        }
-        if self._redeem_msg_id:
-            data["redeem_msg_id"] = self._redeem_msg_id
+            data = {
+                "type": "index",
+                "guild_names": self._guild_index,
+                "guild_ids": guild_ids_map,
+                **self._index,
+            }
+            if self._redeem_msg_id:
+                data["redeem_msg_id"] = self._redeem_msg_id
+            if self._war_msg_id:
+                data["war_msg_id"] = self._war_msg_id
+
+            full_text = json.dumps(data, separators=(",", ":"))
+            if len(full_text) <= INDEX_SOFT_LIMIT:
+                await self._edit_index_text(full_text)
+                if self._index_part_ids:
+                    await self._delete_index_parts()
+                return
+
+            # Overflow: pinned message becomes a shell pointing at part messages
+            shell = {"type": "index"}
+            for k in ("redeem_msg_id", "war_msg_id"):
+                if k in data:
+                    shell[k] = data.pop(k)
+
+            chunks = _chunk_dict(list(data.items()), INDEX_SOFT_LIMIT)
+            part_ids: list[int] = []
+            for i, chunk in enumerate(chunks):
+                text = json.dumps(chunk, separators=(",", ":"))
+                old_id = self._index_part_ids[i] if i < len(self._index_part_ids) else None
+                if old_id:
+                    try:
+                        await self.bot.edit_message_text(
+                            chat_id=self.channel_id, message_id=old_id, text=text
+                        )
+                        part_ids.append(old_id)
+                        continue
+                    except RPCError as e:
+                        if "not modified" in str(e).lower():
+                            part_ids.append(old_id)
+                            continue
+                        logger.warning(f"Index part {old_id} invalid, re-posting: {e}")
+                new_msg = await self.bot.send_message(chat_id=self.channel_id, text=text)
+                part_ids.append(new_msg.id)
+
+            stale = self._index_part_ids[len(part_ids):]
+            if stale:
+                try:
+                    await self.bot.delete_messages(self.channel_id, stale)
+                except RPCError:
+                    pass
+            self._index_part_ids = part_ids
+            shell["parts"] = part_ids
+            await self._edit_index_text(json.dumps(shell, separators=(",", ":")))
+
+    async def _edit_index_text(self, text: str) -> None:
+        """Edit the pinned index message with recreate-on-deletion fallback."""
         try:
             await self.bot.edit_message_text(
-                chat_id=self.channel_id,
-                message_id=self._index_msg_id,
-                text=json.dumps(data, separators=(",", ":")),
+                chat_id=self.channel_id, message_id=self._index_msg_id, text=text
             )
         except RPCError as e:
             err_str = str(e).lower()
@@ -261,9 +351,24 @@ class ChannelDB:
             if "message_id_invalid" in err_str or "message not found" in err_str:
                 logger.warning(f"Index message {self._index_msg_id} invalid/deleted. Re-creating...")
                 await self._create_index_message()
-                await self._update_index_message()
+                await self.bot.edit_message_text(
+                    chat_id=self.channel_id, message_id=self._index_msg_id, text=text
+                )
             else:
                 logger.error(f"Failed to update index: {e}")
+
+    async def _delete_index_parts(self) -> None:
+        if self._index_part_ids:
+            try:
+                await self.bot.delete_messages(self.channel_id, self._index_part_ids)
+            except RPCError:
+                pass
+            self._index_part_ids = []
+
+    async def set_war_msg_id(self, msg_id: Optional[int]) -> None:
+        """Record (or clear) the guild-war state message id in the pinned index."""
+        self._war_msg_id = msg_id
+        await self._update_index_message()
 
     async def _load_all_hunters(self) -> None:
         """Load all hunter data from channel into cache."""

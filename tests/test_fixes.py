@@ -78,3 +78,30 @@ def test_record_claim_flush_is_awaited():
 
     assert db._characters[1].times_claimed == 1
     assert len(bot.edits) == 1, "flush must complete before record_claim returns"
+
+
+def test_chunk_dict_roundtrip_and_limit():
+    from channel_db import _chunk_dict
+    items = [
+        (str(1_000_000_000 + i),
+         {"hunter_msg_id": 10 + i, "inv_msg_id": 20 + i, "guild_id": None})
+        for i in range(300)
+    ]
+    chunks = _chunk_dict(items, 500)
+    assert len(chunks) > 5
+    for c in chunks:
+        assert len(json.dumps(c, separators=(",", ":"))) <= 500
+    merged = {}
+    for c in chunks:
+        merged.update(c)
+    assert merged == dict(items)
+
+
+def test_merge_index_parts():
+    from channel_db import _merge_index_parts
+    merged = _merge_index_parts(['{"1":{"hunter_msg_id":1}}', '{"2":{"hunter_msg_id":2}}'],
+                                {"type": "index", "redeem_msg_id": 9})
+    assert merged["1"] == {"hunter_msg_id": 1}
+    assert merged["2"] == {"hunter_msg_id": 2}
+    assert merged["redeem_msg_id"] == 9
+    assert merged["type"] == "index"
