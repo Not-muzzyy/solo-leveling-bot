@@ -25,23 +25,22 @@ logger = logging.getLogger(__name__)
 # 24-hour cooldown in seconds
 CLAIM_COOLDOWN_SECONDS = 86400
 
-# In-memory cooldown tracker: user_id → timestamp of last claim
+# In-memory cooldown cache: user_id → timestamp (persisted truth lives on Hunter.last_claim_time)
 _claim_cooldowns: dict[int, float] = {}
 
 
-def _check_cooldown(user_id: int) -> int | None:
-    """Returns remaining seconds if on cooldown, None if ready."""
-    last_claim = _claim_cooldowns.get(user_id)
-    if last_claim is None:
+def _check_cooldown(hunter: Hunter, user_id: int) -> int | None:
+    """Returns remaining seconds if on cooldown, None if ready.
+
+    Uses the persisted hunter timestamp (survives restarts) with the
+    in-memory dict as a fast fallback cache — same pattern as hunt.
+    """
+    now = time.time()
+    last_claim = max(hunter.last_claim_time or 0.0, _claim_cooldowns.get(user_id, 0.0))
+    if last_claim <= 0:
         return None
-
-    elapsed = time.time() - last_claim
-    remaining = CLAIM_COOLDOWN_SECONDS - elapsed
-
-    if remaining <= 0:
-        return None
-
-    return int(remaining)
+    remaining = CLAIM_COOLDOWN_SECONDS - (now - last_claim)
+    return int(remaining) if remaining > 0 else None
 
 
 def _format_cooldown(remaining: int) -> str:
@@ -71,14 +70,16 @@ async def handle(client: Client, message: Message) -> None:
         await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
         return
 
-    # Check 24h cooldown
-    remaining = _check_cooldown(user.id)
+    # Check 24h cooldown (persisted on the hunter)
+    remaining = _check_cooldown(hunter, user.id)
     if remaining is not None:
         await message.reply_text(_format_cooldown(remaining), parse_mode=enums.ParseMode.HTML)
         return
 
-    # Set cooldown
-    _claim_cooldowns[user.id] = time.time()
+    # Set cooldown — both in-memory cache and persisted field
+    now = time.time()
+    _claim_cooldowns[user.id] = now
+    hunter.last_claim_time = now
 
     # Calculate rewards scaled to level
     base_gold = 50 + (hunter.level * 10)

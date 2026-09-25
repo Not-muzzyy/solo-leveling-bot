@@ -93,7 +93,7 @@ Callbacks are registered in `main.py` and routed to handler functions.
 ### Cooldown System
 
 - `/hunt`: 60-second cooldown + 20 hunts/day — persisted on Hunter (`last_hunt_time`, `daily_hunts`) with an in-memory fallback cache in `handlers/hunt.py`
-- `/claim`: 24-hour cooldown — tracked in-memory via `dict[user_id, float]` in `handlers/claim.py`
+- `/claim`: 24-hour cooldown — persisted on Hunter (`last_claim_time`) with an in-memory fallback cache in `handlers/claim.py`
 - Cooldowns reset on bot restart (in-memory only, not persisted)
 
 ## Game Systems

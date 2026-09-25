@@ -64,6 +64,8 @@ class Hunter:
     daily_quest_use: int = 0
     daily_quest_claimed: bool = False
     last_quest_date: str = ""
+    # ── Daily Claim Cooldown ──────────────────────────────
+    last_claim_time: float = 0.0
 
     def check_and_reset_daily(self) -> None:
         """Check if UTC calendar date has changed and reset daily quotas accordingly."""

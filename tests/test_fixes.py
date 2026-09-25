@@ -32,3 +32,21 @@ def test_get_hunter_by_username():
     assert asyncio.run(db.get_hunter_by_username("@JohnDoe")) is db._cache[42].hunter
     assert asyncio.run(db.get_hunter_by_username("  nobody  ")) is None
     assert asyncio.run(db.get_hunter_by_username("@")) is None
+
+
+def test_claim_last_claim_time_backcompat():
+    # legacy JSON without the field must deserialize with the default
+    old = Hunter.from_json('{"user_id":1,"username":"u","hunter_name":"n","type":"hunter"}')
+    assert old.last_claim_time == 0.0
+    old.last_claim_time = 1000.0
+    assert Hunter.from_json(old.to_json()).last_claim_time == 1000.0
+
+
+def test_claim_cooldown_check():
+    from handlers.claim import _check_cooldown
+    h = Hunter(user_id=1, username="u", hunter_name="n", last_claim_time=0.0)
+    assert _check_cooldown(h, 1) is None
+    h.last_claim_time = time.time()
+    assert (_check_cooldown(h, 1) or 0) > 86000
+    h.last_claim_time = time.time() - 86401
+    assert _check_cooldown(h, 1) is None
