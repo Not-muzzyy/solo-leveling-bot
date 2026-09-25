@@ -1135,3 +1135,128 @@ def build_war_status_caption(
         "• Outcome updating in real-time.\n"
         "</blockquote>"
     )
+
+def build_guild_rich(
+    guild: Any,
+    member_count: int,
+    total_power: int,
+    max_members: int = 15,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_guild_caption.
+
+    photo_first: None = no photo block, True = caption-below (photo first),
+    False = show_caption_above_media (text first).
+    """
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    g_name = escape_html(guild.name)
+    desc = escape_html(guild.description or "No description recorded.")
+    blocks = [
+        heading(1, f"[ GUILD REGISTRY // {g_name.upper()} ]"),
+        paragraph(
+            f"🏰 <b>Syndicate:</b> {Bold(g_name).to_html()} (ID: {InlineCode(escape_html(f'#{guild.guild_id}')).to_html()})\n"
+            f"👥 <b>Roster:</b> {InlineCode(escape_html(f'{member_count}/{max_members}')).to_html()} ┊ ⚡ <b>Power:</b> {InlineCode(escape_html(f'{total_power:,}')).to_html()}\n"
+            f"🏆 <b>War Score:</b> {InlineCode(escape_html(str(guild.war_score))).to_html()} (W: {InlineCode(escape_html(str(guild.war_wins))).to_html()} / L: {InlineCode(escape_html(str(guild.war_losses))).to_html()})"
+        ),
+        quote(
+            f"📝 <b>Guild Creed:</b> {Italic(desc).to_html()}\n"
+            "• Active Syndicate Perk: 🎁 <b>+10% EXP on all Hunts</b>",
+            expandable=True,
+        ),
+        paragraph("<i>Use controls below to navigate guilds, view members, or declare war:</i>"),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("guild"))
+    elif photo_first is False:
+        blocks.append(photo_block("guild"))
+    return RichDoc(*blocks)
+
+
+def build_guild_leaderboard_rich(category_title: str, photo_first: bool | None = None) -> "RichDoc":
+    """Rich twin of the inline /guild top caption in handlers/guild.py."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    blocks = [
+        heading(1, f"[ GUILD LEADERBOARD // {escape_html(category_title).upper()} ]"),
+        paragraph("<b>길드 순위 // 연맹 랭킹 차트</b>"),
+        paragraph(f"📊 <b>Category:</b> {InlineCode(escape_html(category_title)).to_html()}"),
+        quote(
+            "<b>Guild Standings Matrix:</b>\n"
+            "• Visual rankings displayed on the Syndicate HUD card above.\n"
+            "• Switch ranking criteria using the controls below.",
+            expandable=True,
+        ),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("guild"))
+    elif photo_first is False:
+        blocks.append(photo_block("guild"))
+    return RichDoc(*blocks)
+
+
+def build_war_challenge_rich(
+    sender_guild_name: str,
+    target_guild_name: str,
+    challenger_power: int,
+    defender_power: int,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_war_challenge_caption."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    s_name = escape_html(sender_guild_name)
+    t_name = escape_html(target_guild_name)
+    blocks = [
+        heading(1, "[ GUILD WAR DECLARATION // 길드전 선포 ]"),
+        paragraph(
+            f"🏰 <b>Challenger:</b> {Bold(s_name).to_html()} (⚡{InlineCode(escape_html(f'{challenger_power:,}')).to_html()})\n"
+            f"🛡️ <b>Target:</b> {Bold(t_name).to_html()} (⚡{InlineCode(escape_html(f'{defender_power:,}')).to_html()})"
+        ),
+        quote(
+            "<b>Notice to Opposing Sovereign:</b>\n"
+            f"• {Bold(s_name).to_html()} has issued an official challenge to {Bold(t_name).to_html()}.\n"
+            "• Target Sovereign must respond to initiate combat or forfeit.",
+            expandable=True,
+        ),
+        paragraph("<i>Respond using the controls below:</i>"),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("war"))
+    elif photo_first is False:
+        blocks.append(photo_block("war"))
+    return RichDoc(*blocks)
+
+
+def build_war_status_rich(
+    challenger_guild_name: str,
+    defender_guild_name: str,
+    challenger_wins: int,
+    defender_wins: int,
+    current_match: int,
+    total_matches: int,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_war_status_caption — K-D scoreboard rendered as a table (spec 3.5)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote, table
+    cg_name = escape_html(challenger_guild_name)
+    dg_name = escape_html(defender_guild_name)
+    blocks = [
+        heading(1, "[ GUILD WAR IN PROGRESS // 길드전 진행 ]"),
+        paragraph(
+            f"🏰 {Bold(cg_name).to_html()} [{InlineCode(escape_html(str(challenger_wins))).to_html()}] vs "
+            f"[{InlineCode(escape_html(str(defender_wins))).to_html()}] {Bold(dg_name).to_html()}"
+        ),
+        table([
+            ["🏰 Syndicate", "🏆 Wins", "💀 Losses"],
+            [cg_name, str(challenger_wins), str(defender_wins)],
+            [dg_name, str(defender_wins), str(challenger_wins)],
+        ]),
+        quote(
+            f"• Current Engagement: {InlineCode(escape_html(f'{current_match}/{total_matches}')).to_html()} battles\n"
+            "• Outcome updating in real-time.",
+            expandable=True,
+        ),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("war"))
+    elif photo_first is False:
+        blocks.append(photo_block("war"))
+    return RichDoc(*blocks)

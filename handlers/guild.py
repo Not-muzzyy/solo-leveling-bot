@@ -29,12 +29,14 @@ from pyrogram.errors import BadRequest
 from channel_db import ChannelDB
 from config import GUILD_MAX_MEMBERS
 from models import Guild
-from game.formatting import format_not_registered
+from game.formatting import format_not_registered, format_not_registered_rich
 from game.font_manager import clean_and_normalize_name
 from game.guild_image import render_guild_image
 from game.guild_leaderboard_image import render_guild_leaderboard_image
 from game.rich_text import escape_html
-from game.captions import build_guild_caption
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, photo_media, reply_rich
+from game.captions import build_guild_caption, build_guild_rich, build_guild_leaderboard_rich
 from handlers import guild_war
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,26 @@ def _format_guild_info(guild: Guild, db_guild_stats: dict | None = None) -> str:
         f"📝 <b>Guild Creed:</b> <i>{desc}</i>\n"
         "• Active Syndicate Perk: 🎁 <b>+10% EXP on all Hunts</b>\n"
         "</blockquote>"
+    )
+
+
+def _format_guild_info_rich(guild: Guild, db_guild_stats: dict | None = None) -> RichDoc:
+    """Rich twin of _format_guild_info (same copy, block structure)."""
+    g_name = escape_html(guild.name)
+    desc = escape_html(guild.description or "No description recorded.")
+    return RichDoc(
+        heading(1, f"[ GUILD DIRECTORY // {g_name.upper()} ]"),
+        paragraph("<b>길드 정보 // 길드 상세</b>"),
+        paragraph(
+            f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{escape_html(str(guild.guild_id))}</code>)\n"
+            f"👥 <b>Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
+            f"👑 <b>Sovereign:</b> <code>#{guild.owner_id}</code>"
+        ),
+        quote(
+            f"📝 <b>Guild Creed:</b> <i>{desc}</i>\n"
+            "• Active Syndicate Perk: 🎁 <b>+10% EXP on all Hunts</b>",
+            expandable=True,
+        ),
     )
 
 
@@ -134,9 +156,13 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         guild = await db.get_guild_by_name(target_query)
         if not guild:
             q_esc = escape_html(target_query)
-            await message.reply_text(
-                f"❌ No Hunter Guild matching <b>{q_esc}</b> was found in the System Registry.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ No Hunter Guild matching <b>{q_esc}</b> was found in the System Registry.")),
+                fallback=lambda: message.reply_text(
+                    f"❌ No Hunter Guild matching <b>{q_esc}</b> was found in the System Registry.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
     elif viewer_guild:
@@ -145,15 +171,28 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         # Viewer has no guild and specified no query: show first / top guild
         guild = all_guilds[0]
     else:
-        await message.reply_text(
-            "<b>[ SYSTEM DIRECTIVE // GUILD REGISTRY ]</b>\n"
-            "<b>시스템 안내 // 길드 목록 없음</b>\n\n"
-            "<i>No Hunter Guilds have been established yet in the System!</i>\n\n"
-            "<blockquote expandable>"
-            "• Be the pioneer and establish the first Guild:\n"
-            "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)\n"
-            "</blockquote>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM DIRECTIVE // GUILD REGISTRY ]"),
+                paragraph("<b>시스템 안내 // 길드 목록 없음</b>"),
+                paragraph("<i>No Hunter Guilds have been established yet in the System!</i>"),
+                quote(
+                    "• Be the pioneer and establish the first Guild:\n"
+                    "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ SYSTEM DIRECTIVE // GUILD REGISTRY ]</b>\n"
+                "<b>시스템 안내 // 길드 목록 없음</b>\n\n"
+                "<i>No Hunter Guilds have been established yet in the System!</i>\n\n"
+                "<blockquote expandable>"
+                "• Be the pioneer and establish the first Guild:\n"
+                "👉 <code>/guild create &lt;name&gt;</code> (Cost: <code>500 Gold</code>)\n"
+                "</blockquote>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -172,14 +211,25 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         photo_buf = await asyncio.to_thread(
             render_guild_image, guild, member_hunters, total_power
         )
-        await message.reply_photo(photo=photo_buf, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML, show_caption_above_media=True)
+        await reply_rich(
+            message,
+            build_guild_rich(guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+            reply_markup=keyboard,
+            media=[photo_media("guild", photo_buf)],
+            fallback=lambda: message.reply_photo(photo=photo_buf, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML, show_caption_above_media=True),
+        )
     except Exception as exc:
         logger.error("Failed to render hallmark guild image: %s", exc, exc_info=True)
         # Fallback to text
-        await message.reply_text(
-            _format_guild_info(guild),
+        await reply_rich(
+            message,
+            _format_guild_info_rich(guild),
             reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
+            fallback=lambda: message.reply_text(
+                _format_guild_info(guild),
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
+            ),
         )
 
 
@@ -195,7 +245,10 @@ async def handle(client: Client, message: Message) -> None:
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered())
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered()),
+        )
         return
 
     # ── /guild (no args) — show help ──────────────────────
@@ -223,48 +276,100 @@ async def handle(client: Client, message: Message) -> None:
             "</blockquote>\n\n"
             "<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>"
         )
-        await message.reply_text(text, parse_mode=ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]"),
+                paragraph("<b>시스템 안내 // 헌터 길드 본부</b>"),
+                quote(
+                    "<b>⚔️ Syndicate Directives:</b>\n"
+                    "• <code>/guild view [name]</code> — View guild card & join\n"
+                    "• <code>/guild create &lt;name&gt;</code> — Establish guild (<code>500 Gold</code>)\n"
+                    "• <code>/guild join &lt;name&gt;</code> — Pledge allegiance to a guild\n"
+                    "• <code>/guild leave</code> — Depart current guild\n"
+                    "• <code>/guild members</code> — Inspect guild roster\n"
+                    "• <code>/guild top</code> — Top 10 guilds leaderboard\n"
+                    "• <code>/guild war &lt;name&gt;</code> — Challenge rival guild to war\n"
+                    "• <code>/guild kick</code> — Expel member (reply in group)\n"
+                    "• <code>/guild disband</code> — Dissolve guild (owner only)\n"
+                    "• <code>/guild edit &lt;desc&gt;</code> — Update syndicate creed",
+                    expandable=True,
+                ),
+                quote(
+                    "<b>🎁 Gifting Protocols:</b>\n"
+                    "• <code>/gift gold &lt;amount&gt; @user</code> — Gift gold to guildmate\n"
+                    "• <code>/gift item &lt;id&gt; @user</code> — Gift equipment to guildmate",
+                    expandable=True,
+                ),
+                paragraph("<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>"),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=ParseMode.HTML),
+        )
         return
 
     # ── /guild create <name> ──────────────────────────────
     if sub == "create":
         if len(args) < 2:
-            await message.reply_text(
-                "<b>[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]</b>\n"
-                "<b>시스템 안내 // 길드 창설 지침</b>\n\n"
-                "⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n"
-                "<i>Example:</i> <code>/guild create Shadow Legion</code>",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]"),
+                    paragraph("<b>시스템 안내 // 길드 창설 지침</b>"),
+                    paragraph("⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n<i>Example:</i> <code>/guild create Shadow Legion</code>"),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]</b>\n"
+                    "<b>시스템 안내 // 길드 창설 지침</b>\n\n"
+                    "⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n"
+                    "<i>Example:</i> <code>/guild create Shadow Legion</code>",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         guild_name = " ".join(args[1:]).strip()
         if len(guild_name.split()) < 1 or len(guild_name.split()) > 4:
-            await message.reply_text(
-                "❌ <b>Invalid Name:</b> Guild name must be 1 to 4 words.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ <b>Invalid Name:</b> Guild name must be 1 to 4 words.")),
+                fallback=lambda: message.reply_text(
+                    "❌ <b>Invalid Name:</b> Guild name must be 1 to 4 words.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         if hunter.guild_id:
-            await message.reply_text(
-                "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.")),
+                fallback=lambda: message.reply_text(
+                    "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         if await db.guild_name_exists(guild_name):
-            await message.reply_text(
-                f"❌ <b>Name Conflict:</b> A guild named <b>{escape_html(guild_name)}</b> already exists!",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ <b>Name Conflict:</b> A guild named <b>{escape_html(guild_name)}</b> already exists!")),
+                fallback=lambda: message.reply_text(
+                    f"❌ <b>Name Conflict:</b> A guild named <b>{escape_html(guild_name)}</b> already exists!",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         # Check gold
         if hunter.gold < 500:
-            await message.reply_text(
-                f"❌ <b>Insufficient Treasury:</b> Creating a guild costs <code>500 Gold</code>. You have <code>{hunter.gold:,} Gold</code>.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ <b>Insufficient Treasury:</b> Creating a guild costs <code>500 Gold</code>. You have <code>{hunter.gold:,} Gold</code>.")),
+                fallback=lambda: message.reply_text(
+                    f"❌ <b>Insufficient Treasury:</b> Creating a guild costs <code>500 Gold</code>. You have <code>{hunter.gold:,} Gold</code>.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
@@ -282,17 +387,32 @@ async def handle(client: Client, message: Message) -> None:
         await db.create_guild(guild)
         await db.save_hunter(user.id)
 
-        await message.reply_text(
-            "<b>[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]</b>\n"
-            "<b>길드 창설 // 시스템 인가 완료</b>\n\n"
-            f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!\n\n"
-            "<blockquote expandable>"
-            f"👑 <b>Founder / Sovereign:</b> <b>{escape_html(hunter.display_full_name)}</b>\n"
-            f"👥 <b>Initial Roster:</b> <code>1/{GUILD_MAX_MEMBERS}</code>\n"
-            "• Perk Active: 🎁 <b>+10% Hunt EXP</b> unlocked for all members\n"
-            "</blockquote>\n\n"
-            "<i>Use <code>/guild info</code> to review your visual syndicate card.</i>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]"),
+                paragraph("<b>길드 창설 // 시스템 인가 완료</b>"),
+                paragraph(f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!"),
+                quote(
+                    f"👑 <b>Founder / Sovereign:</b> <b>{escape_html(hunter.display_full_name)}</b>\n"
+                    f"👥 <b>Initial Roster:</b> <code>1/{GUILD_MAX_MEMBERS}</code>\n"
+                    "• Perk Active: 🎁 <b>+10% Hunt EXP</b> unlocked for all members",
+                    expandable=True,
+                ),
+                paragraph("<i>Use <code>/guild info</code> to review your visual syndicate card.</i>"),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]</b>\n"
+                "<b>길드 창설 // 시스템 인가 완료</b>\n\n"
+                f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!\n\n"
+                "<blockquote expandable>"
+                f"👑 <b>Founder / Sovereign:</b> <b>{escape_html(hunter.display_full_name)}</b>\n"
+                f"👥 <b>Initial Roster:</b> <code>1/{GUILD_MAX_MEMBERS}</code>\n"
+                "• Perk Active: 🎁 <b>+10% Hunt EXP</b> unlocked for all members\n"
+                "</blockquote>\n\n"
+                "<i>Use <code>/guild info</code> to review your visual syndicate card.</i>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         logger.info(f"Guild created: {guild_name} by {hunter.hunter_name}")
         return
@@ -300,55 +420,92 @@ async def handle(client: Client, message: Message) -> None:
     # ── /guild join <name> ────────────────────────────────
     if sub == "join":
         if len(args) < 2:
-            await message.reply_text(
-                "<b>[ SYSTEM NOTICE // JOIN SYNDICATE ]</b>\n"
-                "<b>시스템 안내 // 길드 가입 지침</b>\n\n"
-                "⚠️ <b>Syntax:</b> <code>/guild join &lt;name&gt;</code>\n"
-                "<i>Example:</i> <code>/guild join Shadow Legion</code>",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM NOTICE // JOIN SYNDICATE ]"),
+                    paragraph("<b>시스템 안내 // 길드 가입 지침</b>"),
+                    paragraph("⚠️ <b>Syntax:</b> <code>/guild join &lt;name&gt;</code>\n<i>Example:</i> <code>/guild join Shadow Legion</code>"),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SYSTEM NOTICE // JOIN SYNDICATE ]</b>\n"
+                    "<b>시스템 안내 // 길드 가입 지침</b>\n\n"
+                    "⚠️ <b>Syntax:</b> <code>/guild join &lt;name&gt;</code>\n"
+                    "<i>Example:</i> <code>/guild join Shadow Legion</code>",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         guild_name = " ".join(args[1:]).strip()
 
         if hunter.guild_id:
-            await message.reply_text(
-                "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.")),
+                fallback=lambda: message.reply_text(
+                    "⚠️ <b>Already Pledged:</b> You already belong to a guild! Depart first via <code>/guild leave</code>.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         guild = await db.get_guild_by_name(guild_name)
         if not guild:
-            await message.reply_text(
-                f"❌ <b>Not Found:</b> No guild named <b>{escape_html(guild_name)}</b> exists.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ <b>Not Found:</b> No guild named <b>{escape_html(guild_name)}</b> exists.")),
+                fallback=lambda: message.reply_text(
+                    f"❌ <b>Not Found:</b> No guild named <b>{escape_html(guild_name)}</b> exists.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         if len(guild.members) >= GUILD_MAX_MEMBERS:
-            await message.reply_text(
-                f"❌ <b>Roster Full:</b> <b>{escape_html(guild.name)}</b> has reached capacity (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>).",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ <b>Roster Full:</b> <b>{escape_html(guild.name)}</b> has reached capacity (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>).")),
+                fallback=lambda: message.reply_text(
+                    f"❌ <b>Roster Full:</b> <b>{escape_html(guild.name)}</b> has reached capacity (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>).",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         success = await db.add_guild_member(guild.guild_id, user.id)
         if success:
-            await message.reply_text(
-                "<b>[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]</b>\n"
-                "<b>길드 가입 // 연맹 맹세 수락</b>\n\n"
-                f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!\n\n"
-                "<blockquote expandable>"
-                f"👥 <b>Updated Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
-                "🎁 <b>Active Buff:</b> <code>+10% EXP</code> applied to all dungeon hunts!\n"
-                "</blockquote>",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]"),
+                    paragraph("<b>길드 가입 // 연맹 맹세 수락</b>"),
+                    paragraph(f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!"),
+                    quote(
+                        f"👥 <b>Updated Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
+                        "🎁 <b>Active Buff:</b> <code>+10% EXP</code> applied to all dungeon hunts!",
+                        expandable=True,
+                    ),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]</b>\n"
+                    "<b>길드 가입 // 연맹 맹세 수락</b>\n\n"
+                    f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!\n\n"
+                    "<blockquote expandable>"
+                    f"👥 <b>Updated Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
+                    "🎁 <b>Active Buff:</b> <code>+10% EXP</code> applied to all dungeon hunts!\n"
+                    "</blockquote>",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
         else:
-            await message.reply_text(
-                "❌ Failed to join guild. Please try again.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Failed to join guild. Please try again.")),
+                fallback=lambda: message.reply_text(
+                    "❌ Failed to join guild. Please try again.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
         return
 
@@ -356,20 +513,32 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "leave":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You do not belong to any Hunter Guild.")),
+                fallback=lambda: message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if guild.owner_id == user.id:
-            await message.reply_text(
-                "⚠️ <b>Sovereign Restriction:</b> You are the guild owner! Use <code>/guild disband</code> to dissolve the guild.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ <b>Sovereign Restriction:</b> You are the guild owner! Use <code>/guild disband</code> to dissolve the guild.")),
+                fallback=lambda: message.reply_text(
+                    "⚠️ <b>Sovereign Restriction:</b> You are the guild owner! Use <code>/guild disband</code> to dissolve the guild.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         await db.remove_guild_member(guild.guild_id, user.id)
-        await message.reply_text(
-            f"🚪 <b>Allegiance Severed:</b> You have departed from <b>{escape_html(guild.name)}</b>.",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"🚪 <b>Allegiance Severed:</b> You have departed from <b>{escape_html(guild.name)}</b>.")),
+            fallback=lambda: message.reply_text(
+                f"🚪 <b>Allegiance Severed:</b> You have departed from <b>{escape_html(guild.name)}</b>.",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -383,7 +552,11 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "members":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You do not belong to any Hunter Guild.")),
+                fallback=lambda: message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         member_lines = []
@@ -401,37 +574,70 @@ async def handle(client: Client, message: Message) -> None:
             + "\n".join(member_lines) +
             "\n</blockquote>"
         )
-        await message.reply_text(text, parse_mode=ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, f"[ GUILD ROSTER // {escape_html(guild.name.upper())} ]"),
+                paragraph("<b>길드 명단 // 소속 헌터 목록</b>"),
+                paragraph(f"🏰 <b>Syndicate:</b> <b>{escape_html(guild.name)}</b> (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>)"),
+                quote("\n".join(member_lines), expandable=True),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=ParseMode.HTML),
+        )
         return
 
     # ── /guild kick <user> ────────────────────────────────
     if sub == "kick":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You do not belong to any Hunter Guild.")),
+                fallback=lambda: message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the Guild Sovereign can expel members.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ Only the Guild Sovereign can expel members.")),
+                fallback=lambda: message.reply_text("⚠️ Only the Guild Sovereign can expel members.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if not message.reply_to_message or not message.reply_to_message.from_user:
-            await message.reply_text("⚠️ Reply to a member's message in this group to expel them.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ Reply to a member's message in this group to expel them.")),
+                fallback=lambda: message.reply_text("⚠️ Reply to a member's message in this group to expel them.", parse_mode=ParseMode.HTML),
+            )
             return
 
         target = message.reply_to_message.from_user
         if target.id == user.id:
-            await message.reply_text("⚠️ You cannot expel yourself. Use <code>/guild disband</code> instead.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You cannot expel yourself. Use <code>/guild disband</code> instead.")),
+                fallback=lambda: message.reply_text("⚠️ You cannot expel yourself. Use <code>/guild disband</code> instead.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if target.id not in guild.members:
-            await message.reply_text(f"⚠️ {escape_html(target.first_name)} is not enrolled in your guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"⚠️ {escape_html(target.first_name)} is not enrolled in your guild.")),
+                fallback=lambda: message.reply_text(f"⚠️ {escape_html(target.first_name)} is not enrolled in your guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         await db.remove_guild_member(guild.guild_id, target.id)
-        await message.reply_text(
-            f"👢 <b>Member Expelled:</b> <b>{escape_html(target.first_name)}</b> was removed from <b>{escape_html(guild.name)}</b>.",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"👢 <b>Member Expelled:</b> <b>{escape_html(target.first_name)}</b> was removed from <b>{escape_html(guild.name)}</b>.")),
+            fallback=lambda: message.reply_text(
+                f"👢 <b>Member Expelled:</b> <b>{escape_html(target.first_name)}</b> was removed from <b>{escape_html(guild.name)}</b>.",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -439,18 +645,30 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "disband":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You do not belong to any Hunter Guild.")),
+                fallback=lambda: message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the Guild Sovereign can disband the guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ Only the Guild Sovereign can disband the guild.")),
+                fallback=lambda: message.reply_text("⚠️ Only the Guild Sovereign can disband the guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         guild_name = guild.name
         await db.delete_guild(guild.guild_id)
-        await message.reply_text(
-            f"🏰 <b>Syndicate Dissolved:</b> <b>{escape_html(guild_name)}</b> has been permanently disbanded.",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"🏰 <b>Syndicate Dissolved:</b> <b>{escape_html(guild_name)}</b> has been permanently disbanded.")),
+            fallback=lambda: message.reply_text(
+                f"🏰 <b>Syndicate Dissolved:</b> <b>{escape_html(guild_name)}</b> has been permanently disbanded.",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -458,27 +676,47 @@ async def handle(client: Client, message: Message) -> None:
     if sub == "edit":
         guild = await db.get_user_guild(user.id)
         if not guild:
-            await message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You do not belong to any Hunter Guild.")),
+                fallback=lambda: message.reply_text("⚠️ You do not belong to any Hunter Guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if guild.owner_id != user.id:
-            await message.reply_text("⚠️ Only the Guild Sovereign can edit the description.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ Only the Guild Sovereign can edit the description.")),
+                fallback=lambda: message.reply_text("⚠️ Only the Guild Sovereign can edit the description.", parse_mode=ParseMode.HTML),
+            )
             return
 
         desc = " ".join(args[1:]).strip()
         if not desc:
-            await message.reply_text("Usage: <code>/guild edit &lt;description&gt;</code>", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("Usage: <code>/guild edit &lt;description&gt;</code>")),
+                fallback=lambda: message.reply_text("Usage: <code>/guild edit &lt;description&gt;</code>", parse_mode=ParseMode.HTML),
+            )
             return
 
         if len(desc) > 200:
-            await message.reply_text("❌ Description must be 200 characters or fewer.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Description must be 200 characters or fewer.")),
+                fallback=lambda: message.reply_text("❌ Description must be 200 characters or fewer.", parse_mode=ParseMode.HTML),
+            )
             return
 
         guild.description = desc
         await db.save_guild(guild.guild_id)
-        await message.reply_text(
-            f"📝 <b>Guild Creed Updated:</b>\n\n<i>{escape_html(desc)}</i>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"📝 <b>Guild Creed Updated:</b>\n\n<i>{escape_html(desc)}</i>")),
+            fallback=lambda: message.reply_text(
+                f"📝 <b>Guild Creed Updated:</b>\n\n<i>{escape_html(desc)}</i>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -493,9 +731,13 @@ async def handle(client: Client, message: Message) -> None:
         return
 
     # Unknown subcommand
-    await message.reply_text(
-        "❌ Unknown guild command. Use <code>/guild</code> to see available directives.",
-        parse_mode=ParseMode.HTML,
+    await reply_rich(
+        message,
+        RichDoc(paragraph("❌ Unknown guild command. Use <code>/guild</code> to see available directives.")),
+        fallback=lambda: message.reply_text(
+            "❌ Unknown guild command. Use <code>/guild</code> to see available directives.",
+            parse_mode=ParseMode.HTML,
+        ),
     )
 
 
@@ -534,84 +776,142 @@ async def handle_gift(client: Client, message: Message) -> None:
 
     sender = await db.get_hunter(user.id)
     if not sender:
-        await message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=ParseMode.HTML),
+        )
         return
 
     if not args:
-        await message.reply_text(
-            "<b>[ GUILD PROTOCOL // GIFT DISPATCH ]</b>\n"
-            "<b>길드 지원 // 물품 및 자금 지원</b>\n\n"
-            "<i>Distribute treasury or equipment directly to your guildmates!</i>\n\n"
-            "<blockquote expandable>"
-            "<b>Directives:</b>\n"
-            "• <code>/gift item &lt;id&gt; @user</code> — Gift unequipped gear\n"
-            "• <code>/gift gold &lt;amount&gt; @user</code> — Gift treasury gold\n\n"
-            "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>.\n"
-            "</blockquote>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ GUILD PROTOCOL // GIFT DISPATCH ]"),
+                paragraph("<b>길드 지원 // 물품 및 자금 지원</b>"),
+                paragraph("<i>Distribute treasury or equipment directly to your guildmates!</i>"),
+                quote(
+                    "<b>Directives:</b>\n"
+                    "• <code>/gift item &lt;id&gt; @user</code> — Gift unequipped gear\n"
+                    "• <code>/gift gold &lt;amount&gt; @user</code> — Gift treasury gold\n\n"
+                    "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>.",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ GUILD PROTOCOL // GIFT DISPATCH ]</b>\n"
+                "<b>길드 지원 // 물품 및 자금 지원</b>\n\n"
+                "<i>Distribute treasury or equipment directly to your guildmates!</i>\n\n"
+                "<blockquote expandable>"
+                "<b>Directives:</b>\n"
+                "• <code>/gift item &lt;id&gt; @user</code> — Gift unequipped gear\n"
+                "• <code>/gift gold &lt;amount&gt; @user</code> — Gift treasury gold\n\n"
+                "💡 <i>Tip: Reply directly to a guildmate's message with</i> <code>/gift item &lt;id&gt;</code>.\n"
+                "</blockquote>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
     gift_type = args[0].lower()
     if gift_type not in ("item", "gold"):
-        await message.reply_text(
-            "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt;</code> or <code>/gift gold &lt;amount&gt;</code>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt;</code> or <code>/gift gold &lt;amount&gt;</code>")),
+            fallback=lambda: message.reply_text(
+                "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt;</code> or <code>/gift gold &lt;amount&gt;</code>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
     # Verify sender is in a guild
     sender_guild = await db.get_user_guild(user.id)
     if not sender_guild:
-        await message.reply_text(
-            "⚠️ You must be enrolled in a Hunter Guild to gift items or gold.",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⚠️ You must be enrolled in a Hunter Guild to gift items or gold.")),
+            fallback=lambda: message.reply_text(
+                "⚠️ You must be enrolled in a Hunter Guild to gift items or gold.",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
     # ── /gift gold <amount> ──────────────────────────────
     if gift_type == "gold":
         if len(args) < 2:
-            await message.reply_text(
-                "⚠️ <b>Usage:</b> <code>/gift gold &lt;amount&gt; @user</code>",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ <b>Usage:</b> <code>/gift gold &lt;amount&gt; @user</code>")),
+                fallback=lambda: message.reply_text(
+                    "⚠️ <b>Usage:</b> <code>/gift gold &lt;amount&gt; @user</code>",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         try:
             amount = int(args[1])
         except ValueError:
-            await message.reply_text("❌ Invalid gold amount. Use a positive integer.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Invalid gold amount. Use a positive integer.")),
+                fallback=lambda: message.reply_text("❌ Invalid gold amount. Use a positive integer.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if amount <= 0:
-            await message.reply_text("❌ Gold amount must be greater than zero.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Gold amount must be greater than zero.")),
+                fallback=lambda: message.reply_text("❌ Gold amount must be greater than zero.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if sender.gold < amount:
-            await message.reply_text(
-                f"❌ <b>Insufficient Treasury:</b> You only possess <code>{sender.gold:,} Gold</code>.",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ <b>Insufficient Treasury:</b> You only possess <code>{sender.gold:,} Gold</code>.")),
+                fallback=lambda: message.reply_text(
+                    f"❌ <b>Insufficient Treasury:</b> You only possess <code>{sender.gold:,} Gold</code>.",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         recipient_id, err = _resolve_recipient(message, args)
         if err:
-            await message.reply_text(err, parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph(escape_html(err))),
+                fallback=lambda: message.reply_text(err, parse_mode=ParseMode.HTML),
+            )
             return
 
         if recipient_id == user.id:
-            await message.reply_text("⚠️ You cannot gift gold to yourself.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You cannot gift gold to yourself.")),
+                fallback=lambda: message.reply_text("⚠️ You cannot gift gold to yourself.", parse_mode=ParseMode.HTML),
+            )
             return
 
         # Verify recipient is in same guild
         if recipient_id not in sender_guild.members:
-            await message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ That hunter is not enrolled in your guild.")),
+                fallback=lambda: message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         recipient = await db.get_hunter(recipient_id)
         if not recipient:
-            await message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ That hunter has not awakened in the System yet.")),
+                fallback=lambda: message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML),
+            )
             return
 
         # Transfer gold
@@ -622,15 +922,28 @@ async def handle_gift(client: Client, message: Message) -> None:
 
         s_name = escape_html(sender.display_full_name)
         r_name = escape_html(recipient.display_full_name)
-        await message.reply_text(
-            "<b>[ GUILD PROTOCOL // TREASURY TRANSFER ]</b>\n"
-            "<b>길드 금고 // 자금 이체 완료</b>\n\n"
-            f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!\n\n"
-            "<blockquote expandable>"
-            f"• Sender Vault: <code>{sender.gold:,} Gold</code>\n"
-            f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>\n"
-            "</blockquote>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ GUILD PROTOCOL // TREASURY TRANSFER ]"),
+                paragraph("<b>길드 금고 // 자금 이체 완료</b>"),
+                paragraph(f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!"),
+                quote(
+                    f"• Sender Vault: <code>{sender.gold:,} Gold</code>\n"
+                    f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ GUILD PROTOCOL // TREASURY TRANSFER ]</b>\n"
+                "<b>길드 금고 // 자금 이체 완료</b>\n\n"
+                f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!\n\n"
+                "<blockquote expandable>"
+                f"• Sender Vault: <code>{sender.gold:,} Gold</code>\n"
+                f"• Recipient Vault: <code>{recipient.gold:,} Gold</code>\n"
+                "</blockquote>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         logger.info(f"Gold gift: {sender.hunter_name} -> {recipient.hunter_name}: {amount} gold")
         return
@@ -638,52 +951,88 @@ async def handle_gift(client: Client, message: Message) -> None:
     # ── /gift item <id> ──────────────────────────────────
     if gift_type == "item":
         if len(args) < 2:
-            await message.reply_text(
-                "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt; @user</code>",
-                parse_mode=ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt; @user</code>")),
+                fallback=lambda: message.reply_text(
+                    "⚠️ <b>Usage:</b> <code>/gift item &lt;id&gt; @user</code>",
+                    parse_mode=ParseMode.HTML,
+                ),
             )
             return
 
         try:
             item_id = int(args[1])
         except ValueError:
-            await message.reply_text("❌ Invalid item ID. Use a valid number.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Invalid item ID. Use a valid number.")),
+                fallback=lambda: message.reply_text("❌ Invalid item ID. Use a valid number.", parse_mode=ParseMode.HTML),
+            )
             return
 
         recipient_id, err = _resolve_recipient(message, args)
         if err:
-            await message.reply_text(err, parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph(escape_html(err))),
+                fallback=lambda: message.reply_text(err, parse_mode=ParseMode.HTML),
+            )
             return
 
         if recipient_id == user.id:
-            await message.reply_text("⚠️ You cannot gift items to yourself.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ You cannot gift items to yourself.")),
+                fallback=lambda: message.reply_text("⚠️ You cannot gift items to yourself.", parse_mode=ParseMode.HTML),
+            )
             return
 
         # Verify recipient is in same guild
         if recipient_id not in sender_guild.members:
-            await message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ That hunter is not enrolled in your guild.")),
+                fallback=lambda: message.reply_text("⚠️ That hunter is not enrolled in your guild.", parse_mode=ParseMode.HTML),
+            )
             return
 
         recipient = await db.get_hunter(recipient_id)
         if not recipient:
-            await message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ That hunter has not awakened in the System yet.")),
+                fallback=lambda: message.reply_text("⚠️ That hunter has not awakened in the System yet.", parse_mode=ParseMode.HTML),
+            )
             return
 
         # Check sender has the item
         sender_inv = await db.get_inventory(user.id)
         item = sender_inv.get_item(item_id)
         if not item:
-            await message.reply_text(f"❌ No item with ID <code>{item_id}</code> found in your inventory.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph(f"❌ No item with ID <code>{item_id}</code> found in your inventory.")),
+                fallback=lambda: message.reply_text(f"❌ No item with ID <code>{item_id}</code> found in your inventory.", parse_mode=ParseMode.HTML),
+            )
             return
 
         if item.is_equipped:
-            await message.reply_text("⚠️ Unequip the artifact first before gifting it!", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚠️ Unequip the artifact first before gifting it!")),
+                fallback=lambda: message.reply_text("⚠️ Unequip the artifact first before gifting it!", parse_mode=ParseMode.HTML),
+            )
             return
 
         # Remove from sender, add to receiver
         removed = sender_inv.remove_item(item_id)
         if not removed:
-            await message.reply_text("❌ Failed to transfer item from inventory.", parse_mode=ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(paragraph("❌ Failed to transfer item from inventory.")),
+                fallback=lambda: message.reply_text("❌ Failed to transfer item from inventory.", parse_mode=ParseMode.HTML),
+            )
             return
 
         recipient_inv = await db.get_inventory(recipient_id)
@@ -702,16 +1051,30 @@ async def handle_gift(client: Client, message: Message) -> None:
         s_name = escape_html(sender.display_full_name)
         r_name = escape_html(recipient.display_full_name)
         it_name = escape_html(removed.name)
-        await message.reply_text(
-            "<b>[ GUILD PROTOCOL // ARTIFACT TRANSFER ]</b>\n"
-            "<b>길드 보관소 // 장비 전달 완료</b>\n\n"
-            f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!\n\n"
-            "<blockquote expandable>"
-            f"• Artifact: <code>[{escape_html(removed.rarity)}]</code> <b>{it_name}</b>\n"
-            f"• Stats: <code>{escape_html(removed.stat_summary())}</code>\n"
-            f"• Slot: <b>{escape_html(removed.type.title())}</b>\n"
-            "</blockquote>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ GUILD PROTOCOL // ARTIFACT TRANSFER ]"),
+                paragraph("<b>길드 보관소 // 장비 전달 완료</b>"),
+                paragraph(f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!"),
+                quote(
+                    f"• Artifact: <code>[{escape_html(removed.rarity)}]</code> <b>{it_name}</b>\n"
+                    f"• Stats: <code>{escape_html(removed.stat_summary())}</code>\n"
+                    f"• Slot: <b>{escape_html(removed.type.title())}</b>",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ GUILD PROTOCOL // ARTIFACT TRANSFER ]</b>\n"
+                "<b>길드 보관소 // 장비 전달 완료</b>\n\n"
+                f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!\n\n"
+                "<blockquote expandable>"
+                f"• Artifact: <code>[{escape_html(removed.rarity)}]</code> <b>{it_name}</b>\n"
+                f"• Stats: <code>{escape_html(removed.stat_summary())}</code>\n"
+                f"• Slot: <b>{escape_html(removed.type.title())}</b>\n"
+                "</blockquote>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         logger.info(f"Item gift: {sender.hunter_name} -> {recipient.hunter_name}: {removed.name} (ID {removed.id})")
         return
@@ -806,14 +1169,23 @@ async def handle_top(client: Client, message: Message) -> None:
 
     all_guilds = await db.get_all_guilds()
     if not all_guilds:
-        await message.reply_text(
-            "<b>[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]</b>\n"
-            "<b>길드 순위 // 연맹 랭킹 목록 없음</b>\n\n"
-            "<i>No guilds have been established yet in the System!</i>\n\n"
-            "<blockquote expandable>"
-            "• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild.\n"
-            "</blockquote>",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]"),
+                paragraph("<b>길드 순위 // 연맹 랭킹 목록 없음</b>"),
+                paragraph("<i>No guilds have been established yet in the System!</i>"),
+                quote("• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild.", expandable=True),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]</b>\n"
+                "<b>길드 순위 // 연맹 랭킹 목록 없음</b>\n\n"
+                "<i>No guilds have been established yet in the System!</i>\n\n"
+                "<blockquote expandable>"
+                "• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild.\n"
+                "</blockquote>",
+                parse_mode=ParseMode.HTML,
+            ),
         )
         return
 
@@ -843,18 +1215,28 @@ async def handle_top(client: Client, message: Message) -> None:
             "• Switch ranking criteria using the controls below.\n"
             "</blockquote>"
         )
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
+        await reply_rich(
+            message,
+            build_guild_leaderboard_rich(cat_name, photo_first=False),
             reply_markup=_glb_keyboard(category),
-            parse_mode=ParseMode.HTML,
-            show_caption_above_media=True,
+            media=[photo_media("guild", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_glb_keyboard(category),
+                parse_mode=ParseMode.HTML,
+                show_caption_above_media=True,
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render guild leaderboard image: %s", exc, exc_info=True)
-        await message.reply_text(
-            "❌ System Error: Failed to render guild leaderboard. Please try again later.",
-            parse_mode=ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("❌ System Error: Failed to render guild leaderboard. Please try again later.")),
+            fallback=lambda: message.reply_text(
+                "❌ System Error: Failed to render guild leaderboard. Please try again later.",
+                parse_mode=ParseMode.HTML,
+            ),
         )
 
 
@@ -907,17 +1289,29 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
         )
 
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_guild_leaderboard_rich(cat_name, photo_first=False),
                 reply_markup=_glb_keyboard(category),
+                media=[photo_media("guild", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                    reply_markup=_glb_keyboard(category),
+                ),
             )
         elif query.message:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
+            await reply_rich(
+                query.message,
+                build_guild_leaderboard_rich(cat_name, photo_first=False),
                 reply_markup=_glb_keyboard(category),
-                parse_mode=ParseMode.HTML,
-                show_caption_above_media=True,
+                media=[photo_media("guild", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_glb_keyboard(category),
+                    parse_mode=ParseMode.HTML,
+                    show_caption_above_media=True,
+                ),
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):
@@ -1002,9 +1396,15 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
         keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
         try:
             if query.message and query.message.photo:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
                     reply_markup=keyboard,
+                    media=[photo_media("guild", photo_buf)],
+                    fallback=lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                        reply_markup=keyboard,
+                    ),
                 )
         except BadRequest as e:
             if "not modified" not in str(e).lower():
@@ -1059,9 +1459,15 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
             keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
             try:
                 if query.message and query.message.photo:
-                    await query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                    await edit_rich(
+                        client, query.message.chat.id, query.message.id,
+                        build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
                         reply_markup=keyboard,
+                        media=[photo_media("guild", photo_buf)],
+                        fallback=lambda: query.edit_message_media(
+                            media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                            reply_markup=keyboard,
+                        ),
                     )
             except Exception as e:
                 logger.warning(f"In-place media edit error after join: {e}")
@@ -1108,9 +1514,15 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
         keyboard = _guild_view_keyboard(user.id, target_guild, None, all_guilds)
         try:
             if query.message and query.message.photo:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
                     reply_markup=keyboard,
+                    media=[photo_media("guild", photo_buf)],
+                    fallback=lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                        reply_markup=keyboard,
+                    ),
                 )
         except Exception as e:
             logger.warning(f"In-place media edit error after leave: {e}")
