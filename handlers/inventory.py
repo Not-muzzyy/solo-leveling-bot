@@ -34,6 +34,17 @@ from models import Inventory, Item
 
 logger = logging.getLogger(__name__)
 
+# Per-user purchase lock: serializes gold check → deduct → save across await points.
+# ponytail: handler-level, NOT ChannelDB._get_lock — that lock is non-reentrant and
+# add_item/save_hunter acquire it internally (wrapping would deadlock).
+_buy_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_buy_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _buy_locks:
+        _buy_locks[user_id] = asyncio.Lock()
+    return _buy_locks[user_id]
+
 
 # ── Keyboard layouts ──────────────────────────────────────
 
@@ -578,20 +589,20 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
         await query.answer("❌ Item not found!", show_alert=True)
         return
 
-    # Check gold
+    # Check gold + purchase atomically per user
     price = shop_entry["price"]
-    if hunter.gold < price:
-        await query.answer(
-            f"❌ Not enough gold! Need {price:,}💰, you have {hunter.gold:,}💰",
-            show_alert=True,
-        )
-        return
+    async with _get_buy_lock(user.id):
+        if hunter.gold < price:
+            await query.answer(
+                f"❌ Not enough gold! Need {price:,}💰, you have {hunter.gold:,}💰",
+                show_alert=True,
+            )
+            return
 
-    # Purchase: deduct gold, create item, add to inventory
-    hunter.gold -= price
-    new_item = create_item_from_shop(shop_entry)
-    await db.add_item(user.id, new_item)
-    await db.save_hunter(user.id)
+        hunter.gold -= price
+        new_item = create_item_from_shop(shop_entry)
+        await db.add_item(user.id, new_item)
+        await db.save_hunter(user.id)
 
     notice = f"Acquired {new_item.name}! (-{price:,} G)"
     await query.answer(f"✅ Purchased {new_item.name}!", show_alert=True)
