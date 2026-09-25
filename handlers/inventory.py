@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pyrogram import Client, enums
+from pyrogram.errors import MessageNotModified
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -396,6 +397,8 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_inventory_keyboard(inventory, category),
                 )
+        except MessageNotModified:
+            return  # double-tapped an already-open tab — no-op, not an error
         except Exception as e:
             logger.error("Failed to render inventory image on tab switch: %s", e, exc_info=True)
             text = format_inventory(inventory, hunter, category)
@@ -421,6 +424,8 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_category_keyboard(),
                 )
+        except MessageNotModified:
+            return  # double-tapped the already-open shop menu
         except Exception as e:
             logger.error("Failed to render shop menu image: %s", e, exc_info=True)
             if query.message and query.message.photo:
@@ -446,6 +451,8 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_items_keyboard(category),
                 )
+        except MessageNotModified:
+            return  # double-tapped an already-open shop category
         except Exception as e:
             logger.error("Failed to render shop category image: %s", e, exc_info=True)
             text = _format_shop_category(category, hunter.gold)

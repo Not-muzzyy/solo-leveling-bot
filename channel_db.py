@@ -77,6 +77,7 @@ class ChannelDB:
         self._cache: dict[int, CacheEntry] = {}
         self._index_msg_id: Optional[int] = None
         self._index: dict[str, dict] = {}  # str(user_id) → {hunter_msg_id, inv_msg_id}
+        self._index_meta: dict = {}        # non-hunter keys from the index (foreign schema fields, preserved on write)
         self._locks: dict[int, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
         # ── Guild storage ─────────────────────────────────
@@ -150,7 +151,14 @@ class ChannelDB:
                     full_index.pop("guild_ids", None)
                     self._redeem_msg_id = full_index.pop("redeem_msg_id", None)
                     self._war_msg_id = full_index.pop("war_msg_id", None)
-                    self._index = full_index
+                    # Partition: only numeric, hunter-shaped entries are hunter
+                    # records; anything else (foreign schema keys like
+                    # namespace/schema_version/shards) is meta, preserved on write.
+                    self._index = {
+                        k: v for k, v in full_index.items()
+                        if k.isdigit() and isinstance(v, dict) and "hunter_msg_id" in v
+                    }
+                    self._index_meta = {k: v for k, v in full_index.items() if k not in self._index}
                     logger.info(
                         f"Loaded index with {len(self._index)} hunters, {len(self._guild_index)} guilds."
                     )
@@ -159,6 +167,7 @@ class ChannelDB:
                         f"Pinned message {pinned_id} is not valid JSON ({exc}). Re-creating index..."
                     )
                     self._index = {}
+                    self._index_meta = {}
                     self._index_msg_id = None
                     await self._create_index_message()
             else:
@@ -287,6 +296,7 @@ class ChannelDB:
                 "type": "index",
                 "guild_names": self._guild_index,
                 "guild_ids": guild_ids_map,
+                **self._index_meta,
                 **self._index,
             }
             if self._redeem_msg_id:
