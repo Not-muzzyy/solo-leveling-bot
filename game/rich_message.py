@@ -173,6 +173,13 @@ class RichDoc:
         return html
 
 
+class RawRichDoc(RichDoc):
+    """Pre-built HTML passthrough (validated on send)."""
+
+    def __init__(self, html: str) -> None:
+        super().__init__(html)
+
+
 class _BalanceChecker(HTMLParser):
     _VOID = {"br", "hr", "img", "input", "meta", "link"}
     _SELF = {"img", "input"}

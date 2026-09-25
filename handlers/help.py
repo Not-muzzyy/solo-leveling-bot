@@ -20,13 +20,17 @@ from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
-    InputRichMessage,
     Message,
 )
 
 from config import OWNER_ID, SUPERADMIN_IDS
-from game.captions import build_help_caption
+from game.captions import build_help_caption, build_help_rich
 from game.help_image import generate_help_image
+from game.rich_message import (
+    RawRichDoc, RichDoc, anchor, bullet_list, details, divider, footer,
+    heading, number_list, paragraph, quote, toc,
+)
+from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.rich_text import escape_html
 
 logger = logging.getLogger(__name__)
@@ -225,6 +229,23 @@ TOPIC_TEXTS = {
 # ── RICH MESSAGE CONTENTS (Bot API 10.1+ send_rich_message) ──────────────────
 # Static HTML for the new Rich Message format: real headings, tables, dividers,
 # blockquotes. Fallback to TOPIC_TEXTS (plain HTML) lives at each send site.
+
+
+def _topic_rich(title: str, *blocks: str) -> str:
+    """Wrap topic blocks in the standard SYSTEM DIRECTIVE rich frame (validated)."""
+    return RichDoc(
+        heading(1, f"[ SYSTEM DIRECTIVE // {title} ]"),
+        divider(),
+        *blocks,
+        footer("Solo Leveling Hunter System // Archives V2.5"),
+    ).validate()
+
+
+def _sec(title: str, *items: str) -> list[str]:
+    """h2 section header + bullet list (classic copy preserved verbatim)."""
+    return [heading(2, title), bullet_list(list(items))]
+
+
 TOPIC_RICH = {
     "tiers": (
         "<h1>[ SYSTEM DIRECTIVE // ASCENSION &amp; TIERS ]</h1>"
@@ -256,6 +277,125 @@ TOPIC_RICH = {
         "<hr/>"
         "<blockquote>「 The System acknowledges those who strive to grow stronger. 」</blockquote>"
         "<footer>Solo Leveling Hunter System // Archives V2.5</footer>"
+    ),
+    "combat": _topic_rich(
+        "COMBAT &amp; SPIRE",
+        *_sec("🚪 Dimensional Gate Hunts (<code>/hunt</code>)",
+              "Slay gate monsters ranging from E-Rank beasts to S-Rank Calamities.",
+              "<b>Cooldown:</b> 1 minute ┊ <b>Daily Limit:</b> 20 hunts/day.",
+              "Drops: Hunter XP, Gold, Weapons, Armor, Rings, Potions &amp; Ores.",
+              "Monsters deal damage to your HP! Monitor vitality and drink potions via <code>/use</code> or <code>/heal</code>."),
+        *_sec("🗺️ Uncharted World Map Expeditions (<code>/explore</code>)",
+              "Embark across 12 mysterious nodes on the global expedition map.",
+              "<b>Cooldown:</b> 1 hour ┊ <b>Daily Limit:</b> 3 expeditions/day.",
+              "Discover rich Gold caches, experience surges, and Blessed Mystery Boxes."),
+        *_sec("🏰 Demon Castle Spire (<code>/tower</code> or <code>/trial</code>)",
+              "100-Floor Instant Dungeon of descending demon fiends.",
+              "<b>Keys:</b> 3 Demon Castle Keys daily (replenished at 00:00 UTC).",
+              "Defeat milestone bosses for permanent legendary titles &amp; relic gear:",
+              "<b>Floor 10:</b> Cerberus (<i>Hell Gatekeeper Vanquisher</i>)",
+              "<b>Floor 25:</b> Demonic Knight Commander",
+              "<b>Floor 50:</b> Flame Monarch Vulcan (<i>Flame Conqueror</i>)",
+              "<b>Floor 75:</b> Archfiend Metus",
+              "<b>Floor 100:</b> Demon King Baran (<i>Demon King Vanquisher</i>)"),
+        *_sec("🤺 Hunter Duels (<code>/duel</code>)",
+              "Challenge another hunter in group chats by replying to their message with <code>/duel</code>."),
+    ),
+    "forge": _topic_rich(
+        "FORGE &amp; ALCHEMY",
+        *_sec("🔨 Equipment Enhancement (<code>/forge</code>, <code>/craft</code>, <code>/upgrade</code>)",
+              "Enhance equippable weapons, armor, and accessories from <b>+1 to +10</b>.",
+              "Each enhancement level amplifies the item's stats by <b>+15%</b>!",
+              "<b>Cost:</b> Gold + 1 Crafting Catalyst (Refined Iron Ore, Crystals).",
+              "<b>Success Spectrum:</b>",
+              "<b>+1 to +3:</b> 100% → 85% (Safe Zone)",
+              "<b>+4 to +6:</b> 75% → 50% (Steady Progression)",
+              "<b>+7 to +10:</b> 40% → 15% (High Risk: 40% downgrade chance on failure!)"),
+        *_sec("🔮 Rarity Fusion Crucible",
+              "Transmute <b>3 unequipped items of the same rarity</b> + 1 catalyst.",
+              "Produces <b>1 new item of the NEXT rarity tier</b>, scaled to your level:",
+              "3 Common → 1 Uncommon",
+              "3 Uncommon → 1 Rare",
+              "3 Rare → 1 Epic",
+              "3 Epic → 1 Legendary"),
+        *_sec("🧪 Dimensional Alchemy (<code>/use</code>, <code>/heal</code>)",
+              "Drink Health Potions to restore lost vitality.",
+              "Consume Elixirs and Scrolls to permanently augment STR, AGI, VIT, and Max HP.",
+              "Use <code>/heal</code> for an instant 1-tap potion consumption."),
+    ),
+    "quests": _topic_rich(
+        "DAILY CONDITIONING",
+        heading(2, "🏋️ Daily Physical Conditioning (<code>/daily</code>)"),
+        paragraph("<i>「 The System demands daily physical conditioning. Failure is not an option. 」</i>"),
+        paragraph("Complete 4 mandatory daily directives before 00:00 UTC:"),
+        number_list([
+            "⚔️ Slay at least 5 gate monsters (<code>/hunt</code>)",
+            "🗺️ Undertake at least 1 world expedition (<code>/explore</code>)",
+            "🤺 Engage in at least 1 combat duel (<code>/duel</code>)",
+            "🧪 Drink at least 1 recovery potion or elixir (<code>/use</code> or <code>/heal</code>)",
+        ]),
+        *_sec("🎁 Daily Quest Completion Rewards:",
+              "<b>+3 Free Stat Points</b> to invest freely into your attributes!",
+              "<b>+600 Gold</b> &amp; <b>+250 XP</b>",
+              "<b>1 Blessed Mystery Gift Box</b> containing rare elixirs or gear."),
+        *_sec("⚡ Attribute Matrix (<code>/stats</code>, <code>/addstat</code>)",
+              "<b>STR (Strength):</b> Boosts base physical attack and strike damage.",
+              "<b>AGI (Agility):</b> Elevates movement speed, critical rates, and evasion.",
+              "<b>VIT (Vitality):</b> Hardens defense &amp; <b>increases Max HP (+5 HP per VIT)</b>.",
+              "<b>INT (Intelligence):</b> Deepens mana flow and supernatural ability power.",
+              "<b>PER (Perception):</b> Sharpened senses to detect weakness and rare loot.",
+              "Freely invest via <code>/addstat &lt;str|agi|vit|int|per&gt; &lt;pts&gt;</code> or buttons in <code>/stats</code>."),
+    ),
+    "guild": _topic_rich(
+        "GUILD SYNDICATES",
+        *_sec("👑 Hunter Guild Syndicates (<code>/guild</code>)",
+              "Band together with comrades to dominate global leaderboards.",
+              "<b>Passive Syndicate Buff:</b> All members receive <b>+10% bonus EXP</b> on all hunts!"),
+        *_sec("📜 Syndicate Directives:",
+              "<code>/guild create &lt;name&gt;</code> — Establish a guild (Cost: 500 Gold, max 15 members).",
+              "<code>/guild join &lt;name&gt;</code> — Join an existing syndicate.",
+              "<code>/guild info</code> — Display your guild card, war score, and roster.",
+              "<code>/guild top</code> — View the top syndicates on the Guild Leaderboard.",
+              "<code>/guild leave</code> — Depart your current syndicate.",
+              "<code>/guild war &lt;name&gt;</code> — Challenge an opposing syndicate to a war."),
+        *_sec("🎁 Mutual Aid Gifting (<code>/gift</code>)",
+              "<code>/gift item &lt;id&gt;</code> — Transfer weapons or armor to a guild comrade.",
+              "<code>/gift gold &lt;amount&gt;</code> — Send gold funds to help comrades grow stronger."),
+    ),
+    "shadows": _topic_rich(
+        "SHADOW MONARCH ARISE",
+        *_sec("👥 Dimensional Rifts &amp; Spawning",
+              "As hunters converse in group chats, dimensional rifts manifest every <b>250 messages</b>!",
+              "A wild shadow soldier appears with an encrypted True Name and displayed image."),
+        *_sec("🗣️ Extracting Shadows (<code>/arise &lt;name&gt;</code>)",
+              "Be the first hunter in the group to type <code>/arise &lt;character name&gt;</code>.",
+              "Correctly commanding its true name extracts the shadow entity into your army!",
+              "Grants massive <b>Gold &amp; XP extraction bounties</b> scaled to its rarity."),
+        *_sec("👑 Reviewing Your Army (<code>/shadows</code>)",
+              "Inspect your complete Shadow Monarch Army, soldier counts, and army power.",
+              "Interactive pagination and rarity filters (Mythic, Legendary, Epic).",
+              "View other players' armies with <code>/shadows @username</code>."),
+    ),
+    "admin": _topic_rich(
+        "SUPERADMIN CONSOLE",
+        *_sec("👑 Hunter Administration:",
+              "<code>/admin</code> — Show admin guide and permissions",
+              "<code>/addgold &lt;user_id|@user&gt; &lt;amount&gt;</code> — Grant gold currency",
+              "<code>/setgold &lt;user_id|@user&gt; &lt;amount&gt;</code> — Set gold balance",
+              "<code>/addxp &lt;user_id|@user&gt; &lt;amount&gt;</code> — Grant experience points",
+              "<code>/setlevel &lt;user_id|@user&gt; &lt;level&gt;</code> — Set hunter level",
+              "<code>/inspect &lt;user_id|@user&gt;</code> — Inspect full database record"),
+        *_sec("🎟️ Redeem Gift Codes:",
+              "<code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Create gold gift code",
+              "<code>/createcode item &lt;CODE&gt; &lt;item_id&gt; [max_uses]</code> — Create item gift code",
+              "<code>/listcodes</code> — Inspect active promotional codes",
+              "<code>/deletecode &lt;CODE&gt;</code> — Revoke a promotional gift code"),
+        *_sec("👥 Shadow Catalog:",
+              "<code>/addshadow &lt;Rarity&gt; &lt;Name&gt; [| aliases]</code> — Enroll character",
+              "<code>/listshadows [page]</code> — Inspect catalog characters",
+              "<code>/delshadow &lt;id&gt;</code> — Remove character from pool",
+              "<code>/spawnshadow [id]</code> — Force rift spawn in chat",
+              "<code>/shadowstats</code> — Global rift telemetry"),
     ),
 }
 
@@ -326,13 +466,18 @@ async def send_help_card_to_chat(client: Client, chat_id: int) -> bool:
     """Generate and transmit the visual Operational Manual card to a chat/user."""
     try:
         photo_buf = await asyncio.to_thread(generate_help_image)
-        await client.send_photo(
-            chat_id=chat_id,
-            photo=photo_buf,
-            caption=HELP_CAPTION,
+        await send_rich(
+            client, chat_id, build_help_rich(),
             reply_markup=_help_pm_keyboard(),
-            parse_mode=enums.ParseMode.HTML,
-            show_caption_above_media=True,
+            media=[photo_media("help", photo_buf)],
+            fallback=lambda: client.send_photo(
+                chat_id=chat_id,
+                photo=photo_buf,
+                caption=HELP_CAPTION,
+                reply_markup=_help_pm_keyboard(),
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
+            ),
         )
         return True
     except Exception as e:
@@ -378,7 +523,23 @@ async def handle(client: Client, message: Message) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📖 Open Guide in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
         ])
-        await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+        gc_doc = RichDoc(
+            heading(1, "[ SYSTEM DIRECTIVE // OPERATIONAL MANUAL ]"),
+            paragraph("시스템 안내 // 매뉴얼 전송"),
+            paragraph(f"👤 <b>Hunter:</b> <b>{escape_html(user.first_name)}</b>"),
+            quote(
+                "<b>Notice: Group Chat Optimization Protocol</b><br>"
+                "• To keep group communications clear and uncluttered, the high-definition<br>"
+                "  operational manual archives are opened directly in private chat.",
+                expandable=True,
+            ),
+            paragraph("<i>Tap below to review directives and mechanics in private chat:</i>"),
+        )
+        await reply_rich(
+            message, gc_doc, reply_markup=keyboard,
+            fallback=lambda: message.reply_text(
+                gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # In PM: Check if a specific topic argument was passed (e.g., /help forge)
@@ -400,29 +561,31 @@ async def handle(client: Client, message: Message) -> None:
             topic_key = "admin"
 
         if topic_key and topic_key in TOPIC_TEXTS:
-            rich = TOPIC_RICH.get(topic_key)
-            if rich:
-                try:
-                    await client.send_rich_message(
-                        chat_id=chat.id,
-                        rich_message=InputRichMessage(html=rich),
-                        reply_markup=_topic_keyboard(topic_key),
-                    )
-                    return
-                except Exception as e:
-                    logger.warning(f"send_rich_message failed for topic {topic_key}: {e}; falling back to plain text.")
-            await message.reply_text(TOPIC_TEXTS[topic_key], reply_markup=_topic_keyboard(topic_key), parse_mode=enums.ParseMode.HTML)
+            # send_rich preserves this site's fresh-send semantics (no reply quote);
+            # plan said reply_rich - ruled send_rich to avoid a UX change.
+            await send_rich(
+                client, chat.id, RawRichDoc(TOPIC_RICH[topic_key]),
+                reply_markup=_topic_keyboard(topic_key),
+                fallback=lambda: message.reply_text(
+                    TOPIC_TEXTS[topic_key], reply_markup=_topic_keyboard(topic_key),
+                    parse_mode=enums.ParseMode.HTML),
+            )
             return
 
     # Default PM response: Send the master visual manual card
     try:
         photo_buf = await asyncio.to_thread(generate_help_image)
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=HELP_CAPTION,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_help_rich(),
             reply_markup=_help_pm_keyboard(),
-            show_caption_above_media=True,
+            media=[photo_media("help", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=HELP_CAPTION,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_help_pm_keyboard(),
+                show_caption_above_media=True,
+            ),
         )
     except Exception as e:
         logger.warning(f"Failed to reply with help photo: {e}")
@@ -443,17 +606,23 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = HELP_CAPTION
         photo_buf = await asyncio.to_thread(generate_help_image)
         if query.message and query.message.photo:
+            # classic photo message -> classic media edit stays byte-identical
             await query.edit_message_media(
                 media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_help_pm_keyboard(),
             )
         elif query.message:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await edit_rich(
+                client, query.message.chat.id, query.message.id, build_help_rich(),
                 reply_markup=_help_pm_keyboard(),
-                show_caption_above_media=True,
+                media=[photo_media("help", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_help_pm_keyboard(),
+                    show_caption_above_media=True,
+                ),
             )
         return
 
@@ -469,18 +638,21 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             return
         if not query.message:
             return
-        rich = TOPIC_RICH.get(topic)
-        if rich:
+
+        async def _classic_topic_edit():
+            # verbatim classic path: plain edit, then fresh reply on edit failure
             try:
-                await query.edit_message_text(rich_message=InputRichMessage(html=rich), reply_markup=keyboard)
-                return
+                await query.edit_message_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
             except Exception as e:
-                logger.warning(f"rich edit failed for topic {topic}: {e}; falling back to plain text.")
-        try:
-            await query.edit_message_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
-        except Exception as e:
-            logger.warning(f"plain edit failed for topic {topic}: {e}; sending fresh reply.")
-            await query.message.reply_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+                logger.warning(f"plain edit failed for topic {topic}: {e}; sending fresh reply.")
+                await query.message.reply_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            RawRichDoc(TOPIC_RICH[topic]),
+            reply_markup=keyboard,
+            fallback=_classic_topic_edit,
+        )
         return
 
     await query.answer()

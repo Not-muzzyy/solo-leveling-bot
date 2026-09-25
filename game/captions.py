@@ -360,6 +360,55 @@ def build_help_caption() -> str:
     )
 
 
+def build_help_rich() -> "RichDoc":
+    """Structured main manual: TOC + collapsible sections; card photo embedded last.
+
+    Content parity with build_help_caption() (same sections, same bullets);
+    show_caption_above_media=True on the classic site -> text blocks BEFORE
+    photo_block (migration rule 4).
+    """
+    from game.rich_message import (
+        RichDoc, anchor, bullet_list, details, divider, heading, paragraph,
+        photo_block, quote, toc,
+    )
+
+    sections = [
+        ("⚡ Combat &amp; Spire Directives", "sec-combat", [
+            "<code>/hunt</code> — Slay gate beasts for XP &amp; items (1m CD, 20/day)",
+            "<code>/explore</code> — World map expedition (1h CD, 3/day)",
+            "<code>/tower</code> — 100-floor Demon Castle Spire (3 keys/day)",
+            "<code>/duel</code> — Challenge rival Hunter in groups",
+        ]),
+        ("⚒️ Vault, Forge &amp; Conditioning", "sec-vault", [
+            "<code>/profile</code> — Holographic status window &amp; stats",
+            "<code>/inventory</code> — Dimensional storage &amp; 1-tap equip",
+            "<code>/forge</code> — Enhance gear (+1 to +10) &amp; fuse duplicates",
+            "<code>/daily</code> — Daily physical conditioning (+3 Stat Points)",
+            "<code>/stats</code> — Allocate stat points (STR, AGI, VIT, INT, PER)",
+            "<code>/use</code> — Consume potions, elixirs &amp; scrolls",
+            "<code>/shop</code> — Hunter Exchange Depot (weapons &amp; elixirs)",
+            "<code>/claim</code> — Daily System stipend (24h CD)",
+            "<code>/redeem</code> — Claim promotional &amp; gift codes",
+            "<code>/guild</code> — Manage your Hunter Guild syndicate",
+        ]),
+    ]
+    blocks = [
+        heading(1, "[ SYSTEM DIRECTIVE // 시스템 가이드 ]"),
+        paragraph("<b>Solo Leveling Hunter System // Archives V2.5</b>"),
+        toc([(label, name) for label, name, _ in sections]),
+        divider(),
+    ]
+    for label, name, items in sections:
+        blocks.append(anchor(name))
+        blocks.append(details(label, bullet_list(items)))
+    blocks.append(quote(
+        "<i>「 The System acknowledges those who strive to grow stronger. 」</i>",
+        expandable=False,
+    ))
+    blocks.append(photo_block("help"))
+    return RichDoc(*blocks)
+
+
 def build_claim_caption(
     hunter: Hunter,
     reward_gold: int,
