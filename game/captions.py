@@ -575,6 +575,180 @@ def build_inventory_rich(
     return RichDoc(*blocks)
 
 
+def build_hunt_rich(hunter: Hunter, result: HuntResult, photo_first: bool | None = None) -> "RichDoc":
+    """Rich twin of build_hunt_caption (victory & defeat branches)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    m_name = escape_html(result.monster.name)
+    m_rank = escape_html(result.monster.rank)
+    quota_str = InlineCode(escape_html(f"{hunter.daily_hunts}/20")).to_html()
+
+    if result.victory:
+        loot_line = ""
+        if result.item_drop:
+            i_name = escape_html(result.item_drop.name)
+            i_rarity = escape_html(result.item_drop.rarity)
+            loot_line = f"<br>• 🎁 <b>Loot:</b> {InlineCode(f'[{i_rarity}]').to_html()} {Bold(i_name).to_html()}"
+
+        blocks = [
+            heading(1, "[ GATE RAID REPORT // 던전 클리어 ]"),
+            paragraph(
+                f"🎯 <b>Target:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]<br>"
+                f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"
+            ),
+            quote(
+                "<b>✅ RAID SUCCESSFUL:</b><br>"
+                f"• Dealt: {InlineCode(escape_html(f'{result.damage_dealt:,} DMG')).to_html()} ┊ Taken: {InlineCode(escape_html(f'{result.damage_taken:,} DMG')).to_html()}<br>"
+                f"• Bounty: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} Gold')).to_html()} ┊ ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}"
+                f"{loot_line}<br>"
+                f"• Vitality: {InlineCode(escape_html(f'{hunter.hp}/{hunter.max_hp} HP')).to_html()}",
+                expandable=True,
+            ),
+        ]
+        if result.monster.rank in ("A", "S", "SS", "SSS", "Monarch"):
+            blocks.append(quote(
+                "<b>[ SHADOW EXTRACTION AVAILABLE ]</b><br>"
+                '<i>Phrase: "ARISE" (일어나라)</i>',
+                expandable=False,
+            ))
+        blocks.append(paragraph(f"📊 <b>Daily Quota:</b> {quota_str} (1m CD)"))
+    else:
+        blocks = [
+            heading(1, "[ GATE CASUALTY ALERT // 경고: 던전 공략 실패 ]"),
+            paragraph(
+                f"🎯 <b>Monster:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]<br>"
+                f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"
+            ),
+            quote(
+                "<b>❌ MISSION FAILED — CASUALTY</b><br>"
+                f"• Dealt: {InlineCode(escape_html(f'{result.damage_dealt:,} DMG')).to_html()} ┊ Taken: {InlineCode(escape_html(f'{result.damage_taken:,} DMG')).to_html()}<br>"
+                f"• Lost: 💰 {InlineCode(escape_html(f'-{result.gold_lost:,} Gold')).to_html()}<br>"
+                f"• Consolation: ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}<br>"
+                f"• Vitality: {InlineCode(escape_html(f'{hunter.hp}/{hunter.max_hp} HP')).to_html()} (Potion needed)",
+                expandable=True,
+            ),
+            paragraph(f"📊 <b>Daily Quota:</b> {quota_str} (1m CD)"),
+        ]
+
+    if photo_first is True:
+        blocks.insert(0, photo_block("hunt"))
+    elif photo_first is False:
+        blocks.append(photo_block("hunt"))
+    return RichDoc(*blocks)
+
+
+def build_duel_challenge_rich(challenger: Hunter, opponent: Hunter) -> "RichDoc":
+    """Rich twin of build_duel_challenge_caption (text + challenge keyboard)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    c_name = escape_html(challenger.display_full_name)
+    o_name = escape_html(opponent.display_full_name)
+    return RichDoc(
+        heading(1, "[ COMBAT ARENA CHALLENGE // 대련 신청 ]"),
+        paragraph(
+            f"💥 <b>Challenger:</b> {c_name} [Rank {Bold(escape_html(challenger.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(challenger.level))).to_html()}]<br>"
+            f"🎯 <b>Challenged:</b> {o_name} [Rank {Bold(escape_html(opponent.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(opponent.level))).to_html()}]"
+        ),
+        quote(
+            "<b>Combat Arena Rules:</b><br>"
+            "• Victor claims glory, bonus Gold &amp; Awakening XP<br>"
+            f"• Only {Bold(o_name).to_html()} can accept or decline this duel",
+            expandable=True,
+        ),
+        paragraph("<i>Respond to the challenge using the controls below:</i>"),
+    )
+
+
+def build_duel_result_rich(result: Any, photo_first: bool | None = None) -> "RichDoc":
+    """Rich twin of build_duel_result_caption (photo: duel resolution card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    winner_name = escape_html(result.winner.display_full_name)
+    loser_name = escape_html(result.loser.display_full_name)
+    lvl_line = ""
+    if getattr(result, "winner_leveled_up", False) and getattr(result, "winner_new_level", None):
+        lvl_line = f"<br>• ⭐ <b>Ascension:</b> {winner_name} reached {Bold(escape_html(f'Level {result.winner_new_level}')).to_html()}!"
+
+    w_dmg = result.challenger_damage_dealt if result.winner.user_id == result.challenger.user_id else result.opponent_damage_dealt
+    l_dmg = result.opponent_damage_dealt if result.winner.user_id == result.challenger.user_id else result.challenger_damage_dealt
+
+    blocks = [
+        heading(1, "[ COMBAT ARENA RESOLUTION // 대련 결과 ]"),
+        paragraph(
+            f"👑 <b>Victor:</b> {Bold(winner_name).to_html()} [Rank {Bold(escape_html(result.winner.rank)).to_html()}]<br>"
+            f"💀 <b>Defeated:</b> {Bold(loser_name).to_html()} [Rank {Bold(escape_html(result.loser.rank)).to_html()}]"
+        ),
+        quote(
+            "<b>Combat Performance:</b><br>"
+            f"• {winner_name}: {InlineCode(escape_html(f'{w_dmg:,} DMG')).to_html()} dealt<br>"
+            f"• {loser_name}: {InlineCode(escape_html(f'{l_dmg:,} DMG')).to_html()} dealt<br>"
+            f"• Spoils: 💰 {InlineCode(escape_html(f'+{result.winner_gold_gained:,} Gold')).to_html()} ┊ ✨ {InlineCode(escape_html(f'+{result.winner_xp_gained:,} XP')).to_html()}<br>"
+            f"• Consolation: ✨ {InlineCode(escape_html(f'+{result.loser_xp_gained:,} XP')).to_html()}"
+            f"{lvl_line}",
+            expandable=True,
+        ),
+        paragraph("<i>Outcome permanently archived in Hunter Arena records.</i>"),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("duel"))
+    elif photo_first is False:
+        blocks.append(photo_block("duel"))
+    return RichDoc(*blocks)
+
+
+def build_explore_rich(
+    hunter: Hunter,
+    sector_info: dict,
+    gold_reward: int,
+    xp_reward: int,
+    gift_item: Item | None,
+    leveled_up: bool,
+    new_rank: str | None,
+    story: str,
+    display_name: str = "",
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_explore_caption (photo: world map card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    s_name = escape_html(sector_info.get("name", "Unknown Sector").upper())
+    d_name = escape_html(display_name or hunter.hunter_name or f"Hunter #{hunter.user_id}")
+    story_esc = escape_html(story)
+    quota_str = InlineCode(escape_html(f"{hunter.daily_explores}/3")).to_html()
+
+    gift_block = ""
+    if gift_item:
+        g_name = escape_html(gift_item.name)
+        g_rarity = escape_html(gift_item.rarity)
+        g_stats = escape_html(gift_item.stat_summary())
+        gift_block = f"<br>• 🎁 <b>Artifact Found:</b> {InlineCode(f'[{g_rarity}]').to_html()} {Bold(g_name).to_html()} ({Italic(g_stats).to_html()})"
+
+    ascend_lines = []
+    if leveled_up:
+        ascend_lines.append(f"⚡ <b>Level Up:</b> Reached Level {Bold(escape_html(str(hunter.level))).to_html()}!")
+    if new_rank:
+        ascend_lines.append(f"👑 <b>Awakened:</b> {Bold(f'[{escape_html(new_rank)}] Hunter').to_html()}!")
+
+    blocks = [
+        heading(1, f"[ TACTICAL GATE RADAR // {s_name} ]"),
+        paragraph(
+            f"👤 <b>Scout:</b> {d_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(hunter.level))).to_html()}]"
+        ),
+        quote(
+            "<b>📜 Reconnaissance Log:</b><br>"
+            f"{Italic(story_esc).to_html()}<br><br>"
+            f"• 💰 <b>Treasury Bounty:</b> {InlineCode(escape_html(f'+{gold_reward:,} Gold')).to_html()}<br>"
+            f"• ✨ <b>Exp Bounty:</b> {InlineCode(escape_html(f'+{xp_reward:,} XP')).to_html()}"
+            f"{gift_block}",
+            expandable=True,
+        ),
+    ]
+    if ascend_lines:
+        blocks.append(quote(" ".join(ascend_lines), expandable=False))
+    blocks.append(paragraph(f"📊 <b>Daily Expeditions:</b> {quota_str} Completed (1h CD)"))
+    if photo_first is True:
+        blocks.insert(0, photo_block("explore"))
+    elif photo_first is False:
+        blocks.append(photo_block("explore"))
+    return RichDoc(*blocks)
+
+
 def build_claim_caption(
     hunter: Hunter,
     reward_gold: int,

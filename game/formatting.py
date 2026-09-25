@@ -582,3 +582,75 @@ def format_already_registered_rich(hunter: Hunter) -> "RichDoc":
             expandable=True,
         ),
     )
+
+
+def format_hunt_result_rich(result: HuntResult) -> "RichDoc":
+    """Rich twin of format_hunt_result (text fallback of /hunt photo)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    monster = result.monster
+    rank_icon = RANK_EMOJI.get(monster.rank, "")
+    m_name = escape_html(monster.name)
+
+    if result.victory:
+        crit_text = " 💥 <b>CRITICAL!</b>" if result.critical_hit else ""
+        reward_lines = [
+            "<b>✨ EXPEDITION REWARDS:</b>",
+            f"• EXP Gained: ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}",
+            f"• Gold Acquired: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} G')).to_html()}",
+        ]
+        if result.item_drop:
+            rarity_icon = RARITY_EMOJI.get(result.item_drop.rarity, "")
+            stats = escape_html(result.item_drop.stat_summary())
+            drop_name = escape_html(result.item_drop.name)
+            drop_rarity = escape_html(result.item_drop.rarity)
+            reward_lines.append(
+                f"• 🎁 <b>Loot Drop:</b> [{drop_rarity}] {Bold(drop_name).to_html()} {rarity_icon} ({Italic(stats).to_html()})"
+            )
+        if result.leveled_up:
+            reward_lines.append(f"• ⚡ <b>LEVEL UP!</b> → {Bold(escape_html(f'Level {result.new_level}')).to_html()}")
+        if result.ranked_up:
+            new_rank_icon = RANK_EMOJI.get(result.new_rank, "")
+            reward_lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → {Bold(escape_html(result.new_rank)).to_html()} {new_rank_icon}")
+
+        blocks = [
+            heading(1, "[ GATE RAID // 던전 클리어 ]"),
+            paragraph(
+                f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}<br>"
+                "⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>"
+            ),
+            quote(
+                f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}{crit_text}<br>"
+                f"💔 <b>Damage Taken:</b> {InlineCode(escape_html(f'{result.damage_taken:,}')).to_html()}<br><br>"
+                + "<br>".join(reward_lines),
+                expandable=True,
+            ),
+        ]
+        if result.special_event:
+            blocks.append(quote(escape_html(result.special_event), expandable=False))
+        return RichDoc(*blocks)
+
+    penalty_lines = [
+        "<b>💸 PENALTIES:</b>",
+        f"• Gold Lost: {InlineCode(escape_html(f'-{result.gold_lost:,} G')).to_html()}",
+        f"• Consolation EXP: {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}",
+    ]
+    blocks = [
+        heading(1, "[ GATE CASUALTY // 공략 실패 ]"),
+        paragraph(
+            f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}<br>"
+            "⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>"
+        ),
+        quote(
+            f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}<br>"
+            f"💔 <b>Damage Taken:</b> {InlineCode(escape_html(f'{result.damage_taken:,}')).to_html()}<br><br>"
+            + "<br>".join(penalty_lines),
+            expandable=True,
+        ),
+    ]
+    if result.special_event:
+        blocks.append(quote(escape_html(result.special_event), expandable=False))
+    blocks.append(quote(
+        "<i>Recover your vitality with <code>/use</code> or <code>/heal</code> and try again, Hunter.</i>",
+        expandable=False,
+    ))
+    return RichDoc(*blocks)

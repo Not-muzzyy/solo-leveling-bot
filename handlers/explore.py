@@ -22,9 +22,11 @@ from config import EXPLORE_COOLDOWN_SECONDS, DAILY_EXPLORE_LIMIT
 from game.explore_image import render_explore_image, EXPLORE_SECTORS
 from game.hunter import add_xp, check_rank_up
 from game.photo_helper import fetch_user_pfp_image
-from game.formatting import format_not_registered
+from game.formatting import format_not_registered, format_not_registered_rich
 from game.rich_text import escape_html
-from game.captions import build_explore_caption
+from game.captions import build_explore_caption, build_explore_rich
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import photo_media, reply_rich
 from game.shop import SHOP_ITEMS, create_item_from_shop
 from models import Hunter, Item, Inventory
 
@@ -99,7 +101,10 @@ async def handle(client: Client, message: Message) -> None:
     # 1. Registration Check
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # 2. Check and reset daily quota if UTC calendar day changed
@@ -108,16 +113,32 @@ async def handle(client: Client, message: Message) -> None:
     # 3. Daily Quota Limit Check (Max 3/day)
     h_name = escape_html(hunter.hunter_name)
     if hunter.daily_explores >= DAILY_EXPLORE_LIMIT:
-        await message.reply_text(
-            "<b>[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
-            f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed\n\n"
-            "<blockquote expandable>"
-            "The System's dimensional territory radar requires overnight recalibration.\n"
-            "Your 3 daily exploration permits will reset at midnight UTC.\n\n"
-            "💡 <i>You can continue training and earning loot with <code>/hunt</code> (1 min CD)!</i>"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)<br>"
+                    f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed"
+                ),
+                quote(
+                    "The System's dimensional territory radar requires overnight recalibration.<br>"
+                    "Your 3 daily exploration permits will reset at midnight UTC.<br><br>"
+                    "💡 <i>You can continue training and earning loot with <code>/hunt</code> (1 min CD)!</i>",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
+                f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed\n\n"
+                "<blockquote expandable>"
+                "The System's dimensional territory radar requires overnight recalibration.\n"
+                "Your 3 daily exploration permits will reset at midnight UTC.\n\n"
+                "💡 <i>You can continue training and earning loot with <code>/hunt</code> (1 min CD)!</i>"
+                "</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -132,15 +153,30 @@ async def handle(client: Client, message: Message) -> None:
             mins = (rem % 3600) // 60
             secs = rem % 60
             timer_str = f"{mins}m {secs:02d}s" if hours == 0 else f"{hours}h {mins:02d}m"
-            await message.reply_text(
-                "<b>[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]</b>\n\n"
-                f"👤 <b>Hunter:</b> {h_name}\n"
-                f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>\n\n"
-                "<blockquote expandable>"
-                "Your survey squad is analyzing satellite telemetry from the last sector.\n"
-                f"Expeditions remaining today: <b>{DAILY_EXPLORE_LIMIT - hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</b>\n"
-                "</blockquote>",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]"),
+                    paragraph(
+                        f"👤 <b>Hunter:</b> {h_name}<br>"
+                        f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>"
+                    ),
+                    quote(
+                        "Your survey squad is analyzing satellite telemetry from the last sector.<br>"
+                        f"Expeditions remaining today: <b>{DAILY_EXPLORE_LIMIT - hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</b>",
+                        expandable=True,
+                    ),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {h_name}\n"
+                    f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>\n\n"
+                    "<blockquote expandable>"
+                    "Your survey squad is analyzing satellite telemetry from the last sector.\n"
+                    f"Expeditions remaining today: <b>{DAILY_EXPLORE_LIMIT - hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</b>\n"
+                    "</blockquote>",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -229,12 +265,29 @@ async def handle(client: Client, message: Message) -> None:
             display_name=display_name,
         )
 
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            build_explore_rich(
+                hunter=hunter,
+                sector_info=sector_info,
+                gold_reward=gold_reward,
+                xp_reward=xp_reward,
+                gift_item=gift_item,
+                leveled_up=leveled_up,
+                new_rank=new_rank,
+                story=event_story,
+                display_name=display_name,
+                photo_first=False,
+            ),
             reply_markup=_explore_keyboard(),
-            show_caption_above_media=True,
+            media=[photo_media("explore", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_explore_keyboard(),
+                show_caption_above_media=True,
+            ),
         )
         logger.info(f"Hunter {user.id} explored sector {sector_id} (+{gold_reward}g, +{xp_reward}xp, gift: {bool(gift_item)})")
     except Exception as exc:
@@ -251,8 +304,23 @@ async def handle(client: Client, message: Message) -> None:
             story=event_story,
             display_name=display_name,
         )
-        await message.reply_text(
-            fallback_caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            build_explore_rich(
+                hunter=hunter,
+                sector_info=sector_info,
+                gold_reward=gold_reward,
+                xp_reward=xp_reward,
+                gift_item=gift_item,
+                leveled_up=leveled_up,
+                new_rank=new_rank,
+                story=event_story,
+                display_name=display_name,
+            ),
             reply_markup=_explore_keyboard(),
+            fallback=lambda: message.reply_text(
+                fallback_caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_explore_keyboard(),
+            ),
         )

@@ -18,12 +18,17 @@ from config import HUNT_COOLDOWN_SECONDS, GUILD_XP_BONUS, DAILY_HUNT_LIMIT
 from game.combat import generate_monster, simulate_hunt
 from game.hunter import add_xp
 from game.hunt_image import render_hunt_image
-from game.captions import build_hunt_caption
+from game.captions import build_hunt_caption, build_hunt_rich
 from game.formatting import (
     format_hunt_result,
+    format_hunt_result_rich,
     format_cooldown,
+    format_cooldown_rich,
     format_not_registered,
+    format_not_registered_rich,
 )
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import photo_media, reply_rich
 from game.rich_text import escape_html
 
 logger = logging.getLogger(__name__)
@@ -62,7 +67,10 @@ async def handle(client: Client, message: Message) -> None:
     # Check registration
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Check and reset daily counter if UTC date changed
@@ -71,23 +79,42 @@ async def handle(client: Client, message: Message) -> None:
     # Enforce 20 daily hunts limit
     h_name = escape_html(hunter.hunter_name)
     if hunter.daily_hunts >= DAILY_HUNT_LIMIT:
-        await message.reply_text(
-            "<b>[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {h_name}\n"
-            f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed\n\n"
-            "<blockquote expandable>"
-            "The dimensional rifts in this sector are closed for the day.\n"
-            "Your hunt quota resets automatically at midnight UTC.\n\n"
-            "💡 <i>Tip: Venture into uncharted territory with <code>/explore</code> (3x daily)!</i>"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> {h_name}<br>"
+                    f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed"
+                ),
+                quote(
+                    "The dimensional rifts in this sector are closed for the day.<br>"
+                    "Your hunt quota resets automatically at midnight UTC.<br><br>"
+                    "💡 <i>Tip: Venture into uncharted territory with <code>/explore</code> (3x daily)!</i>",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name}\n"
+                f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed\n\n"
+                "<blockquote expandable>"
+                "The dimensional rifts in this sector are closed for the day.\n"
+                "Your hunt quota resets automatically at midnight UTC.\n\n"
+                "💡 <i>Tip: Venture into uncharted territory with <code>/explore</code> (3x daily)!</i>"
+                "</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     # Check cooldown (1 minute)
     remaining = _check_cooldown(hunter, user.id)
     if remaining is not None:
-        await message.reply_text(format_cooldown(remaining), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_cooldown_rich(remaining),
+            fallback=lambda: message.reply_text(format_cooldown(remaining), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Set cooldown and increment daily hunts
@@ -141,15 +168,22 @@ async def handle(client: Client, message: Message) -> None:
     try:
         photo_buf = await asyncio.to_thread(render_hunt_image, hunter, result)
         caption = build_hunt_caption(hunter, result)
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
-            show_caption_above_media=True,
+        await reply_rich(
+            message, build_hunt_rich(hunter, result, photo_first=False),
+            media=[photo_media("hunt", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render hunt image, falling back to text: %s", exc, exc_info=True)
-        await message.reply_text(
-            format_hunt_result(result),
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, format_hunt_result_rich(result),
+            fallback=lambda: message.reply_text(
+                format_hunt_result(result),
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
