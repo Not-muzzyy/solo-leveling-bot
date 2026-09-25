@@ -25,6 +25,9 @@ utils.MIN_CHANNEL_ID = -10099999999999
 from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID, SHADOWS_CHANNEL_ID
 from channel_db import ChannelDB
 from shadows_db import ShadowsDB
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich
+from game.rich_text import escape_html
 from handlers import (
     start, profile, hunt, inventory, help, claim, shop,
     leaderboard, duel, guild, guild_war, admin, redeem, explore,
@@ -109,11 +112,28 @@ async def on_start(client):
             # Strictly edit the existing restart message (never send a new message)
             if chat_id and message_id:
                 try:
-                    await client.edit_message_text(
-                        chat_id=chat_id,
-                        message_id=message_id,
-                        text=online_text,
-                        parse_mode=enums.ParseMode.HTML,
+                    await edit_rich(
+                        client,
+                        chat_id,
+                        message_id,
+                        RichDoc(
+                            heading(1, "[ SYSTEM NOTIFICATION // REBOOT SEQUENCE COMPLETE ]"),
+                            paragraph("<b>시스템 재가동 // 정상 가동 개시</b>"),
+                            paragraph("<i>Solo Leveling Hunter System is back online!</i>"),
+                            quote(
+                                "• <b>Status:</b> Operational &amp; Active ⚡\n"
+                                f"• <b>Reboot Latency:</b> <code>{duration}s</code>\n"
+                                f"• <b>Active Build:</b> <code>{escape_html(commit_info)}</code>\n"
+                                "• <b>Modules:</b> All game systems initialized"
+                            ),
+                            quote("✨ <i>Updates applied successfully. Ready for commands.</i>", expandable=False),
+                        ),
+                        fallback=lambda: client.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=message_id,
+                            text=online_text,
+                            parse_mode=enums.ParseMode.HTML,
+                        ),
                     )
                     logger.info(f"Updated restart notification in chat {chat_id}, message {message_id}")
                 except Exception as exc:

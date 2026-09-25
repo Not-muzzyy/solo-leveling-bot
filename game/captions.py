@@ -1260,3 +1260,50 @@ def build_war_status_rich(
     elif photo_first is False:
         blocks.append(photo_block("war"))
     return RichDoc(*blocks)
+
+
+def build_shadows_rich(
+    hunter: Hunter,
+    shadows: list,
+    page: int,
+    total_pages: int,
+    filter_rarity: Optional[str] = None,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of handlers.arise._build_shadows_caption (photo id "shadow")."""
+    from game.font_manager import clean_and_normalize_name
+    from game.rich_message import RichDoc, paragraph, photo_block
+
+    h_display = escape_html(clean_and_normalize_name(hunter.hunter_name or f"Hunter #{hunter.user_id}"))
+    total_soldiers = sum(s.count for s in shadows)
+    unique_count = len(shadows)
+
+    page_size = 6
+    start_idx = (page - 1) * page_size
+    current_page_shadows = shadows[start_idx : start_idx + page_size]
+
+    filter_tag = f" ┊ Filter: {InlineCode(escape_html(filter_rarity)).to_html()}" if filter_rarity else ""
+
+    blocks = [
+        paragraph(f"👥 <b>{h_display}'s Shadow Army</b>"),
+        paragraph(
+            f"👑 <b>Rank {escape_html(hunter.rank)}</b> ┊ <b>Soldiers:</b> {InlineCode(escape_html(f'{total_soldiers:,}')).to_html()} ┊ "
+            f"<b>Forms:</b> {InlineCode(escape_html(str(unique_count))).to_html()} (Page {page}/{total_pages}){filter_tag}"
+        ),
+    ]
+    if not current_page_shadows:
+        blocks.append(paragraph("<i>You have not extracted any shadows yet!</i>"))
+    else:
+        body = []
+        for s in current_page_shadows:
+            r_emoji = RARITY_EMOJI.get(s.rarity, "⚪")
+            body.append(
+                f"• <b>{escape_html(s.name)}</b> — {InlineCode(f'[{escape_html(s.rarity)}]').to_html()} {r_emoji} (×{s.count})"
+            )
+        blocks.append(paragraph("\n".join(body)))
+    blocks.append(paragraph("💡 <i>Claim wild shadows in chat with <b>/arise &lt;name&gt;</b></i>"))
+    if photo_first is True:
+        blocks.insert(0, photo_block("shadow"))
+    elif photo_first is False:
+        blocks.append(photo_block("shadow"))
+    return RichDoc(*blocks)

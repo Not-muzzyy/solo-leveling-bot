@@ -42,6 +42,8 @@ from game.hunter import add_xp, check_rank_up, xp_for_level
 from game.formatting import _stat_bar, _rank_badge
 from game.rich_text import escape_html
 from game.shop import get_shop_item, create_item_from_shop, SHOP_ITEMS
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, reply_rich
 from models import Hunter, RedeemCode, Item
 
 logger = logging.getLogger(__name__)
@@ -188,7 +190,11 @@ async def handle_admin_help(client: Client, message: Message) -> None:
     """Display Superadmin Executive Control Console instructions."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     text = (
@@ -230,7 +236,49 @@ async def handle_admin_help(client: Client, message: Message) -> None:
         "</blockquote>\n\n"
         "<blockquote>💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i></blockquote>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]"),
+            paragraph("<b>관리자 제어 // 최고 관리자 터미널</b>"),
+            paragraph("<i>Executive Hunter Management &amp; Balances</i>"),
+            quote(
+                "⚡ <b>Gold &amp; Economy Controls:</b>\n"
+                "• <code>/addgold &lt;amount&gt;</code> — Add gold to your own treasury\n"
+                "• <code>/addgold &lt;amount&gt; &lt;user_id|@username&gt;</code> — Credit gold to target Hunter\n"
+                "• <code>/setgold &lt;amount&gt; [target]</code> — Overwrite exact gold balance\n"
+                "<i>(Aliases: <code>/addcoins</code>, <code>/setcoins</code>)</i>"
+            ),
+            quote(
+                "✨ <b>XP &amp; Level Progression:</b>\n"
+                "• <code>/addxp &lt;amount&gt;</code> — Grant XP to yourself (triggers level &amp; rank ups)\n"
+                "• <code>/addxp &lt;amount&gt; &lt;user_id|@username&gt;</code> — Grant XP to target Hunter\n"
+                "• <code>/setlevel &lt;level&gt; [target]</code> — Force set hunter level &amp; stats\n"
+                "<i>(Aliases: <code>/addep</code>, <code>/setep</code>)</i>"
+            ),
+            quote(
+                "🎁 <b>Promo &amp; Gift Code System:</b>\n"
+                "• <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge gold gift code\n"
+                "• <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code> — Forge item code\n"
+                "• <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n"
+                "• <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge XP promo code\n"
+                "• <code>/listcodes</code> (or <code>/codes</code>) — View all promo codes &amp; telemetry\n"
+                "• <code>/deletecode &lt;CODE&gt;</code> — Purge / revoke a promo code"
+            ),
+            quote(
+                "🔍 <b>Diagnostics &amp; Inspection:</b>\n"
+                "• <code>/inspect [user_id|@username]</code> — Deep telemetry &amp; raw attributes"
+            ),
+            quote(
+                "🚀 <b>Lifecycle &amp; Remote Updates:</b>\n"
+                "• <code>/update</code> — Check remote git commits, changed files &amp; code lines\n"
+                "• <code>/restart</code> — Pull latest commits &amp; reboot bot process\n"
+                "• <code>/stop</code> (or <code>/shutdown</code>) — Terminate &amp; kill bot process"
+            ),
+            quote("💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i>", expandable=False),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 # ── COMMAND: /addgold / /addcoins ─────────────────────────────────────────────
@@ -238,15 +286,26 @@ async def handle_add_gold(client: Client, message: Message) -> None:
     """Add gold to self or specified hunter."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     target_hunter, amount, err = await _resolve_hunter_and_int(client, message, default_self=True)
     if err:
-        await message.reply_text(err, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph(err)),
+            fallback=lambda: message.reply_text(err, parse_mode=enums.ParseMode.HTML),
+        )
         return
     if amount is None:
-        await message.reply_text("❌ Please specify the amount of gold to add.\nExample: <code>/addgold 50000</code>", parse_mode=enums.ParseMode.HTML)
+        text = "❌ Please specify the amount of gold to add.\nExample: <code>/addgold 50000</code>"
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     old_gold = target_hunter.gold
@@ -268,7 +327,23 @@ async def handle_add_gold(client: Client, message: Message) -> None:
         "</blockquote>\n\n"
         "<i>✅ Database synchronized successfully.</i>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]"),
+            paragraph("<b>자금 조정 // 국고 잔액 변경</b>"),
+            paragraph(
+                f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
+                f"⚡ <b>Adjustment:</b> {verb} <b>{abs_amt:,}</b> Gold"
+            ),
+            quote(
+                f"• Previous Balance: <code>{old_gold:,}</code> 💰\n"
+                f"• New Balance: <b>{target_hunter.gold:,}</b> 💰"
+            ),
+            paragraph("<i>✅ Database synchronized successfully.</i>"),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"Superadmin {user.id} modified gold for {target_hunter.user_id} by {amount} (New: {target_hunter.gold})")
 
 
@@ -277,15 +352,26 @@ async def handle_set_gold(client: Client, message: Message) -> None:
     """Set exact gold amount for self or specified hunter."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     target_hunter, amount, err = await _resolve_hunter_and_int(client, message, default_self=True)
     if err:
-        await message.reply_text(err, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph(err)),
+            fallback=lambda: message.reply_text(err, parse_mode=enums.ParseMode.HTML),
+        )
         return
     if amount is None or amount < 0:
-        await message.reply_text("❌ Please specify a valid non-negative gold amount.\nExample: <code>/setgold 100000</code>", parse_mode=enums.ParseMode.HTML)
+        text = "❌ Please specify a valid non-negative gold amount.\nExample: <code>/setgold 100000</code>"
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     old_gold = target_hunter.gold
@@ -303,7 +389,20 @@ async def handle_set_gold(client: Client, message: Message) -> None:
         "</blockquote>\n\n"
         "<i>✅ Database synchronized successfully.</i>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]"),
+            paragraph("<b>자금 재설정 // 국고 강제 조정</b>"),
+            paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)"),
+            quote(
+                f"• Previous Balance: <code>{old_gold:,}</code> 💰\n"
+                f"• Set Balance: <b>{target_hunter.gold:,}</b> 💰"
+            ),
+            paragraph("<i>✅ Database synchronized successfully.</i>"),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"Superadmin {user.id} set gold for {target_hunter.user_id} to {amount}")
 
 
@@ -312,15 +411,26 @@ async def handle_add_xp(client: Client, message: Message) -> None:
     """Grant XP/EP to self or specified hunter with progression handling."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     target_hunter, amount, err = await _resolve_hunter_and_int(client, message, default_self=True)
     if err:
-        await message.reply_text(err, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph(err)),
+            fallback=lambda: message.reply_text(err, parse_mode=enums.ParseMode.HTML),
+        )
         return
     if amount is None or amount <= 0:
-        await message.reply_text("❌ Please specify a positive XP amount to add.\nExample: <code>/addxp 5000</code>", parse_mode=enums.ParseMode.HTML)
+        text = "❌ Please specify a positive XP amount to add.\nExample: <code>/addxp 5000</code>"
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     old_level = target_hunter.level
@@ -350,7 +460,25 @@ async def handle_add_xp(client: Client, message: Message) -> None:
         "</blockquote>\n\n"
         "<i>✅ Database synchronized successfully.</i>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // ENERGY INFUSION ]"),
+            paragraph("<b>마력 주입 // 경험치 직접 지급</b>"),
+            paragraph(
+                f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
+                f"⚡ <b>XP Injected:</b> +<b>{amount:,}</b> XP"
+            ),
+            quote(
+                f"• Progress: <code>{target_hunter.xp} / {target_hunter.xp_needed} XP</code>\n"
+                f"• Rank &amp; Level: [<code>{target_hunter.rank}</code>] Lv <b>{target_hunter.level}</b>\n"
+                f"• Combat Power: <code>{old_power}</code> ➜ <b>{target_hunter.power}</b>"
+                f"{level_notice}"
+            ),
+            paragraph("<i>✅ Database synchronized successfully.</i>"),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"Superadmin {user.id} granted {amount} XP to {target_hunter.user_id} (New Lv: {target_hunter.level})")
 
 
@@ -359,15 +487,26 @@ async def handle_set_level(client: Client, message: Message) -> None:
     """Force set hunter level with stat recalculation and rank checks."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     target_hunter, new_lvl, err = await _resolve_hunter_and_int(client, message, default_self=True)
     if err:
-        await message.reply_text(err, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph(err)),
+            fallback=lambda: message.reply_text(err, parse_mode=enums.ParseMode.HTML),
+        )
         return
     if new_lvl is None or new_lvl < 1 or new_lvl > 500:
-        await message.reply_text("❌ Please specify a valid level between 1 and 500.\nExample: <code>/setlevel 50</code>", parse_mode=enums.ParseMode.HTML)
+        text = "❌ Please specify a valid level between 1 and 500.\nExample: <code>/setlevel 50</code>"
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     old_lvl = target_hunter.level
@@ -404,7 +543,21 @@ async def handle_set_level(client: Client, message: Message) -> None:
         "</blockquote>\n\n"
         "<i>✅ Database synchronized successfully.</i>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]"),
+            paragraph("<b>레벨 재설정 // 헌터 등급 강제 조정</b>"),
+            paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)"),
+            quote(
+                f"• Level Adjustment: Lv {old_lvl} ➜ <b>Lv {target_hunter.level}</b>\n"
+                f"• Rank: <code>{target_hunter.rank}</code>\n"
+                f"• Max HP: <code>{target_hunter.max_hp}</code> ┊ Combat Power: <b>{target_hunter.power}</b>"
+            ),
+            paragraph("<i>✅ Database synchronized successfully.</i>"),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"Superadmin {user.id} set level for {target_hunter.user_id} to {new_lvl}")
 
 
@@ -413,7 +566,11 @@ async def handle_inspect(client: Client, message: Message) -> None:
     """Deep inspection of hunter attributes and raw database record."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     db = client.db
@@ -430,7 +587,11 @@ async def handle_inspect(client: Client, message: Message) -> None:
 
     if not target_hunter:
         ident = escape_html(args[0]) if args else "Target"
-        await message.reply_text(f"❌ Hunter '<code>{ident}</code>' not found in the System database.", parse_mode=enums.ParseMode.HTML)
+        text = f"❌ Hunter '<code>{ident}</code>' not found in the System database."
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     inv = await client.db.get_inventory(target_hunter.user_id)
@@ -466,7 +627,37 @@ async def handle_inspect(client: Client, message: Message) -> None:
         f"• Hunts: <code>{target_hunter.victories}W - {target_hunter.defeats}L</code> (Total: <code>{target_hunter.total_hunts}</code>)\n"
         "</blockquote>"
     )
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM DOSSIER // HUNTER TELEMETRY ]"),
+            paragraph("<b>헌터 정보 // 상세 데이터 열람</b>"),
+            paragraph(
+                f"👤 <b>Name:</b> {h_name}\n"
+                f"🆔 <b>User ID:</b> <code>{target_hunter.user_id}</code> ┊ 🏷 <b>Username:</b> @{u_name}\n"
+                f"🏅 <b>Rank:</b> [<code>{target_hunter.rank}</code>] ┊ <b>Level:</b> Lv <b>{target_hunter.level}</b>"
+            ),
+            quote(
+                f"• XP: <code>{target_hunter.xp:,} / {target_hunter.xp_needed:,}</code>\n"
+                f"• Treasury: 💰 <code>{target_hunter.gold:,} G</code>\n"
+                f"• Combat Power: ⚡ <b>{target_hunter.power:,}</b>\n"
+                f"• Vitality: ❤️ <code>{target_hunter.hp} / {target_hunter.max_hp}</code>"
+            ),
+            quote(
+                "<b>📊 Core Attributes:</b>\n"
+                f"• STR: <code>{target_hunter.str_stat}</code> ┊ AGI: <code>{target_hunter.agi}</code>\n"
+                f"• VIT: <code>{target_hunter.vit}</code> ┊ INT: <code>{target_hunter.int_stat}</code> ┊ PER: <code>{target_hunter.per}</code>"
+            ),
+            quote(
+                "<b>🎒 Association Records:</b>\n"
+                f"• Inventory: <code>{inv_count}</code> items (<code>{equipped}</code> equipped)\n"
+                f"• Guild ID: <code>{g_id}</code>\n"
+                f"• Duels: <code>{target_hunter.duel_wins}W - {target_hunter.duel_losses}L</code>\n"
+                f"• Hunts: <code>{target_hunter.victories}W - {target_hunter.defeats}L</code> (Total: <code>{target_hunter.total_hunts}</code>)"
+            ),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 # ── COMMAND: /createcode ──────────────────────────────────────────────────────
@@ -474,13 +665,17 @@ async def handle_create_code(client: Client, message: Message) -> None:
     """Create a new promotional redeem code granting Gold, Items, or XP."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     db = client.db
     args = message.command[1:] if len(message.command) > 1 else []
     if len(args) < 3:
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM DIRECTIVE // CODE FORGE ]</b>\n"
             "<b>코드 생성 // 프로모션 코드 제작 지침</b>\n\n"
             "<i>Create Promo &amp; Gift Codes for Hunters</i>\n\n"
@@ -498,8 +693,31 @@ async def handle_create_code(client: Client, message: Message) -> None:
             "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
             "   <i>Example:</i> <code>/createcode xp FASTXP 2500 100</code>\n"
             "</blockquote>\n\n"
-            "<blockquote>💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i></blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+            "<blockquote>💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i></blockquote>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM DIRECTIVE // CODE FORGE ]"),
+                paragraph("<b>코드 생성 // 프로모션 코드 제작 지침</b>"),
+                paragraph("<i>Create Promo &amp; Gift Codes for Hunters</i>"),
+                quote(
+                    "⚡ <b>Supported Syntaxes:</b>\n"
+                    "1. <b>Gold Code:</b>\n"
+                    "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
+                    "   <i>Example:</i> <code>/createcode gold LEVELUP 10000 50</code>\n\n"
+                    "2. <b>Item Code (from Shop Catalog):</b>\n"
+                    "   <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code>\n"
+                    "   <i>Example:</i> <code>/createcode item FREEBLADE knight_killer 20</code>\n\n"
+                    "3. <b>Custom Item Code:</b>\n"
+                    "   <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n\n"
+                    "4. <b>XP Code:</b>\n"
+                    "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
+                    "   <i>Example:</i> <code>/createcode xp FASTXP 2500 100</code>"
+                ),
+                quote("💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i>", expandable=False),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         return
 
@@ -509,11 +727,19 @@ async def handle_create_code(client: Client, message: Message) -> None:
     # 1. Gold Code: /createcode gold <CODE> <amount> [max_uses]
     if subcmd == "gold":
         if not args[2].isdigit() and not (args[2].startswith("-") and args[2][1:].isdigit()):
-            await message.reply_text("❌ Gold amount must be a valid integer.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ Gold amount must be a valid integer."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
         amount = int(args[2])
         if amount <= 0:
-            await message.reply_text("❌ Gold amount must be greater than 0.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ Gold amount must be greater than 0."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         max_uses = 1
@@ -532,7 +758,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
 
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM NOTIFICATION // CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 골드 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
@@ -541,8 +767,21 @@ async def handle_create_code(client: Client, message: Message) -> None:
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
-            parse_mode=enums.ParseMode.HTML,
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // CODE FORGED ]"),
+                paragraph("<b>코드 생성 완료 // 골드 코드 인가</b>"),
+                paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n💰 <b>Reward:</b> +{amount:,} Gold"),
+                quote(
+                    f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
+                    f"• Creator ID: <code>{user.id}</code>"
+                ),
+                paragraph(f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         logger.info(f"Superadmin {user.id} created gold code {code_obj.code} (+{amount}g, limit: {max_uses})")
         return
@@ -553,11 +792,14 @@ async def handle_create_code(client: Client, message: Message) -> None:
         shop_entry = get_shop_item(shop_key)
         if not shop_entry:
             keys = [i["key"] for i in SHOP_ITEMS[:10]]
-            await message.reply_text(
+            text = (
                 f"❌ Shop item '<code>{escape_html(shop_key)}</code>' not found.\n"
                 f"Available examples: <code>{escape_html(', '.join(keys))}</code>\n"
-                "Or use <code>/createcode custom</code> to build a unique artifact.",
-                parse_mode=enums.ParseMode.HTML,
+                "Or use <code>/createcode custom</code> to build a unique artifact."
+            )
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
             )
             return
 
@@ -580,7 +822,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_code = escape_html(code_obj.code)
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
@@ -590,8 +832,22 @@ async def handle_create_code(client: Client, message: Message) -> None:
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
-            parse_mode=enums.ParseMode.HTML,
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]"),
+                paragraph("<b>코드 생성 완료 // 장비 코드 인가</b>"),
+                paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]"),
+                quote(
+                    f"• Attributes: <i>{esc_stats}</i>\n"
+                    f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
+                    f"• Creator ID: <code>{user.id}</code>"
+                ),
+                paragraph(f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         logger.info(f"Superadmin {user.id} created item code {code_obj.code} ({item_obj.name}, limit: {max_uses})")
         return
@@ -599,16 +855,23 @@ async def handle_create_code(client: Client, message: Message) -> None:
     # 3. Custom Item Code: /createcode custom <CODE> <weapon|armor|accessory> <rarity> <name> <atk> <def> <hp> [max_uses]
     elif subcmd == "custom":
         if len(args) < 8:
-            await message.reply_text(
+            text = (
                 "❌ <b>Syntax:</b> <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n"
-                "<i>Example:</i> <code>/createcode custom GODSWORD weapon Mythic Shadow_Monarch_Blade 250 50 150 10</code>",
-                parse_mode=enums.ParseMode.HTML,
+                "<i>Example:</i> <code>/createcode custom GODSWORD weapon Mythic Shadow_Monarch_Blade 250 50 150 10</code>"
+            )
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
             )
             return
 
         item_type = args[2].lower()
         if item_type not in ("weapon", "armor", "accessory"):
-            await message.reply_text("❌ Type must be 'weapon', 'armor', or 'accessory'.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ Type must be 'weapon', 'armor', or 'accessory'."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         rarity = args[3].capitalize()
@@ -618,7 +881,11 @@ async def handle_create_code(client: Client, message: Message) -> None:
             defn = int(args[6])
             hp = int(args[7])
         except ValueError:
-            await message.reply_text("❌ ATK, DEF, and HP bonuses must be numbers.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ ATK, DEF, and HP bonuses must be numbers."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         max_uses = 1
@@ -649,7 +916,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_code = escape_html(code_obj.code)
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 특수 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
@@ -660,8 +927,26 @@ async def handle_create_code(client: Client, message: Message) -> None:
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
-            parse_mode=enums.ParseMode.HTML,
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]"),
+                paragraph("<b>코드 생성 완료 // 특수 장비 코드 인가</b>"),
+                paragraph(
+                    f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
+                    f"🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]\n"
+                    f"📊 <b>Type:</b> {escape_html(item_obj.type.capitalize())}"
+                ),
+                quote(
+                    f"• Attributes: <i>{esc_stats}</i>\n"
+                    f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
+                    f"• Creator ID: <code>{user.id}</code>"
+                ),
+                paragraph(f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         logger.info(f"Superadmin {user.id} created custom item code {code_obj.code} ({item_obj.name}, limit: {max_uses})")
         return
@@ -669,11 +954,19 @@ async def handle_create_code(client: Client, message: Message) -> None:
     # 4. XP Code: /createcode xp <CODE> <amount> [max_uses]
     elif subcmd == "xp":
         if not args[2].isdigit():
-            await message.reply_text("❌ XP amount must be a positive integer.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ XP amount must be a positive integer."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
         amount = int(args[2])
         if amount <= 0:
-            await message.reply_text("❌ XP amount must be greater than 0.", parse_mode=enums.ParseMode.HTML)
+            text = "❌ XP amount must be greater than 0."
+            await reply_rich(
+                message, RichDoc(paragraph(text)),
+                fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         max_uses = 1
@@ -692,7 +985,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
 
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM NOTIFICATION // XP CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 경험치 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
@@ -701,14 +994,31 @@ async def handle_create_code(client: Client, message: Message) -> None:
             f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
             f"• Creator ID: <code>{user.id}</code>\n"
             "</blockquote>\n\n"
-            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>",
-            parse_mode=enums.ParseMode.HTML,
+            f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // XP CODE FORGED ]"),
+                paragraph("<b>코드 생성 완료 // 경험치 코드 인가</b>"),
+                paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n✨ <b>Reward:</b> +{amount:,} XP"),
+                quote(
+                    f"• Claim Capacity: <code>{escape_html(limit_text)}</code>\n"
+                    f"• Creator ID: <code>{user.id}</code>"
+                ),
+                paragraph(f"<i>Hunters may now claim via <code>/redeem {esc_code}</code></i>"),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         logger.info(f"Superadmin {user.id} created XP code {code_obj.code} (+{amount}xp, limit: {max_uses})")
         return
 
     else:
-        await message.reply_text("❌ Invalid code type. Supported types: <code>gold</code>, <code>item</code>, <code>custom</code>, <code>xp</code>.", parse_mode=enums.ParseMode.HTML)
+        text = "❌ Invalid code type. Supported types: <code>gold</code>, <code>item</code>, <code>custom</code>, <code>xp</code>."
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+        )
 
 
 # ── COMMAND: /listcodes / /codes ──────────────────────────────────────────────
@@ -716,29 +1026,37 @@ async def handle_list_codes(client: Client, message: Message) -> None:
     """List all registered System promo codes with claim statistics."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     db = client.db
     all_codes = await db.get_all_redeem_codes()
     if not all_codes:
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]</b>\n"
             "<b>코드 목록 // 등록된 코드 없음</b>\n\n"
             "<i>No promotional redeem codes currently registered.</i>\n\n"
             "<blockquote expandable>"
             "• Use <code>/createcode</code> to generate a new gift code.\n"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+            "</blockquote>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]"),
+                paragraph("<b>코드 목록 // 등록된 코드 없음</b>"),
+                paragraph("<i>No promotional redeem codes currently registered.</i>"),
+                quote("• Use <code>/createcode</code> to generate a new gift code."),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         return
 
-    lines = [
-        "<b>[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]</b>",
-        "<b>코드 등록소 // 활성 프로모션 목록</b>",
-        "",
-        "<blockquote expandable>",
-    ]
+    entry_lines: list[str] = []
     for c in sorted(all_codes, key=lambda x: x.created_at, reverse=True):
         claimed_count = len(c.claimed_by)
         limit_str = str(c.max_uses) if c.max_uses > 0 else "∞"
@@ -754,17 +1072,31 @@ async def handle_list_codes(client: Client, message: Message) -> None:
         else:
             reward_str = f"🎁 {c.reward_type}"
 
-        lines.append(
+        entry_lines.append(
             f"• <code>{escape_html(c.code)}</code> {status_tag}\n"
             f"  └ {escape_html(reward_str)} ┊ <code>{claimed_count}/{limit_str}</code> used"
         )
 
-    lines.extend([
+    lines = [
+        "<b>[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]</b>",
+        "<b>코드 등록소 // 활성 프로모션 목록</b>",
+        "",
+        "<blockquote expandable>",
+        *entry_lines,
         "</blockquote>",
         "",
         "<blockquote>💡 <i>Use <code>/deletecode &lt;CODE&gt;</code> to deactivate any code.</i></blockquote>",
-    ])
-    await message.reply_text("\n".join(lines), parse_mode=enums.ParseMode.HTML)
+    ]
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]"),
+            paragraph("<b>코드 등록소 // 활성 프로모션 목록</b>"),
+            quote("\n".join(entry_lines)),
+            quote("💡 <i>Use <code>/deletecode &lt;CODE&gt;</code> to deactivate any code.</i>", expandable=False),
+        ),
+        fallback=lambda: message.reply_text("\n".join(lines), parse_mode=enums.ParseMode.HTML),
+    )
 
 
 # ── COMMAND: /deletecode ──────────────────────────────────────────────────────
@@ -772,35 +1104,50 @@ async def handle_delete_code(client: Client, message: Message) -> None:
     """Revoke and delete a promotional redeem code."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     db = client.db
     args = message.command[1:] if len(message.command) > 1 else []
     if not args:
-        await message.reply_text(
-            "❌ <b>Syntax:</b> <code>/deletecode &lt;CODE&gt;</code>\n<i>Example:</i> <code>/deletecode WELCOME100</code>",
-            parse_mode=enums.ParseMode.HTML,
+        text = "❌ <b>Syntax:</b> <code>/deletecode &lt;CODE&gt;</code>\n<i>Example:</i> <code>/deletecode WELCOME100</code>"
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         return
 
     code_str = args[0].strip().upper()
     deleted = await db.delete_redeem_code(code_str)
     if deleted:
-        await message.reply_text(
+        text = (
             "<b>[ SYSTEM NOTIFICATION // CODE REVOKED ]</b>\n"
             "<b>코드 삭제 // 프로모션 코드 폐기 완료</b>\n\n"
             f"Redemption key <code>{escape_html(code_str)}</code> was successfully purged from the System.\n\n"
             "<blockquote expandable>"
             "Hunters can no longer redeem this code.\n"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+            "</blockquote>"
+        )
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM NOTIFICATION // CODE REVOKED ]"),
+                paragraph("<b>코드 삭제 // 프로모션 코드 폐기 완료</b>"),
+                paragraph(f"Redemption key <code>{escape_html(code_str)}</code> was successfully purged from the System."),
+                quote("Hunters can no longer redeem this code."),
+            ),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
         logger.info(f"Superadmin {user.id} deleted redeem code {code_str}")
     else:
-        await message.reply_text(
-            f"❌ Code <code>{escape_html(code_str)}</code> was not found in the System registry.",
-            parse_mode=enums.ParseMode.HTML,
+        text = f"❌ Code <code>{escape_html(code_str)}</code> was not found in the System registry."
+        await reply_rich(
+            message, RichDoc(paragraph(text)),
+            fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
         )
 
 
@@ -902,15 +1249,28 @@ async def handle_update(client: Client, message: Message) -> None:
     """
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
-    status_msg = await message.reply_text(
+    status_text = (
         "<b>[ SYSTEM TELEMETRY // CHECKING UPDATES ]</b>\n"
         "<b>업데이트 확인 // 원격 저장소 조회</b>\n\n"
         "<i>Contacting remote repository origin...</i>\n\n"
-        "<blockquote expandable>• Fetching git refs from origin...</blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+        "<blockquote expandable>• Fetching git refs from origin...</blockquote>"
+    )
+    status_msg = await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM TELEMETRY // CHECKING UPDATES ]"),
+            paragraph("<b>업데이트 확인 // 원격 저장소 조회</b>"),
+            paragraph("<i>Contacting remote repository origin...</i>"),
+            quote("• Fetching git refs from origin..."),
+        ),
+        fallback=lambda: message.reply_text(status_text, parse_mode=enums.ParseMode.HTML),
     )
 
     branch = await _get_git_branch()
@@ -919,12 +1279,21 @@ async def handle_update(client: Client, message: Message) -> None:
     # 1. Fetch remote origin
     ret, _, stderr = await _run_git_async("fetch", "origin")
     if ret != 0:
-        await status_msg.edit_text(
+        text = (
             "<b>[ SYSTEM ERROR // UPDATE CHECK FAILED ]</b>\n"
             "<b>조회 실패 // 원격 연결 오류</b>\n\n"
             "❌ Failed to reach remote git origin.\n\n"
-            f"<blockquote expandable><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+            f"<blockquote expandable><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>"
+        )
+        await edit_rich(
+            client, status_msg.chat.id, status_msg.id,
+            RichDoc(
+                heading(1, "[ SYSTEM ERROR // UPDATE CHECK FAILED ]"),
+                paragraph("<b>조회 실패 // 원격 연결 오류</b>"),
+                paragraph("❌ Failed to reach remote git origin."),
+                quote(f"<code>{escape_html(stderr or 'Unknown network/git error')}</code>"),
+            ),
+            fallback=lambda: status_msg.edit_text(text, parse_mode=enums.ParseMode.HTML),
         )
         return
 
@@ -951,7 +1320,23 @@ async def handle_update(client: Client, message: Message) -> None:
             "</blockquote>\n\n"
             "<blockquote>💡 <i>Use <code>/restart</code> anytime to reboot the bot process.</i></blockquote>"
         )
-        await status_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
+        await edit_rich(
+            client, status_msg.chat.id, status_msg.id,
+            RichDoc(
+                heading(1, "[ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]"),
+                paragraph("<b>시스템 상태 // 최신 버전 유지 중</b>"),
+                paragraph("<i>The Solo Leveling Hunter System is synchronized with remote origin.</i>"),
+                quote(
+                    f"• <b>Branch:</b> <code>{escape_html(branch)}</code>\n"
+                    f"• <b>Active Commit:</b> <code>{escape_html(current_hash)}</code>\n"
+                    f"• <b>Latest Change:</b> {escape_html(commit_msg)}\n"
+                    f"• <b>Author:</b> {escape_html(author)}\n"
+                    "• <b>Status:</b> 🟢 No pending remote commits found."
+                ),
+                quote("💡 <i>Use <code>/restart</code> anytime to reboot the bot process.</i>", expandable=False),
+            ),
+            fallback=lambda: status_msg.edit_text(text, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # 3. Incoming commits found! Extract details:
@@ -1013,7 +1398,25 @@ async def handle_update(client: Client, message: Message) -> None:
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Pull & Restart", callback_data="admin_restart", style=enums.ButtonStyle.PRIMARY)]
     ])
-    await status_msg.edit_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+    await edit_rich(
+        client, status_msg.chat.id, status_msg.id,
+        RichDoc(
+            heading(1, "[ SYSTEM TELEMETRY // UPDATE AVAILABLE ]"),
+            paragraph("<b>업데이트 감지 // 신규 패치 대기</b>"),
+            paragraph(f"<i>{commit_count} new commit{'s' if commit_count != 1 else ''} detected on <code>{escape_html(upstream)}</code>!</i>"),
+            quote(f"<b>📦 Incoming Commits ({commit_count}):</b>\n{commits_block}"),
+            quote(f"<b>📂 Changed Files ({files_count}):</b>\n{files_block}"),
+            quote(
+                "<b>📊 Code Total Lines:</b>\n"
+                f"• Insertions: <b>+{insertions:,}</b>\n"
+                f"• Deletions: <b>-{deletions:,}</b>\n"
+                f"• Total Lines Changed: <b>{total_lines:,}</b>"
+            ),
+            quote("💡 <i>Tap <b>[ 🔄 Pull &amp; Restart ]</b> below or run <code>/restart</code> to apply.</i>", expandable=False),
+        ),
+        reply_markup=keyboard,
+        fallback=lambda: status_msg.edit_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 # ── COMMAND: /restart ────────────────────────────────────────────────────────
@@ -1021,10 +1424,14 @@ async def handle_restart(client: Client, message: Message) -> None:
     """Reboot the bot process, pulling latest commits if requested or available."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
-    status_msg = await message.reply_text(
+    status_text = (
         "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
         "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Initiating automated reboot sequence...</i>\n\n"
@@ -1033,8 +1440,22 @@ async def handle_restart(client: Client, message: Message) -> None:
         "• <b>Step 2:</b> Saving telemetry state...\n"
         "• <b>Step 3:</b> Spawning fresh process...\n"
         "</blockquote>\n\n"
-        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>"
+    )
+    status_msg = await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
+            paragraph("<b>시스템 재부팅 // 재가동 시퀀스 시작</b>"),
+            paragraph("<i>Initiating automated reboot sequence...</i>"),
+            quote(
+                "• <b>Step 1:</b> Pulling remote code changes...\n"
+                "• <b>Step 2:</b> Saving telemetry state...\n"
+                "• <b>Step 3:</b> Spawning fresh process..."
+            ),
+            quote("⏳ <i>Stand by... This message will update once online.</i>", expandable=False),
+        ),
+        fallback=lambda: message.reply_text(status_text, parse_mode=enums.ParseMode.HTML),
     )
 
     await _execute_restart(client, message.chat.id, status_msg.id, pull_first=True)
@@ -1050,7 +1471,7 @@ async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
 
     await query.answer("Initiating System restart...", show_alert=False)
 
-    await query.edit_message_text(
+    text = (
         "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
         "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Applying updates and restarting System...</i>\n\n"
@@ -1059,8 +1480,22 @@ async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
         "• <b>Step 2:</b> Preserving state telemetry...\n"
         "• <b>Step 3:</b> Launching new engine instance...\n"
         "</blockquote>\n\n"
-        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+        "<blockquote>⏳ <i>Stand by... This message will update once online.</i></blockquote>"
+    )
+    await edit_rich(
+        client, query.message.chat.id, query.message.id,
+        RichDoc(
+            heading(1, "[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
+            paragraph("<b>시스템 재부팅 // 재가동 시퀀스 시작</b>"),
+            paragraph("<i>Applying updates and restarting System...</i>"),
+            quote(
+                "• <b>Step 1:</b> Pulling remote commits from origin...\n"
+                "• <b>Step 2:</b> Preserving state telemetry...\n"
+                "• <b>Step 3:</b> Launching new engine instance..."
+            ),
+            quote("⏳ <i>Stand by... This message will update once online.</i>", expandable=False),
+        ),
+        fallback=lambda: query.edit_message_text(text, parse_mode=enums.ParseMode.HTML),
     )
 
     chat_id = query.message.chat.id
@@ -1073,11 +1508,15 @@ async def handle_stop(client: Client, message: Message) -> None:
     """Terminate and kill the bot process as commanded by the Superadmin."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner &amp; Superadmins.")),
+            fallback=lambda: message.reply_text("⛔ <b>Access Denied</b>: This command is restricted to the Bot Owner & Superadmins.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     name = escape_html(user.first_name or "Sovereign")
-    await message.reply_text(
+    text = (
         "<b>[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]</b>\n"
         "<b>시스템 정지 // 엔진 가동 중단</b>\n\n"
         "<i>Terminating Hunter System engine as commanded...</i>\n\n"
@@ -1086,8 +1525,22 @@ async def handle_stop(client: Client, message: Message) -> None:
         f"• <b>Authorized By:</b> {name}\n"
         "• <b>Action:</b> Process terminated (task killed)\n"
         "</blockquote>\n\n"
-        "<blockquote>💤 <i>System power disconnected. All sessions safely released.</i></blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+        "<blockquote>💤 <i>System power disconnected. All sessions safely released.</i></blockquote>"
+    )
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]"),
+            paragraph("<b>시스템 정지 // 엔진 가동 중단</b>"),
+            paragraph("<i>Terminating Hunter System engine as commanded...</i>"),
+            quote(
+                "• <b>Status:</b> Offline 🔴\n"
+                f"• <b>Authorized By:</b> {name}\n"
+                "• <b>Action:</b> Process terminated (task killed)"
+            ),
+            quote("💤 <i>System power disconnected. All sessions safely released.</i>", expandable=False),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
     )
 
     logger.info(f"Stop command issued by Superadmin {user.id} ({user.first_name}). Terminating process...")

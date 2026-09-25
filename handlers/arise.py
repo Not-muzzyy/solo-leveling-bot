@@ -36,7 +36,10 @@ from config import (
 )
 from game.font_manager import clean_and_normalize_name
 from game.hunter import add_xp
+from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.rich_text import escape_html, callback_button
+from game.captions import build_shadows_rich
 from game.shadows_image import render_shadows_image, RARITY_POWER_VALUES
 from models import Hunter, ShadowCharacter, UserShadow
 
@@ -182,21 +185,39 @@ async def spawn_shadow_in_chat(
         "• <b>How to claim:</b> Type <code>/arise &lt;character name&gt;</code>\n\n"
         "⏱️ <i>You have 15 minutes before this rift closes!</i>"
     )
+    spawn_blocks = [
+        heading(1, "🌌 A WILD SHADOW HAS APPEARED!"),
+        paragraph("Guess the Solo Leveling character name from the image!"),
+        paragraph(
+            f"• <b>Rarity:</b> <code>[{escape_html(character.rarity)}]</code> {r_emoji}\n"
+            "• <b>How to claim:</b> Type <code>/arise &lt;character name&gt;</code>"
+        ),
+        paragraph("⏱️ <i>You have 15 minutes before this rift closes!</i>"),
+    ]
 
     try:
         if character.photo_file_id:
-            spawn_msg = await client.send_photo(
-                chat_id=chat_id,
-                photo=character.photo_file_id,
-                caption=caption,
-                show_caption_above_media=True,
-                parse_mode=enums.ParseMode.HTML,
+            spawn_msg = await send_rich(
+                client, chat_id,
+                RichDoc(*spawn_blocks, photo_block("shadow")),
+                media=[photo_media("shadow", character.photo_file_id)],
+                fallback=lambda: client.send_photo(
+                    chat_id=chat_id,
+                    photo=character.photo_file_id,
+                    caption=caption,
+                    show_caption_above_media=True,
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
         else:
-            spawn_msg = await client.send_message(
-                chat_id=chat_id,
-                text=caption,
-                parse_mode=enums.ParseMode.HTML,
+            spawn_msg = await send_rich(
+                client, chat_id,
+                RichDoc(*spawn_blocks),
+                fallback=lambda: client.send_message(
+                    chat_id=chat_id,
+                    text=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
 
         _active_spawns[chat_id] = {
@@ -230,9 +251,13 @@ async def handle_arise(client: Client, message: Message) -> None:
     # Verify Hunter profile exists
     hunter: Optional[Hunter] = await client.db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(
-            "⚠️ <b>You must awaken first!</b> Use <b>/start</b> to create your Hunter profile before commanding shadows.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("⚠️ <b>You must awaken first!</b> Use <b>/start</b> to create your Hunter profile before commanding shadows.")),
+            fallback=lambda: message.reply_text(
+                "⚠️ <b>You must awaken first!</b> Use <b>/start</b> to create your Hunter profile before commanding shadows.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -244,10 +269,17 @@ async def handle_arise(client: Client, message: Message) -> None:
         if spawn_info:
             _active_spawns.pop(chat_id, None)
 
-        await message.reply_text(
-            "ℹ️ <b>No active shadow rift right now!</b>\n"
-            f"Wild shadows appear automatically every <b>{SHADOW_SPAWN_MESSAGE_THRESHOLD}</b> messages in this group. Keep chatting!",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                "ℹ️ <b>No active shadow rift right now!</b>\n"
+                f"Wild shadows appear automatically every <b>{SHADOW_SPAWN_MESSAGE_THRESHOLD}</b> messages in this group. Keep chatting!"
+            )),
+            fallback=lambda: message.reply_text(
+                "ℹ️ <b>No active shadow rift right now!</b>\n"
+                f"Wild shadows appear automatically every <b>{SHADOW_SPAWN_MESSAGE_THRESHOLD}</b> messages in this group. Keep chatting!",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -256,11 +288,19 @@ async def handle_arise(client: Client, message: Message) -> None:
     # Parse guess argument
     parts = message.text.strip().split(maxsplit=1)
     if len(parts) < 2 or not parts[1].strip():
-        await message.reply_text(
-            "💡 <b>How to claim:</b>\n"
-            "Type <code>/arise &lt;character name&gt;</code> to claim this shadow!\n"
-            f"Example: <code>/arise {character.name.split()[0]}</code>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                "💡 <b>How to claim:</b>\n"
+                "Type <code>/arise &lt;character name&gt;</code> to claim this shadow!\n"
+                f"Example: <code>/arise {escape_html(character.name.split()[0])}</code>"
+            )),
+            fallback=lambda: message.reply_text(
+                "💡 <b>How to claim:</b>\n"
+                "Type <code>/arise &lt;character name&gt;</code> to claim this shadow!\n"
+                f"Example: <code>/arise {character.name.split()[0]}</code>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -268,9 +308,13 @@ async def handle_arise(client: Client, message: Message) -> None:
 
     # Match guess against character
     if not match_character_name(guess, character):
-        await message.reply_text(
-            "❌ <b>Incorrect name!</b> That's not this character's name. Look closely at the image and try again!",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("❌ <b>Incorrect name!</b> That's not this character's name. Look closely at the image and try again!")),
+            fallback=lambda: message.reply_text(
+                "❌ <b>Incorrect name!</b> That's not this character's name. Look closely at the image and try again!",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -279,9 +323,13 @@ async def handle_arise(client: Client, message: Message) -> None:
     async with lock:
         # Check if spawn is still active
         if chat_id not in _active_spawns:
-            await message.reply_text(
-                "⚡ <b>Already claimed!</b> Another hunter just extracted this shadow moments ago.",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph("⚡ <b>Already claimed!</b> Another hunter just extracted this shadow moments ago.")),
+                fallback=lambda: message.reply_text(
+                    "⚡ <b>Already claimed!</b> Another hunter just extracted this shadow moments ago.",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -290,7 +338,10 @@ async def handle_arise(client: Client, message: Message) -> None:
 
         shadows_db = getattr(client, "shadows_db", None)
         if not shadows_db:
-            await message.reply_text("Error: Shadows database is not initialized.")
+            await reply_rich(
+                message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+                fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+            )
             return
 
         # Add shadow to hunter's collection
@@ -331,7 +382,22 @@ async def handle_arise(client: Client, message: Message) -> None:
         "✨ <i>Use <b>/shadows</b> to view your collection!</i>"
     )
 
-    await message.reply_text(victory_text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, f"🎉 CONGRATULATIONS {user.mention}!"),
+            paragraph(f"You successfully acquired <b>{escape_html(character.name)}</b>!"),
+            quote(
+                f"• <b>Character:</b> <b>{escape_html(character.name)}</b>\n"
+                f"• <b>Rarity:</b> <code>[{escape_html(character.rarity)}]</code> {r_emoji} ({status_str})\n"
+                f"• <b>Bounty:</b> 💰 <code>+{gold_gain:,} Gold</code> ┊ ✨ <code>+{xp_gain:,} XP</code>\n"
+                f"• <b>Your Shadow Army:</b> <code>{total_soldiers:,} Soldiers</code>"
+                f"{lvl_banner}"
+            ),
+            paragraph("✨ <i>Use <b>/shadows</b> to view your collection!</i>"),
+        ),
+        fallback=lambda: message.reply_text(victory_text, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 # ── /shadows Command & Interactive Army Browser ─────────────
@@ -357,9 +423,13 @@ async def handle_shadows(client: Client, message: Message) -> None:
         if arg.startswith("@"):
             h_obj = await client.db.get_hunter_by_username(arg)
             if not h_obj:
-                await message.reply_text(
-                    f"❌ <b>No registered Hunter found for</b> <code>{escape_html(arg)}</code>",
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    message,
+                    RichDoc(paragraph(f"❌ <b>No registered Hunter found for</b> <code>{escape_html(arg)}</code>")),
+                    fallback=lambda: message.reply_text(
+                        f"❌ <b>No registered Hunter found for</b> <code>{escape_html(arg)}</code>",
+                        parse_mode=enums.ParseMode.HTML,
+                    ),
                 )
                 return
             target_user_id = h_obj.user_id
@@ -369,16 +439,26 @@ async def handle_shadows(client: Client, message: Message) -> None:
 
     hunter: Optional[Hunter] = await client.db.get_hunter(target_user_id)
     if not hunter:
-        await message.reply_text(
-            "<b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
-            "This player is not yet awakened as a registered Hunter.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                "<b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
+                "This player is not yet awakened as a registered Hunter."
+            )),
+            fallback=lambda: message.reply_text(
+                "<b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
+                "This player is not yet awakened as a registered Hunter.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     shadows_db = getattr(client, "shadows_db", None)
     if not shadows_db:
-        await message.reply_text("Error: Shadows database is not initialized.")
+        await reply_rich(
+            message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+            fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+        )
         return
 
     shadows = await shadows_db.get_user_shadows(target_user_id)
@@ -404,12 +484,25 @@ async def handle_shadows(client: Client, message: Message) -> None:
     caption = _build_shadows_caption(hunter, shadows, page, total_pages)
     keyboard = _build_shadows_keyboard(target_user_id, page, total_pages, filter_rarity=None)
 
-    await message.reply_photo(
-        photo=photo_buf,
-        caption=caption,
-        show_caption_above_media=True,
+    async def _fallback_shadows_photo():
+        photo_buf.seek(0)
+        return await message.reply_photo(
+            photo=photo_buf,
+            caption=caption,
+            show_caption_above_media=True,
+            reply_markup=keyboard,
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    await reply_rich(
+        message,
+        build_shadows_rich(
+            hunter, shadows, page, total_pages,
+            filter_rarity=None, photo_first=False,
+        ),
         reply_markup=keyboard,
-        parse_mode=enums.ParseMode.HTML,
+        media=[photo_media("shadow", photo_buf)],
+        fallback=_fallback_shadows_photo,
     )
 
 
@@ -549,9 +642,24 @@ async def shadows_callback(client: Client, query: CallbackQuery) -> None:
     keyboard = _build_shadows_keyboard(target_user_id, page, total_pages, filter_rarity=filter_rarity)
 
     try:
-        await query.message.edit_media(
-            media=InputMediaPhoto(photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+        async def _fallback_edit_media():
+            photo_buf.seek(0)
+            return await query.message.edit_media(
+                media=InputMediaPhoto(photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                reply_markup=keyboard,
+            )
+
+        await edit_rich(
+            client,
+            query.message.chat.id,
+            query.message.id,
+            build_shadows_rich(
+                hunter, filtered_shadows, page, total_pages,
+                filter_rarity=filter_rarity, photo_first=True,
+            ),
             reply_markup=keyboard,
+            media=[photo_media("shadow", photo_buf)],
+            fallback=_fallback_edit_media,
         )
         await query.answer()
     except Exception as exc:
@@ -568,12 +676,19 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
     """
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")),
+            fallback=lambda: message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required."),
+        )
         return
 
     shadows_db = getattr(client, "shadows_db", None)
     if not shadows_db:
-        await message.reply_text("Error: Shadows database is not initialized.")
+        await reply_rich(
+            message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+            fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+        )
         return
 
     # Extract photo from replied-to message or current message
@@ -584,18 +699,33 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
         photo_file_id = message.photo.file_id
 
     if not photo_file_id:
-        await message.reply_text(
-            "<b>[ COMMAND SYNTAX ERROR // 사진 누락 ]</b>\n\n"
-            "<blockquote expandable>"
-            "To add a shadow character, you must <b>reply to an image</b> or <b>attach a photo</b>!\n\n"
-            "<b>Syntax:</b>\n"
-            "<code>/addshadow &lt;Rarity&gt; &lt;Character Name&gt; [| alias1, alias2]</code>\n\n"
-            "<b>Example:</b>\n"
-            "<code>/addshadow Legendary Blood-Red Commander Igris | Igris, 핏빛의 이그리트</code>\n\n"
-            "<b>Valid Rarities:</b>\n"
-            f"{', '.join(RARITIES)}"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ COMMAND SYNTAX ERROR // 사진 누락 ]"),
+                quote(
+                    "To add a shadow character, you must <b>reply to an image</b> or <b>attach a photo</b>!\n\n"
+                    "<b>Syntax:</b>\n"
+                    "<code>/addshadow &lt;Rarity&gt; &lt;Character Name&gt; [| alias1, alias2]</code>\n\n"
+                    "<b>Example:</b>\n"
+                    "<code>/addshadow Legendary Blood-Red Commander Igris | Igris, 핏빛의 이그리트</code>\n\n"
+                    "<b>Valid Rarities:</b>\n"
+                    f"{', '.join(RARITIES)}"
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ COMMAND SYNTAX ERROR // 사진 누락 ]</b>\n\n"
+                "<blockquote expandable>"
+                "To add a shadow character, you must <b>reply to an image</b> or <b>attach a photo</b>!\n\n"
+                "<b>Syntax:</b>\n"
+                "<code>/addshadow &lt;Rarity&gt; &lt;Character Name&gt; [| alias1, alias2]</code>\n\n"
+                "<b>Example:</b>\n"
+                "<code>/addshadow Legendary Blood-Red Commander Igris | Igris, 핏빛의 이그리트</code>\n\n"
+                "<b>Valid Rarities:</b>\n"
+                f"{', '.join(RARITIES)}"
+                "</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -603,18 +733,29 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
     text = message.text or message.caption or ""
     parts = text.strip().split(maxsplit=2)
     if len(parts) < 3:
-        await message.reply_text(
-            "<b>[ MISSING ARGUMENTS ]</b>\n"
-            "Syntax: <code>/addshadow &lt;Rarity&gt; &lt;Name&gt; [| aliases]</code>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                "<b>[ MISSING ARGUMENTS ]</b>\n"
+                "Syntax: <code>/addshadow &lt;Rarity&gt; &lt;Name&gt; [| aliases]</code>"
+            )),
+            fallback=lambda: message.reply_text(
+                "<b>[ MISSING ARGUMENTS ]</b>\n"
+                "Syntax: <code>/addshadow &lt;Rarity&gt; &lt;Name&gt; [| aliases]</code>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     raw_rarity = parts[1].strip().title()
     if raw_rarity not in RARITIES:
-        await message.reply_text(
-            f"<b>[ INVALID RARITY ]</b> Must be one of:\n{', '.join(RARITIES)}",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"<b>[ INVALID RARITY ]</b> Must be one of:\n{', '.join(RARITIES)}")),
+            fallback=lambda: message.reply_text(
+                f"<b>[ INVALID RARITY ]</b> Must be one of:\n{', '.join(RARITIES)}",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -667,26 +808,54 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
         "✨ <i>This shadow will now spawn randomly every 250 messages or via <b>/spawnshadow</b>!</i>"
     )
 
-    await message.reply_text(confirm_text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SYSTEM REGISTRY // SHADOW CHARACTER ENROLLED ]"),
+            paragraph("<b>새로운 그림자 개체 등록 완료</b>"),
+            quote(
+                f"• <b>Character ID:</b> <code>#{char.id}</code>\n"
+                f"• <b>Entity Name:</b> <b>{escape_html(char.name)}</b>\n"
+                f"• <b>Rarity Tier:</b> <code>[{escape_html(char.rarity)}]</code> {r_emoji}\n"
+                f"• <b>Accepted Aliases:</b> <i>{escape_html(alias_str)}</i>\n"
+                "• <b>Media Status:</b> <code>Persisted &amp; Active</code>"
+            ),
+            paragraph("✨ <i>This shadow will now spawn randomly every 250 messages or via <b>/spawnshadow</b>!</i>"),
+        ),
+        fallback=lambda: message.reply_text(confirm_text, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 async def handle_list_shadows(client: Client, message: Message) -> None:
     """Superadmin command: /listshadows [page] — Display registered characters."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")),
+            fallback=lambda: message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required."),
+        )
         return
 
     shadows_db = getattr(client, "shadows_db", None)
     if not shadows_db:
-        await message.reply_text("Error: Shadows database is not initialized.")
+        await reply_rich(
+            message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+            fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+        )
         return
 
     chars = shadows_db.list_characters()
     if not chars:
-        await message.reply_text(
-            "<b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                "<b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!"
+            )),
+            fallback=lambda: message.reply_text(
+                "<b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -705,7 +874,7 @@ async def handle_list_shadows(client: Client, message: Message) -> None:
     for c in page_chars:
         r_emoji = RARITY_EMOJI.get(c.rarity, "⚪")
         lines.append(
-            f"• <code>#{c.id:02d}</code> <b>{c.name}</b> [{c.rarity}] {r_emoji}\n"
+            f"• <code>#{c.id:02d}</code> <b>{escape_html(c.name)}</b> [{escape_html(c.rarity)}] {r_emoji}\n"
             f"  └ Spawns: <code>{c.times_spawned}</code> ┊ Claims: <code>{c.times_claimed}</code>"
         )
 
@@ -717,46 +886,82 @@ async def handle_list_shadows(client: Client, message: Message) -> None:
         "<i>Use /addshadow to add more, /delshadow &lt;id&gt; to remove.</i>"
     )
 
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SHADOW CATALOG // REGISTERED CHARACTERS ]"),
+            paragraph(f"<b>Page {page} of {total_pages} (Total: {len(chars)} Characters)</b>"),
+            quote(roster_str),
+            paragraph("<i>Use /addshadow to add more, /delshadow &lt;id&gt; to remove.</i>", expandable=False),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
 
 
 async def handle_del_shadow(client: Client, message: Message) -> None:
     """Superadmin command: /delshadow <id> — Remove a character from the catalog."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")),
+            fallback=lambda: message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required."),
+        )
         return
 
     shadows_db = getattr(client, "shadows_db", None)
     if not shadows_db:
-        await message.reply_text("Error: Shadows database is not initialized.")
+        await reply_rich(
+            message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+            fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+        )
         return
 
     if len(message.command) < 2 or not message.command[1].isdigit():
-        await message.reply_text("Syntax: <code>/delshadow &lt;character_id&gt;</code>", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph("Syntax: <code>/delshadow &lt;character_id&gt;</code>")),
+            fallback=lambda: message.reply_text("Syntax: <code>/delshadow &lt;character_id&gt;</code>", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     char_id = int(message.command[1])
     target = shadows_db.get_character(char_id)
     if not target:
-        await message.reply_text(f"Character #{char_id} not found in catalog.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"Character #{char_id} not found in catalog.")),
+            fallback=lambda: message.reply_text(f"Character #{char_id} not found in catalog.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     success = await shadows_db.delete_character(char_id)
     if success:
-        await message.reply_text(
-            f"<b>[ CHARACTER DELETED ]</b>\nRemoved <b>{target.name}</b> [#{char_id}] from the shadow pool.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"<b>[ CHARACTER DELETED ]</b>\nRemoved <b>{escape_html(target.name)}</b> [#{char_id}] from the shadow pool.")),
+            fallback=lambda: message.reply_text(
+                f"<b>[ CHARACTER DELETED ]</b>\nRemoved <b>{target.name}</b> [#{char_id}] from the shadow pool.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
     else:
-        await message.reply_text(f"Could not delete character #{char_id}.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph(f"Could not delete character #{char_id}.")),
+            fallback=lambda: message.reply_text(f"Could not delete character #{char_id}."),
+        )
 
 
 async def handle_spawn_shadow(client: Client, message: Message) -> None:
     """Superadmin command: /spawnshadow [id] — Instantly force-spawn a shadow in chat."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")),
+            fallback=lambda: message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required."),
+        )
         return
 
     char_id = None
@@ -768,9 +973,13 @@ async def handle_spawn_shadow(client: Client, message: Message) -> None:
 
     msg = await spawn_shadow_in_chat(client, message.chat.id, character_id=char_id)
     if not msg:
-        await message.reply_text(
-            "<b>[ SPAWN FAILED ]</b> Ensure characters are registered in the catalog via <code>/addshadow</code>.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ SPAWN FAILED ]</b> Ensure characters are registered in the catalog via <code>/addshadow</code>.")),
+            fallback=lambda: message.reply_text(
+                "<b>[ SPAWN FAILED ]</b> Ensure characters are registered in the catalog via <code>/addshadow</code>.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
 
 
@@ -778,12 +987,19 @@ async def handle_shadow_stats(client: Client, message: Message) -> None:
     """Superadmin command: /shadowstats — Display system spawning & extraction telemetry."""
     user = message.from_user
     if not user or not is_superadmin(user.id):
-        await message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")
+        await reply_rich(
+            message,
+            RichDoc(paragraph("<b>[ ACCESS DENIED ]</b> Superadmin clearance required.")),
+            fallback=lambda: message.reply_text("<b>[ ACCESS DENIED ]</b> Superadmin clearance required."),
+        )
         return
 
     shadows_db = getattr(client, "shadows_db", None)
     if not shadows_db:
-        await message.reply_text("Error: Shadows database is not initialized.")
+        await reply_rich(
+            message, RichDoc(paragraph("Error: Shadows database is not initialized.")),
+            fallback=lambda: message.reply_text("Error: Shadows database is not initialized."),
+        )
         return
 
     stats = shadows_db.get_stats()
@@ -803,4 +1019,19 @@ async def handle_shadow_stats(client: Client, message: Message) -> None:
         "</blockquote>"
     )
 
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ SHADOW MONARCH // TELEMETRY DOSSIER ]"),
+            quote(
+                f"• <b>Database Channel ID:</b> <code>{stats.get('channel_id')}</code>\n"
+                f"• <b>Registered Characters:</b> <code>{stats.get('total_characters')}</code>\n"
+                f"• <b>Monarch Hunters Indexed:</b> <code>{stats.get('total_users')}</code>\n"
+                f"• <b>Worldwide Spawns:</b> <code>{stats.get('total_spawns')}</code>\n"
+                f"• <b>Worldwide Extractions:</b> <code>{stats.get('total_claims')}</code>\n"
+                f"• <b>Current Chat Count:</b> <code>{chat_count} / {SHADOW_SPAWN_MESSAGE_THRESHOLD}</code>\n"
+                f"• <b>Active Spawn Nearby:</b> <code>{active}</code>"
+            ),
+        ),
+        fallback=lambda: message.reply_text(text, parse_mode=enums.ParseMode.HTML),
+    )
