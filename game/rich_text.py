@@ -1,14 +1,16 @@
 """
 game/rich_text.py — Telegram Rich Text Formatting Helper (HTML Mode).
 
-Implements Telegram HTML formatting in accordance with telegram_rich_text_formatting.md:
-- HTML escaping for all user-controlled/dynamic inputs
-- Semantic tags: <b>, <i>, <u>, <s>, <code>, <pre>, <blockquote>, <blockquote expandable>, <tg-spoiler>, <tg-emoji>
-- User links (<a href="tg://user?id=...">) and URLs (<a href="...">)
-- System card & lore blockquote builders
-- Truncation guards (safe_caption, safe_message) guaranteeing entity validity and length safety
-- Telegram-specific MarkdownV2 escaping helper
-- Strict Telegram HTML validator (validate_telegram_html)
+telegram-text integration: Bold / Italic / InlineCode / Chain / Quote / PlainText
+are re-exported for composing messages. Render with .to_html() — NEVER rely on
+str(element) or f-string interpolation without .to_html() (that yields MarkdownV2).
+
+GOLDEN RULE: telegram-text does NOT HTML-escape. Every dynamic/user-controlled
+value must pass escape_html() BEFORE being wrapped in an element:
+    Bold(escape_html(hunter.hunter_name)).to_html()
+
+Also provides: safe_caption / safe_message (length-safe truncation that closes
+open tags) and validate_telegram_html (strict Telegram tag validator).
 """
 
 from __future__ import annotations
@@ -27,12 +29,12 @@ except RuntimeError:
 from pyrogram import enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, CopyTextButton
 
+from telegram_text import Bold, Italic, InlineCode, Chain, Quote, PlainText
+
 ALLOWED_TELEGRAM_TAGS = {
     "b", "strong", "i", "em", "u", "ins", "s", "strike", "del",
     "tg-spoiler", "code", "pre", "blockquote", "a", "tg-emoji"
 }
-
-_MD_V2_SPECIAL = re.compile(r'([_*\[\]()~`>#+\-=|{}.!\\])')
 
 
 def escape_html(text: Any) -> str:
@@ -42,107 +44,6 @@ def escape_html(text: Any) -> str:
     if text is None:
         return ""
     return _html_escape(str(text), quote=True)
-
-
-def escape_markdown_v2(text: Any) -> str:
-    """Safely escape special characters for Telegram MarkdownV2 parse mode.
-    In accordance with telegram_rich_text_formatting.md Section 14:
-    Escapes: _ * [ ] ( ) ~ ` > # + - = | { } . ! \\
-    """
-    if text is None:
-        return ""
-    return _MD_V2_SPECIAL.sub(r'\\\1', str(text))
-
-
-def bold(text: Any) -> str:
-    """Format text as <b>bold</b>."""
-    return f"<b>{escape_html(text)}</b>"
-
-
-def italic(text: Any) -> str:
-    """Format text as <i>italic</i>."""
-    return f"<i>{escape_html(text)}</i>"
-
-
-def underline(text: Any) -> str:
-    """Format text as <u>underlined</u>."""
-    return f"<u>{escape_html(text)}</u>"
-
-
-def strike(text: Any) -> str:
-    """Format text as <s>strikethrough</s>."""
-    return f"<s>{escape_html(text)}</s>"
-
-
-def spoiler(text: Any) -> str:
-    """Format text as <tg-spoiler>hidden spoiler</tg-spoiler>."""
-    return f"<tg-spoiler>{escape_html(text)}</tg-spoiler>"
-
-
-def code(text: Any) -> str:
-    """Format text as inline <code>text</code>."""
-    return f"<code>{escape_html(text)}</code>"
-
-
-def pre(text: Any, language: str = "") -> str:
-    """Format text as a preformatted <pre> code block with optional language."""
-    escaped = escape_html(text)
-    if language:
-        return f'<pre><code class="language-{escape_html(language)}">\n{escaped}\n</code></pre>'
-    return f"<pre>\n{escaped}\n</pre>"
-
-
-def link(text: Any, url: str) -> str:
-    """Format clickable URL: <a href="url">text</a>."""
-    return f'<a href="{escape_html(url)}">{escape_html(text)}</a>'
-
-
-def mention(user_id: int, name: Any) -> str:
-    """Format Telegram user profile mention: <a href="tg://user?id=123">Name</a>."""
-    return f'<a href="tg://user?id={user_id}">{escape_html(name)}</a>'
-
-
-def user_link(user_id: int, name: Any) -> str:
-    """Alias for mention(). Format Telegram user link: <a href="tg://user?id=123">Name</a>."""
-    return mention(user_id, name)
-
-
-def blockquote(text: str, expandable: bool = False) -> str:
-    """
-    Format text as a Telegram blockquote.
-    Note: text inside can already contain HTML tags, so it is not double-escaped.
-    """
-    tag = "<blockquote expandable>" if expandable else "<blockquote>"
-    return f"{tag}\n{text.strip()}\n</blockquote>"
-
-
-def expandable_blockquote(text: str) -> str:
-    """Format text as an expandable Telegram blockquote."""
-    return blockquote(text, expandable=True)
-
-
-def custom_emoji(emoji_id: str | int, fallback: str = "⚡") -> str:
-    """Format Telegram custom emoji with a fallback unicode emoji.
-    Example: <tg-emoji emoji-id="5368324170671202286">👍</tg-emoji>
-    """
-    return f'<tg-emoji emoji-id="{escape_html(emoji_id)}">{escape_html(fallback)}</tg-emoji>'
-
-
-def system_lore(quote_text: str) -> str:
-    """Format dramatic System lore quote inside an authentic blockquote."""
-    clean = quote_text.strip()
-    if not clean.startswith("「"):
-        clean = f"「 {clean} 」"
-    return blockquote(f"<i>{escape_html(clean)}</i>")
-
-
-def system_header(title: str, subtitle: Optional[str] = None) -> str:
-    """Generate an authentic anime System popup header."""
-    esc_title = escape_html(title.upper())
-    res = f"<b>[ SYSTEM NOTIFICATION // {esc_title} ]</b>"
-    if subtitle:
-        res += f"\n<i>{escape_html(subtitle)}</i>"
-    return res
 
 
 def safe_caption(text: str, max_len: int = 1024) -> str:
@@ -369,4 +270,3 @@ def build_keyboard_grid(
     cols = max(1, columns)
     rows = [buttons[i : i + cols] for i in range(0, len(buttons), cols)]
     return InlineKeyboardMarkup(rows)
-
