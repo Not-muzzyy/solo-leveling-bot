@@ -20,12 +20,14 @@ from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
+    InputRichMessage,
     Message,
 )
 
 from config import OWNER_ID, SUPERADMIN_IDS
 from game.captions import build_help_caption
 from game.help_image import generate_help_image
+from game.rich_text import escape_html
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +222,43 @@ TOPIC_TEXTS = {
     ),
 }
 
+# ── RICH MESSAGE CONTENTS (Bot API 10.1+ send_rich_message) ──────────────────
+# Static HTML for the new Rich Message format: real headings, tables, dividers,
+# blockquotes. Fallback to TOPIC_TEXTS (plain HTML) lives at each send site.
+TOPIC_RICH = {
+    "tiers": (
+        "<h1>[ SYSTEM DIRECTIVE // ASCENSION &amp; TIERS ]</h1>"
+        "<hr/>"
+        "<h2>⭐ Hunter Rank Progression</h2>"
+        "<table>"
+        "<tr><th>Rank</th><th>Requirement</th></tr>"
+        "<tr><td><b>E-Rank</b></td><td>Level 1+ — The Awakened Novice</td></tr>"
+        "<tr><td><b>D-Rank</b></td><td>Level 10+ — Novice Raider</td></tr>"
+        "<tr><td><b>C-Rank</b></td><td>Level 20+ — Gate Veteran</td></tr>"
+        "<tr><td><b>B-Rank</b></td><td>Level 35+ — Elite Striker</td></tr>"
+        "<tr><td><b>A-Rank</b></td><td>Level 50+ — Raid Master</td></tr>"
+        "<tr><td><b>S-Rank</b></td><td>Level 70+ — National Asset</td></tr>"
+        "<tr><td><b>SS-Rank</b></td><td>Level 85+ — Transcendent Hunter</td></tr>"
+        "<tr><td><b>SSS-Rank</b></td><td>Level 95+ — Apex Sovereign</td></tr>"
+        "<tr><td><b>National Level</b></td><td>Level 100+ — Living Calamity</td></tr>"
+        "<tr><td><b>Monarch</b></td><td>Level 120+ — Shadow Monarch Sovereign</td></tr>"
+        "</table>"
+        "<h2>💎 Item Rarity Spectrum &amp; Drop Probabilities</h2>"
+        "<table>"
+        "<tr><th>Rarity</th><th>Drop Rate</th><th>Loot Profile</th></tr>"
+        "<tr><td>⚪ <b>Common</b></td><td>50.0%</td><td>Basic dungeon gear &amp; smelting iron</td></tr>"
+        "<tr><td>🟢 <b>Uncommon</b></td><td>25.0%</td><td>Hardened steel &amp; tempered bows</td></tr>"
+        "<tr><td>🔵 <b>Rare</b></td><td>15.0%</td><td>Boss drops &amp; enchanted accessories</td></tr>"
+        "<tr><td>🟣 <b>Epic</b></td><td>7.0%</td><td>High-mana crystalline artifacts</td></tr>"
+        "<tr><td>🟡 <b>Legendary</b></td><td>2.5%</td><td>Sovereign-forged ancient relics</td></tr>"
+        "<tr><td>🔴 <b>Mythic</b></td><td>0.5%</td><td>Divine dimensional armaments</td></tr>"
+        "</table>"
+        "<hr/>"
+        "<blockquote>「 The System acknowledges those who strive to grow stronger. 」</blockquote>"
+        "<footer>Solo Leveling Hunter System // Archives V2.5</footer>"
+    ),
+}
+
 
 def _help_pm_keyboard() -> InlineKeyboardMarkup:
     """Master action buttons for help screen in private chat."""
@@ -361,6 +400,17 @@ async def handle(client: Client, message: Message) -> None:
             topic_key = "admin"
 
         if topic_key and topic_key in TOPIC_TEXTS:
+            rich = TOPIC_RICH.get(topic_key)
+            if rich:
+                try:
+                    await client.send_rich_message(
+                        chat_id=chat.id,
+                        rich_message=InputRichMessage(html=rich),
+                        reply_markup=_topic_keyboard(topic_key),
+                    )
+                    return
+                except Exception as e:
+                    logger.warning(f"send_rich_message failed for topic {topic_key}: {e}; falling back to plain text.")
             await message.reply_text(TOPIC_TEXTS[topic_key], reply_markup=_topic_keyboard(topic_key), parse_mode=enums.ParseMode.HTML)
             return
 
@@ -416,8 +466,21 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         if query.message and query.message.photo:
             # Send as clean text reply to preserve formatting
             await query.message.reply_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
-        elif query.message:
+            return
+        if not query.message:
+            return
+        rich = TOPIC_RICH.get(topic)
+        if rich:
+            try:
+                await query.edit_message_text(rich_message=InputRichMessage(html=rich), reply_markup=keyboard)
+                return
+            except Exception as e:
+                logger.warning(f"rich edit failed for topic {topic}: {e}; falling back to plain text.")
+        try:
             await query.edit_message_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+        except Exception as e:
+            logger.warning(f"plain edit failed for topic {topic}: {e}; sending fresh reply.")
+            await query.message.reply_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
         return
 
     await query.answer()
