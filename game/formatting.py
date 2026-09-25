@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from config import RARITY_EMOJI, RANK_EMOJI
 from models import Hunter, Item, HuntResult, Inventory
-from game.rich_text import escape_html, safe_message
+from game.rich_text import escape_html, safe_message, Bold, Italic, InlineCode, Chain, Quote, PlainText
 
 
 def _stat_bar(value: int, max_val: int = 50) -> str:
@@ -98,25 +98,25 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
     def _equip_html(icon: str, item: Item | None) -> str:
         if item:
             r_icon = RARITY_EMOJI.get(item.rarity, "")
-            return f"• {icon} <b>{escape_html(item.name)}</b> {r_icon} (<code>{escape_html(item.stat_summary())}</code>)"
+            return f"• {icon} {Bold(escape_html(item.name)).to_html()} {r_icon} ({InlineCode(escape_html(item.stat_summary())).to_html()})"
         return f"• {icon} <i>— empty —</i>"
 
     lines = [
         "<b>[ STATUS WINDOW // 상태창 ]</b>",
         "",
-        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{escape_html(hunter.rank)}</b> {rank_icon}]",
-        f"🏅 <b>Title:</b> <i>{title_esc}</i>",
-        f"📊 <b>Level:</b> <code>{hunter.level}</code> ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code> (<code>+{total_equip}</code>)",
-        f"✨ <b>XP:</b> <code>{hunter.xp}/{hunter.xp_needed}</code>  {_progress_bar(hunter.xp, hunter.xp_needed)}",
+        f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} {rank_icon}]",
+        f"🏅 <b>Title:</b> {Italic(title_esc).to_html()}",
+        f"📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()} ┊ 💪 <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ({InlineCode(escape_html(f'+{total_equip}')).to_html()})",
+        f"✨ <b>XP:</b> {InlineCode(escape_html(f'{hunter.xp}/{hunter.xp_needed}')).to_html()}  {_progress_bar(hunter.xp, hunter.xp_needed)}",
         f"❤️ <b>Vitality:</b> {_hp_bar(hunter.hp, hunter.max_hp)}",
         "",
         "<blockquote expandable>",
         "<b>📈 Core Attributes:</b>",
-        f"• STR: <code>{hunter.str_stat:>3}</code>  {_stat_bar(hunter.str_stat)}",
-        f"• AGI: <code>{hunter.agi:>3}</code>  {_stat_bar(hunter.agi)}",
-        f"• VIT: <code>{hunter.vit:>3}</code>  {_stat_bar(hunter.vit)}",
-        f"• INT: <code>{hunter.int_stat:>3}</code>  {_stat_bar(hunter.int_stat)}",
-        f"• PER: <code>{hunter.per:>3}</code>  {_stat_bar(hunter.per)}",
+        f"• STR: {InlineCode(escape_html(f'{hunter.str_stat:>3}')).to_html()}  {_stat_bar(hunter.str_stat)}",
+        f"• AGI: {InlineCode(escape_html(f'{hunter.agi:>3}')).to_html()}  {_stat_bar(hunter.agi)}",
+        f"• VIT: {InlineCode(escape_html(f'{hunter.vit:>3}')).to_html()}  {_stat_bar(hunter.vit)}",
+        f"• INT: {InlineCode(escape_html(f'{hunter.int_stat:>3}')).to_html()}  {_stat_bar(hunter.int_stat)}",
+        f"• PER: {InlineCode(escape_html(f'{hunter.per:>3}')).to_html()}  {_stat_bar(hunter.per)}",
         "",
         "<b>⚔️ Equipped Loadout:</b>",
         _equip_html("🗡️", weapon),
@@ -126,13 +126,13 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         "",
         "<blockquote expandable>",
         "<b>📋 Association Records:</b>",
-        f"• 💰 Gold: <code>{hunter.gold:,} G</code>",
-        f"• 🎒 Stored Items: <code>{total_items}</code>",
-        f"• 🗡️ Hunts: <code>{hunter.total_hunts}</code> (Win Rate: <code>{win_rate}</code>)",
-        f"• ⚔️ Duels: <code>{hunter.duel_wins}W - {hunter.duel_losses}L</code>",
+        f"• 💰 Gold: {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}",
+        f"• 🎒 Stored Items: {InlineCode(escape_html(str(total_items))).to_html()}",
+        f"• 🗡️ Hunts: {InlineCode(escape_html(str(hunter.total_hunts))).to_html()} (Win Rate: {InlineCode(escape_html(win_rate)).to_html()})",
+        f"• ⚔️ Duels: {InlineCode(escape_html(f'{hunter.duel_wins}W - {hunter.duel_losses}L')).to_html()}",
         "</blockquote>",
         "",
-        "<blockquote><i>「 The System sees all, Hunter. 」</i></blockquote>",
+        Quote(Italic("「 The System sees all, Hunter. 」")).to_html(),
     ]
 
     return safe_message("\n".join(lines))
@@ -146,20 +146,21 @@ def format_welcome(hunter: Hunter) -> str:
         "<b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
         "<i>A new Hunter has been detected and registered by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
-        f"⭐ <b>Rank:</b> <code>{r_name}-Rank</code>\n"
-        f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
+        f"⭐ <b>Rank:</b> {InlineCode(f'{r_name}-Rank').to_html()}\n"
+        f"💪 <b>Combat Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()}\n\n"
         "<blockquote expandable>\n"
         "<b>📈 Awakened Core Attributes:</b>\n"
-        f"• STR: <code>{hunter.str_stat}</code> ┊ AGI: <code>{hunter.agi}</code>\n"
-        f"• VIT: <code>{hunter.vit}</code> ┊ INT: <code>{hunter.int_stat}</code> ┊ PER: <code>{hunter.per}</code>\n"
+        f"• STR: {InlineCode(escape_html(str(hunter.str_stat))).to_html()} ┊ AGI: {InlineCode(escape_html(str(hunter.agi))).to_html()}\n"
+        f"• VIT: {InlineCode(escape_html(str(hunter.vit))).to_html()} ┊ INT: {InlineCode(escape_html(str(hunter.int_stat))).to_html()} ┊ PER: {InlineCode(escape_html(str(hunter.per))).to_html()}\n"
         "• Starter Weapon: 🗡️ <b>Rusty Short Sword</b> ⚪\n"
-        f"• Initial Treasury: 💰 <code>{hunter.gold:,} G</code>\n"
+        f"• Initial Treasury: 💰 {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}\n"
         "</blockquote>\n\n"
-        "<blockquote>\n"
-        "<i>「 The System has acknowledged your awakening. 」</i>\n\n"
-        "Your journey begins now, Hunter.\n"
-        "Use <code>/hunt</code> to exterminate your first dungeon beast.\n"
-        "</blockquote>"
+        + Quote(Chain(
+            PlainText("\n"),
+            Italic("「 The System has acknowledged your awakening. 」"),
+            PlainText("\n\nYour journey begins now, Hunter.\nUse <code>/hunt</code> to exterminate your first dungeon beast.\n"),
+            sep="",
+        )).to_html()
     )
 
 
@@ -174,16 +175,16 @@ def format_hunt_victory(result: HuntResult) -> str:
     lines = [
         "<b>[ GATE RAID // 던전 클리어 ]</b>",
         "",
-        f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
+        f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}",
         f"⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>",
         "",
         "<blockquote expandable>",
-        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt:,}</code>{crit_text}",
-        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken:,}</code>",
+        f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}{crit_text}",
+        f"💔 <b>Damage Taken:</b> {InlineCode(escape_html(f'{result.damage_taken:,}')).to_html()}",
         "",
         "<b>✨ EXPEDITION REWARDS:</b>",
-        f"• EXP Gained: ✨ <code>+{result.xp_gained:,} XP</code>",
-        f"• Gold Acquired: 💰 <code>+{result.gold_gained:,} G</code>",
+        f"• EXP Gained: ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}",
+        f"• Gold Acquired: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} G')).to_html()}",
     ]
 
     if result.item_drop:
@@ -191,20 +192,20 @@ def format_hunt_victory(result: HuntResult) -> str:
         stats = escape_html(result.item_drop.stat_summary())
         drop_name = escape_html(result.item_drop.name)
         drop_rarity = escape_html(result.item_drop.rarity)
-        lines.append(f"• 🎁 <b>Loot Drop:</b> [{drop_rarity}] <b>{drop_name}</b> {rarity_icon} (<i>{stats}</i>)")
+        lines.append(f"• 🎁 <b>Loot Drop:</b> [{drop_rarity}] {Bold(drop_name).to_html()} {rarity_icon} ({Italic(stats).to_html()})")
 
     if result.leveled_up:
-        lines.append(f"• ⚡ <b>LEVEL UP!</b> → <b>Level {result.new_level}</b>")
+        lines.append(f"• ⚡ <b>LEVEL UP!</b> → {Bold(escape_html(f'Level {result.new_level}')).to_html()}")
 
     if result.ranked_up:
         new_rank_icon = RANK_EMOJI.get(result.new_rank, "")
-        lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → <b>{escape_html(result.new_rank)}</b> {new_rank_icon}")
+        lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → {Bold(escape_html(result.new_rank)).to_html()} {new_rank_icon}")
 
     lines.append("</blockquote>")
 
     if result.special_event:
         lines.append("")
-        lines.append(f"<blockquote>{escape_html(result.special_event)}</blockquote>")
+        lines.append(Quote(PlainText(escape_html(result.special_event))).to_html())
 
     return safe_message("\n".join(lines))
 
@@ -218,23 +219,23 @@ def format_hunt_defeat(result: HuntResult) -> str:
     lines = [
         "<b>[ GATE CASUALTY // 공략 실패 ]</b>",
         "",
-        f"🎯 <b>Target:</b> <b>{m_name}</b> (Lv.{monster.level}) {rank_icon}",
+        f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}",
         f"⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>",
         "",
         "<blockquote expandable>",
-        f"💥 <b>Damage Dealt:</b> <code>{result.damage_dealt:,}</code>",
-        f"💔 <b>Damage Taken:</b> <code>{result.damage_taken:,}</code>",
+        f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}",
+        f"💔 <b>Damage Taken:</b> {InlineCode(escape_html(f'{result.damage_taken:,}')).to_html()}",
         "",
         "<b>💸 PENALTIES:</b>",
-        f"• Gold Lost: <code>-{result.gold_lost:,} G</code>",
-        f"• Consolation EXP: <code>+{result.xp_gained:,} XP</code>",
+        f"• Gold Lost: {InlineCode(escape_html(f'-{result.gold_lost:,} G')).to_html()}",
+        f"• Consolation EXP: {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}",
         "</blockquote>",
         "",
-        "<blockquote><i>Recover your vitality with <code>/use</code> or <code>/heal</code> and try again, Hunter.</i></blockquote>",
+        Quote(Italic("Recover your vitality with <code>/use</code> or <code>/heal</code> and try again, Hunter.")).to_html(),
     ]
 
     if result.special_event:
-        lines.insert(-1, f"<blockquote>{escape_html(result.special_event)}</blockquote>")
+        lines.insert(-1, Quote(PlainText(escape_html(result.special_event))).to_html())
 
     return safe_message("\n".join(lines))
 
@@ -273,31 +274,31 @@ def format_inventory(
     total_items = len(inventory.items)
 
     lines = [
-        f"<b>[ SHADOW STORAGE // {name.upper()} ]</b>",
+        f"{Bold(f'[ SHADOW STORAGE // {name.upper()} ]').to_html()}",
         "",
     ]
 
     if hunter:
         lines.extend([
-            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 🏅 Rank <b>{escape_html(hunter.rank)}</b>",
-            f"💰 <b>Gold:</b> <code>{hunter.gold:,} G</code> ┊ 📦 <b>Capacity:</b> <code>{total_items} items</code>",
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 🏅 Rank {Bold(escape_html(hunter.rank)).to_html()}",
+            f"💰 <b>Gold:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()} ┊ 📦 <b>Capacity:</b> {InlineCode(escape_html(f'{total_items} items')).to_html()}",
             "",
         ])
     else:
         lines.extend([
-            f"📦 <b>Stored Items:</b> <code>{total_items}</code>",
+            f"📦 <b>Stored Items:</b> {InlineCode(escape_html(str(total_items))).to_html()}",
             "",
         ])
 
     if notice:
         lines.extend([
-            f"<blockquote><b>⚡ System Notice:</b> <i>{escape_html(notice)}</i></blockquote>",
+            Quote(Chain(Bold("⚡ System Notice:"), Italic(escape_html(notice)), sep=" ")).to_html(),
             "",
         ])
 
     lines.extend([
         "<blockquote expandable>",
-        f"<b>{icon} CATEGORY: {name.upper()} ({len(items)})</b>",
+        f"{Bold(escape_html(f'{icon} CATEGORY: {name.upper()} ({len(items)})')).to_html()}",
         "",
     ])
 
@@ -317,9 +318,9 @@ def format_inventory(
             it_name = escape_html(item.name)
             it_rarity = escape_html(item.rarity)
 
-            lines.append(f"{i}. {rarity_icon} <b>{it_name}</b> [<b>{it_rarity}</b>]")
-            lines.append(f"   ├ Status: <code>{status_tag}</code>")
-            lines.append(f"   └ Stats:  <code>{stats}</code>")
+            lines.append(f"{i}. {rarity_icon} {Bold(it_name).to_html()} [{Bold(it_rarity).to_html()}]")
+            lines.append(f"   ├ Status: {InlineCode(escape_html(status_tag)).to_html()}")
+            lines.append(f"   └ Stats:  {InlineCode(stats).to_html()}")
 
         lines.extend([
             "</blockquote>",
@@ -357,19 +358,19 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
             if diff != 0:
                 arrow = "⬆️" if diff > 0 else "⬇️"
                 sign = "+" if diff > 0 else ""
-                stat_diffs.append(f"• <b>{stat_name}:</b> {old_val} → {new_val} (<code>{sign}{diff}</code>) {arrow}")
+                stat_diffs.append(f"• {Bold(escape_html(f'{stat_name}:')).to_html()} {old_val} → {new_val} ({InlineCode(escape_html(f'{sign}{diff}')).to_html()}) {arrow}")
 
         if not stat_diffs:
             stat_diffs.append("• <i>No stat alterations.</i>")
     else:
         if item.atk_bonus:
-            stat_diffs.append(f"• <b>ATK:</b> 0 → {item.atk_bonus} (<code>+{item.atk_bonus}</code>) ⬆️")
+            stat_diffs.append(f"• <b>ATK:</b> 0 → {item.atk_bonus} ({InlineCode(escape_html(f'+{item.atk_bonus}')).to_html()}) ⬆️")
         if item.def_bonus:
-            stat_diffs.append(f"• <b>DEF:</b> 0 → {item.def_bonus} (<code>+{item.def_bonus}</code>) ⬆️")
+            stat_diffs.append(f"• <b>DEF:</b> 0 → {item.def_bonus} ({InlineCode(escape_html(f'+{item.def_bonus}')).to_html()}) ⬆️")
         if item.hp_bonus:
-            stat_diffs.append(f"• <b>HP:</b> 0 → {item.hp_bonus} (<code>+{item.hp_bonus}</code>) ⬆️")
+            stat_diffs.append(f"• <b>HP:</b> 0 → {item.hp_bonus} ({InlineCode(escape_html(f'+{item.hp_bonus}')).to_html()}) ⬆️")
         if item.spd_bonus:
-            stat_diffs.append(f"• <b>SPD:</b> 0 → {item.spd_bonus} (<code>+{item.spd_bonus}</code>) ⬆️")
+            stat_diffs.append(f"• <b>SPD:</b> 0 → {item.spd_bonus} ({InlineCode(escape_html(f'+{item.spd_bonus}')).to_html()}) ⬆️")
         if not stat_diffs:
             stat_diffs.append("• <i>Standard piece with no bonus attributes.</i>")
 
@@ -377,8 +378,8 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
 
     return safe_message(
         "<b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
-        f"⚡ <b>Equipped:</b> <code>[{escape_html(item.rarity)}]</code> <b>{i_name}</b> {rarity_icon}\n"
-        f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n\n"
+        f"⚡ <b>Equipped:</b> {InlineCode(f'[{escape_html(item.rarity)}]').to_html()} {Bold(i_name).to_html()} {rarity_icon}\n"
+        f"💪 <b>Combat Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()}\n\n"
         "<blockquote expandable>"
         "<b>Attribute Alterations:</b>\n"
         f"{diff_body}\n"
@@ -395,7 +396,7 @@ def format_cooldown(remaining_seconds: int) -> str:
         "<b>[ RECOVERY IN PROGRESS // 피로도 회복 중 ]</b>\n\n"
         "<i>You are still catching your breath from your previous hunt.</i>\n\n"
         "<blockquote expandable>"
-        f"⏱️ <b>Ready In:</b> <code>{minutes}m {seconds:02d}s</code>\n"
+        f"⏱️ <b>Ready In:</b> {InlineCode(escape_html(f'{minutes}m {seconds:02d}s')).to_html()}\n"
         "• Mana fatigue is dissipating. Please stand by before entering another gate.\n"
         "</blockquote>"
     )
@@ -408,8 +409,8 @@ def format_already_registered(hunter: Hunter) -> str:
     return safe_message(
         "<b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
-        f"⭐ <b>Rank:</b> <b>{r_name}-Rank</b> ┊ 📊 <b>Level:</b> <code>{hunter.level}</code>\n"
-        f"⚡ <b>Power:</b> <code>{hunter.power:,}</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
+        f"⭐ <b>Rank:</b> {Bold(f'{r_name}-Rank').to_html()} ┊ 📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}\n"
+        f"⚡ <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ┊ 💰 <b>Gold:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}\n\n"
         "<blockquote expandable>"
         "<b>Available Directives:</b>\n"
         "• <code>/profile</code> — Status matrix & attributes\n"
