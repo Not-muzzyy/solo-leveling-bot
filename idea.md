@@ -68,7 +68,7 @@ Possible results:
 
 Hunts should become progressively harder as the player levels up.
 
-✅ **Implemented** — 16:9 Combat Banner (800×450 px) with Victory/Defeat layouts, monster card, damage stats, loot drops, and 15-minute cooldown.
+✅ **Implemented** — 16:9 Combat Banner (800×450 px) with Victory/Defeat layouts, monster card, damage stats, loot drops, and 60-second cooldown (20 hunts/day cap).
 
 ---
 

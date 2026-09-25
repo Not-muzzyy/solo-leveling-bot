@@ -47,7 +47,7 @@ solo-leveling-bot/
 └── handlers/
     ├── start.py             # /start & deep-link router (inventory, shop, help)
     ├── profile.py           # /profile — photo status card
-    ├── hunt.py              # /hunt — visual combat resolution card (15m cooldown)
+    ├── hunt.py              # /hunt — visual combat resolution card (60s cooldown, 20/day cap)
     ├── inventory.py         # /inventory — image storage, 1-tap equip & shop (PM protection)
     ├── shop.py              # /shop — visual exchange depot image cards (PM protection)
     ├── leaderboard.py       # /leaderboard — visual Hall of Fame with interactive category tabs

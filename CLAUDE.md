@@ -43,7 +43,7 @@ solo-leveling-bot/
     ├── __init__.py
     ├── start.py             # /start — create new hunter + starter weapon (deep-links: inventory, shop, help)
     ├── profile.py           # /profile — image-based status card via reply_photo (with text fallback)
-    ├── hunt.py              # /hunt — visual combat card (Victory/Defeat) via reply_photo (15min cooldown)
+    ├── hunt.py              # /hunt — visual combat card (Victory/Defeat) via reply_photo (60s cooldown, 20/day cap)
     ├── inventory.py         # /inventory — browse items in PM, dynamic tabs, 1-tap gear equip, shop
     ├── shop.py              # /shop — visual Hunter Shop cards, 5 departments, in-place purchases
     ├── leaderboard.py       # /leaderboard — visual System Hall of Fame with interactive category tabs
@@ -92,7 +92,7 @@ Callbacks are registered in `main.py` and routed to handler functions.
 
 ### Cooldown System
 
-- `/hunt`: 15-minute cooldown — tracked in-memory via `dict[user_id, float]` in `handlers/hunt.py`
+- `/hunt`: 60-second cooldown + 20 hunts/day — persisted on Hunter (`last_hunt_time`, `daily_hunts`) with an in-memory fallback cache in `handlers/hunt.py`
 - `/claim`: 24-hour cooldown — tracked in-memory via `dict[user_id, float]` in `handlers/claim.py`
 - Cooldowns reset on bot restart (in-memory only, not persisted)
 

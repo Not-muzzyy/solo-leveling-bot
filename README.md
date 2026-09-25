@@ -113,7 +113,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | :--- | :---: | :--- |
 | `/start` | PM & Groups | Awaken as a new Hunter & claim starter weapon |
 | `/profile` | PM & Groups | View your high-resolution visual RPG Status Window |
-| `/hunt` | PM & Groups | Slay gate monsters & earn loot via visual Combat Cards (15m cooldown) |
+| `/hunt` | PM & Groups | Slay gate monsters & earn loot via visual Combat Cards (60s cooldown, 20/day cap) |
 | `/inventory` | PM & Groups | Open visual Dimensional Storage with 1-tap equip & shop (redirects to PM in groups) |
 | `/shop` | PM & Groups | Open visual Hunter Shop & Exchange Depot (redirects to PM in groups) |
 | `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |

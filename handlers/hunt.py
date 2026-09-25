@@ -1,7 +1,7 @@
 """
 handlers/hunt.py — /hunt command handler.
 
-Main progression command with 15-minute cooldown.
+Main progression command with a 60-second cooldown and 20 daily hunts.
 """
 
 from __future__ import annotations
