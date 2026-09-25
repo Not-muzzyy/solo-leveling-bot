@@ -292,7 +292,7 @@ class ShadowsDB:
         if char:
             char.times_spawned += 1
         self._total_spawns += 1
-        asyncio.create_task(self._flush_catalog())
+        await self._flush_catalog()
 
     async def record_claim(self, char_id: int) -> None:
         """Increment claim telemetry for a character."""
@@ -300,7 +300,7 @@ class ShadowsDB:
         if char:
             char.times_claimed += 1
         self._total_claims += 1
-        asyncio.create_task(self._flush_catalog())
+        await self._flush_catalog()
 
     # ── User Shadow Army Operations ───────────────────────────
 
@@ -408,8 +408,8 @@ class ShadowsDB:
                 is_first = True
                 res = new_shadow
 
-            # Asynchronously flush to channel in background
-            asyncio.create_task(self._flush_user_shadows(user_id))
+            # Flush to channel so the army write lands before the claim returns
+            await self._flush_user_shadows(user_id)
             return res, is_first
 
     def get_stats(self) -> dict:

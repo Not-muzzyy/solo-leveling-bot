@@ -50,3 +50,31 @@ def test_claim_cooldown_check():
     assert (_check_cooldown(h, 1) or 0) > 86000
     h.last_claim_time = time.time() - 86401
     assert _check_cooldown(h, 1) is None
+
+
+class _FakeBot:
+    def __init__(self):
+        self.edits = []
+
+    async def edit_message_text(self, chat_id=None, message_id=None, text=None, **kwargs):
+        await asyncio.sleep(0)  # yield like a real Telegram round-trip
+        self.edits.append((message_id, text))
+
+    async def send_message(self, chat_id=None, text=None, **kwargs):
+        await asyncio.sleep(0)
+        self.edits.append((None, text))
+
+
+def test_record_claim_flush_is_awaited():
+    from shadows_db import ShadowsDB
+    from models import ShadowCharacter
+
+    bot = _FakeBot()
+    db = ShadowsDB(bot, channel_id=1)
+    db._catalog_msg_id = 7
+    db._characters[1] = ShadowCharacter(id=1, name="Test", rarity="Common", photo_file_id="f")
+
+    asyncio.run(db.record_claim(1))
+
+    assert db._characters[1].times_claimed == 1
+    assert len(bot.edits) == 1, "flush must complete before record_claim returns"
