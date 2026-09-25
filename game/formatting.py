@@ -432,3 +432,153 @@ def format_not_registered() -> str:
         "👉 <code>/start</code>\n"
         "</blockquote>"
     )
+
+
+# ── Rich Message twins (Bot API 10.1+). Classic versions above stay untouched
+# and are the verbatim fallback at every send site. ──────────────────────────
+
+
+def format_not_registered_rich() -> "RichDoc":
+    """Rich twin of format_not_registered (same copy, block structure)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    return RichDoc(
+        heading(1, "[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
+        paragraph("<i>The System detects no awakened mana signature for your identity.</i>"),
+        quote(
+            "<b>Status:</b> ❌ <b>Unawakened Citizen</b><br>"
+            "• To awaken as a Hunter and receive your starter gear, tap or type:<br>"
+            "👉 <code>/start</code>",
+            expandable=False,
+        ),
+    )
+
+
+def format_cooldown_rich(remaining_seconds: int) -> "RichDoc":
+    """Rich twin of format_cooldown (hunt recovery, fixed interface for Tasks 6-9)."""
+    from game.rich_message import RichDoc, code, heading, paragraph, quote
+    minutes = remaining_seconds // 60
+    seconds = remaining_seconds % 60
+    return RichDoc(
+        heading(1, "[ RECOVERY IN PROGRESS // 피로도 회복 중 ]"),
+        paragraph("<i>You are still catching your breath from your previous hunt.</i>"),
+        quote(
+            f"⏱️ <b>Ready In:</b> {code(escape_html(f'{minutes}m {seconds:02d}s'))}<br>"
+            "• Mana fatigue is dissipating. Please stand by before entering another gate.",
+            expandable=True,
+        ),
+    )
+
+
+def format_profile_rich(hunter: Hunter, inventory: Inventory) -> "RichDoc":
+    """Rich twin of format_profile (text fallback of /profile photo)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+
+    weapon = inventory.get_equipped("weapon")
+    armor = inventory.get_equipped("armor")
+    accessory = inventory.get_equipped("accessory")
+
+    equip_atk = sum(i.atk_bonus for i in [weapon, armor, accessory] if i)
+    equip_def = sum(i.def_bonus for i in [weapon, armor, accessory] if i)
+    equip_hp = sum(i.hp_bonus for i in [weapon, armor, accessory] if i)
+    equip_spd = sum(i.spd_bonus for i in [weapon, armor, accessory] if i)
+    total_equip = equip_atk + equip_def + equip_hp + equip_spd
+
+    win_rate = "—"
+    if hunter.total_hunts > 0:
+        wr = (hunter.victories / hunter.total_hunts) * 100
+        win_rate = f"{wr:.0f}%"
+
+    total_items = len(inventory.items)
+    h_name = escape_html(hunter.hunter_name)
+    title_esc = escape_html(hunter.title)
+    rank_icon = RANK_EMOJI.get(hunter.rank, "❓")
+
+    def _equip_html(icon: str, item: Item | None) -> str:
+        if item:
+            r_icon = RARITY_EMOJI.get(item.rarity, "")
+            return f"• {icon} {Bold(escape_html(item.name)).to_html()} {r_icon} ({InlineCode(escape_html(item.stat_summary())).to_html()})"
+        return f"• {icon} <i>— empty —</i>"
+
+    return RichDoc(
+        heading(1, "[ STATUS WINDOW // 상태창 ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} {rank_icon}]<br>"
+            f"🏅 <b>Title:</b> {Italic(title_esc).to_html()}<br>"
+            f"📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()} ┊ 💪 <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ({InlineCode(escape_html(f'+{total_equip}')).to_html()})<br>"
+            f"✨ <b>XP:</b> {InlineCode(escape_html(f'{hunter.xp}/{hunter.xp_needed}')).to_html()}  {_progress_bar(hunter.xp, hunter.xp_needed)}<br>"
+            f"❤️ <b>Vitality:</b> {_hp_bar(hunter.hp, hunter.max_hp)}"
+        ),
+        quote(
+            "<b>📈 Core Attributes:</b><br>"
+            f"• STR: {InlineCode(escape_html(f'{hunter.str_stat:>3}')).to_html()}  {_stat_bar(hunter.str_stat)}<br>"
+            f"• AGI: {InlineCode(escape_html(f'{hunter.agi:>3}')).to_html()}  {_stat_bar(hunter.agi)}<br>"
+            f"• VIT: {InlineCode(escape_html(f'{hunter.vit:>3}')).to_html()}  {_stat_bar(hunter.vit)}<br>"
+            f"• INT: {InlineCode(escape_html(f'{hunter.int_stat:>3}')).to_html()}  {_stat_bar(hunter.int_stat)}<br>"
+            f"• PER: {InlineCode(escape_html(f'{hunter.per:>3}')).to_html()}  {_stat_bar(hunter.per)}<br><br>"
+            "<b>⚔️ Equipped Loadout:</b><br>"
+            f"{_equip_html('🗡️', weapon)}<br>{_equip_html('🛡️', armor)}<br>{_equip_html('💍', accessory)}",
+            expandable=True,
+        ),
+        quote(
+            "<b>📋 Association Records:</b><br>"
+            f"• 💰 Gold: {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}<br>"
+            f"• 🎒 Stored Items: {InlineCode(escape_html(str(total_items))).to_html()}<br>"
+            f"• 🗡️ Hunts: {InlineCode(escape_html(str(hunter.total_hunts))).to_html()} (Win Rate: {InlineCode(escape_html(win_rate)).to_html()})<br>"
+            f"• ⚔️ Duels: {InlineCode(escape_html(f'{hunter.duel_wins}W - {hunter.duel_losses}L')).to_html()}",
+            expandable=True,
+        ),
+        quote("<i>「 The System sees all, Hunter. 」</i>", expandable=False),
+    )
+
+
+def format_welcome_rich(hunter: Hunter) -> "RichDoc":
+    """Rich twin of format_welcome (new hunter awakening message)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    h_name = escape_html(hunter.hunter_name)
+    r_name = escape_html(hunter.rank)
+    return RichDoc(
+        heading(1, "[ SYSTEM AWAKENING NOTICE // 각성 확인 ]"),
+        paragraph("<i>A new Hunter has been detected and registered by the System.</i>"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name}<br>"
+            f"⭐ <b>Rank:</b> {InlineCode(f'{r_name}-Rank').to_html()}<br>"
+            f"💪 <b>Combat Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()}"
+        ),
+        quote(
+            "<b>📈 Awakened Core Attributes:</b><br>"
+            f"• STR: {InlineCode(escape_html(str(hunter.str_stat))).to_html()} ┊ AGI: {InlineCode(escape_html(str(hunter.agi))).to_html()}<br>"
+            f"• VIT: {InlineCode(escape_html(str(hunter.vit))).to_html()} ┊ INT: {InlineCode(escape_html(str(hunter.int_stat))).to_html()} ┊ PER: {InlineCode(escape_html(str(hunter.per))).to_html()}<br>"
+            "• Starter Weapon: 🗡️ <b>Rusty Short Sword</b> ⚪<br>"
+            f"• Initial Treasury: 💰 {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}",
+            expandable=True,
+        ),
+        quote(
+            "<i>「 The System has acknowledged your awakening. 」</i><br><br>"
+            "Your journey begins now, Hunter.<br>"
+            "Use <code>/hunt</code> to exterminate your first dungeon beast.",
+            expandable=False,
+        ),
+    )
+
+
+def format_already_registered_rich(hunter: Hunter) -> "RichDoc":
+    """Rich twin of format_already_registered (/start for returning hunter)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    h_name = escape_html(hunter.hunter_name)
+    r_name = escape_html(hunter.rank)
+    return RichDoc(
+        heading(1, "[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name}<br>"
+            f"⭐ <b>Rank:</b> {Bold(f'{r_name}-Rank').to_html()} ┊ 📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}<br>"
+            f"⚡ <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ┊ 💰 <b>Gold:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
+        ),
+        quote(
+            "<b>Available Directives:</b><br>"
+            "• <code>/profile</code> — Status matrix &amp; attributes<br>"
+            "• <code>/hunt</code> — Enter dungeon gates<br>"
+            "• <code>/inventory</code> — Manage equipped artifacts<br>"
+            "• <code>/help</code> — Operational manual",
+            expandable=True,
+        ),
+    )

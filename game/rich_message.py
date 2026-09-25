@@ -182,7 +182,7 @@ class RawRichDoc(RichDoc):
 
 class _BalanceChecker(HTMLParser):
     _VOID = {"br", "hr", "img", "input", "meta", "link"}
-    _SELF = {"img", "input"}
+    _SELF = _VOID  # void tags: no end tag, never pushed
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=False)
@@ -313,6 +313,8 @@ if __name__ == "__main__":
         RichDoc("<p>oops").validate(); raise SystemExit("unbalanced accepted")
     except RichValidationError:
         pass
+    # void <br>/<hr> never unbalance the document
+    RichDoc(paragraph("a\nb"), quote("x<br>y"), divider()).validate()
     # adversarial dynamic text passes ONLY when pre-escaped (golden rule)
     evil = '<script>&"\'</script>'
     ok = paragraph(escape_html(evil))

@@ -14,8 +14,10 @@ from pyrogram import Client, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from channel_db import ChannelDB
-from game.captions import build_shop_caption
-from game.formatting import format_not_registered
+from game.captions import build_shop_caption, build_shop_rich
+from game.formatting import format_not_registered, format_not_registered_rich
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import photo_media, reply_rich, send_rich
 from game.rich_text import escape_html
 from game.shop_image import render_shop_image
 from handlers.inventory import _shop_category_keyboard
@@ -51,7 +53,19 @@ async def handle(client: Client, message: Message) -> None:
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
             ])
-            await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "⚡ SYSTEM NOTIFICATION — HUNTER SHOP"),
+                    quote(
+                        f"👤 <b>{u_name}</b>, you are not an awakened Hunter yet!<br><br>"
+                        "Awaken first in Bot PM to gain access to the Hunter Shop.",
+                        expandable=False,
+                    ),
+                ),
+                reply_markup=keyboard,
+                fallback=lambda: message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         h_name = escape_html(hunter.hunter_name)
@@ -60,12 +74,17 @@ async def handle(client: Client, message: Message) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
             caption = build_shop_caption(hunter, "menu")
-            await client.send_photo(
-                chat_id=user.id,
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await send_rich(
+                client, user.id, build_shop_rich(hunter, "menu", photo_first=True),
                 reply_markup=_shop_category_keyboard(),
+                media=[photo_media("shop", photo_buf)],
+                fallback=lambda: client.send_photo(
+                    chat_id=user.id,
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_shop_category_keyboard(),
+                ),
             )
             direct_sent = True
         except Exception:
@@ -88,28 +107,56 @@ async def handle(client: Client, message: Message) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🛒 Open Hunter Shop in Bot PM", url=pm_url)]
         ])
-        await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "⚡ SYSTEM NOTIFICATION — HUNTER SHOP"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> {h_name} ┊ 🏅 Rank <b>{escape_html(hunter.rank)}</b><br>"
+                    f"💰 <b>Treasury:</b> <code>{escape_html(f'{hunter.gold:,} G')}</code>"
+                ),
+                quote(
+                    "⚠️ <i>To protect transactions and keep group chats clean, the Hunter Shop opens in Private Chat (PM).</i>",
+                    expandable=False,
+                ),
+                paragraph(status_msg),
+            ),
+            reply_markup=keyboard,
+            fallback=lambda: message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # 2. Private Chat (PM) — render visual shop hub card
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     caption = build_shop_caption(hunter, "menu")
 
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_shop_rich(hunter, "menu", photo_first=True),
             reply_markup=_shop_category_keyboard(),
+            media=[photo_media("shop", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_shop_category_keyboard(),
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render shop image, falling back to text: %s", exc, exc_info=True)
-        await message.reply_text(
-            caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_shop_rich(hunter, "menu"),
             reply_markup=_shop_category_keyboard(),
+            fallback=lambda: message.reply_text(
+                caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_shop_category_keyboard(),
+            ),
         )

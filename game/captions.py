@@ -409,6 +409,172 @@ def build_help_rich() -> "RichDoc":
     return RichDoc(*blocks)
 
 
+# ── Rich Message twins (Bot API 10.1+) — content parity with the classic
+# caption builders above; the classic versions stay untouched as fallbacks. ──
+
+
+def build_profile_rich(hunter: Hunter, inventory: Inventory, full_name: str = "") -> "RichDoc":
+    """Rich twin of build_profile_caption. show_caption_above_media=True site
+    -> text blocks BEFORE photo_block (migration rule 4)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(full_name or hunter.hunter_name or f"Hunter #{hunter.user_id}")
+    rank_icon = RANK_EMOJI.get(hunter.rank, "⚔️")
+    title_str = escape_html(hunter.title or "None")
+
+    weapon = inventory.get_equipped("weapon")
+    armor = inventory.get_equipped("armor")
+    accessory = inventory.get_equipped("accessory")
+    w_name = escape_html(weapon.name) if weapon else "None"
+    a_name = escape_html(armor.name) if armor else "None"
+    acc_name = escape_html(accessory.name) if accessory else "None"
+
+    return RichDoc(
+        heading(1, "[ STATUS WINDOW // 상태창 ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name}<br>"
+            f"🏅 <b>Rank:</b> {rank_icon} {Bold(escape_html(f'{hunter.rank}-Rank')).to_html()} ┊ 📊 <b>Lv:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}<br>"
+            f"🎖️ <b>Title:</b> {Italic(title_str).to_html()}<br>"
+            f"⚡ <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ┊ 💰 <b>Gold:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
+        ),
+        quote(
+            "<b>📈 Core Attributes:</b><br>"
+            f"• STR: {InlineCode(escape_html(str(hunter.str_stat))).to_html()} ┊ AGI: {InlineCode(escape_html(str(hunter.agi))).to_html()} ┊ VIT: {InlineCode(escape_html(str(hunter.vit))).to_html()}<br>"
+            f"• INT: {InlineCode(escape_html(str(hunter.int_stat))).to_html()} ┊ PER: {InlineCode(escape_html(str(hunter.per))).to_html()}<br>"
+            f"• HP: {InlineCode(escape_html(f'{hunter.hp}/{hunter.max_hp}')).to_html()} ┊ XP: {InlineCode(escape_html(f'{hunter.xp}/{hunter.xp_needed}')).to_html()}<br>"
+            f"• Gear: 🗡️ {w_name} ┊ 🛡️ {a_name} ┊ 💍 {acc_name}",
+            expandable=True,
+        ),
+        quote("<i>「 The System has acknowledged your awakening. 」</i>", expandable=False),
+        photo_block("profile"),
+    )
+
+
+def build_claim_rich(
+    hunter: Hunter,
+    reward_gold: int,
+    reward_xp: int,
+    streak: int = 1,
+    leveled_up: bool = False,
+    new_rank: str | None = None,
+) -> "RichDoc":
+    """Rich twin of build_claim_caption (text site, no photo)."""
+    from game.rich_message import RichDoc, heading, paragraph, quote
+    h_name = escape_html(hunter.hunter_name)
+
+    extra_parts = []
+    if leveled_up:
+        extra_parts.append(f"⚡ <b>LEVEL UP!</b> Reached {Bold(escape_html(f'Level {hunter.level}')).to_html()}")
+    if new_rank:
+        extra_parts.append(f"🔥 <b>RANK ADVANCEMENT!</b> Awakened as {Bold(f'[{escape_html(new_rank)}] Hunter').to_html()}")
+
+    lines = [
+        "<b>✅ Daily Ration Dispatched:</b>",
+        f"• EXP Bounty: ✨ {InlineCode(escape_html(f'+{reward_xp:,} XP')).to_html()}",
+        f"• Treasury Bonus: 💰 {InlineCode(escape_html(f'+{reward_gold:,} G')).to_html()}",
+    ]
+    if streak > 1:
+        lines.append(f"• Login Streak: 🔥 {InlineCode(escape_html(f'{streak} Days')).to_html()}")
+    lines.append(f"• Total Vault: 💰 {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}")
+    lines.append(f"• Current EXP: {InlineCode(escape_html(f'{hunter.xp:,} / {hunter.xp_needed:,} XP')).to_html()}")
+
+    blocks = [
+        heading(1, "[ SYSTEM DAILY ALLOCATION // 보급품 지급 ]"),
+        paragraph(f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"),
+        quote("<br>".join(lines), expandable=True),
+    ]
+    if extra_parts:
+        blocks.append(quote(" ".join(extra_parts), expandable=False))
+    blocks.append(quote("<i>「 Return in 24 hours for your next allocation, Hunter. 」</i>", expandable=False))
+    return RichDoc(*blocks)
+
+
+def build_shop_rich(
+    hunter: Hunter,
+    category: str = "menu",
+    notice: str | None = None,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_shop_caption.
+
+    photo_first: None = no photo block (text fallback site), True = caption-below
+    sites (photo block first), False = show_caption_above_media sites (text first).
+    """
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(hunter.hunter_name)
+    cat_title = "Central Depot" if category == "menu" else escape_html(category.title())
+
+    blocks = [
+        heading(1, f"[ EXCHANGE DEPOT // {cat_title.upper()} ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
+            f"💰 <b>Available Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
+        ),
+    ]
+    if notice:
+        blocks.append(quote(
+            f"<b>✅ Purchase Confirmed:</b> <i>{escape_html(notice)}</i>",
+            expandable=False,
+        ))
+    blocks.append(quote(
+        "<b>Association Procurement:</b><br>"
+        "<i>Purchase graded weapons, defense armors, accessories, and restorative potions directly from Association vaults.</i>",
+        expandable=True,
+    ))
+    blocks.append(quote("<i>Select an item category or equipment piece below:</i>", expandable=False))
+    if photo_first is True:
+        blocks.insert(0, photo_block("shop"))
+    elif photo_first is False:
+        blocks.append(photo_block("shop"))
+    return RichDoc(*blocks)
+
+
+def build_inventory_rich(
+    hunter: Hunter,
+    inventory: Inventory,
+    category: str = "weapon",
+    notice: str | None = None,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_inventory_caption (photo_first per migration rule 4)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(hunter.hunter_name)
+    cat_title = escape_html(category.title())
+    total_items = len(inventory.items)
+
+    weapon = inventory.get_equipped("weapon")
+    armor = inventory.get_equipped("armor")
+    accessory = inventory.get_equipped("accessory")
+    w_str = escape_html(weapon.name) if weapon else "— None —"
+    a_str = escape_html(armor.name) if armor else "— None —"
+    acc_str = escape_html(accessory.name) if accessory else "— None —"
+
+    blocks = [
+        heading(1, f"[ SHADOW STORAGE // {cat_title.upper()} ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
+            f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()} ┊ 📦 <b>Stored Items:</b> {InlineCode(escape_html(str(total_items))).to_html()}"
+        ),
+    ]
+    if notice:
+        blocks.append(quote(
+            f"<b>⚡ System Notice:</b> <i>{escape_html(notice)}</i>",
+            expandable=False,
+        ))
+    blocks.append(quote(
+        "<b>⚔️ Currently Bound Equipment:</b><br>"
+        f"• 🗡️ Weapon: {Bold(w_str).to_html()}<br>"
+        f"• 🛡️ Armor: {Bold(a_str).to_html()}<br>"
+        f"• 💍 Accessory: {Bold(acc_str).to_html()}",
+        expandable=True,
+    ))
+    blocks.append(quote("<i>Select tabs or equipment controls below:</i>", expandable=False))
+    if photo_first is True:
+        blocks.insert(0, photo_block("inventory"))
+    elif photo_first is False:
+        blocks.append(photo_block("inventory"))
+    return RichDoc(*blocks)
+
+
 def build_claim_caption(
     hunter: Hunter,
     reward_gold: int,

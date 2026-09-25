@@ -16,9 +16,10 @@ from pyrogram.types import Message
 
 from channel_db import ChannelDB
 from game.hunter import add_xp
-from game.formatting import format_not_registered
+from game.formatting import format_not_registered, format_not_registered_rich
 from game.rich_text import escape_html
-from game.captions import build_claim_caption
+from game.captions import build_claim_caption, build_claim_rich
+from game.rich_send import reply_rich
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,22 @@ def _format_cooldown(remaining: int) -> str:
     )
 
 
+def _format_cooldown_rich(remaining: int):
+    """Rich twin of _format_cooldown (same copy, block structure)."""
+    from game.rich_message import RichDoc, code, heading, quote
+    hours = remaining // 3600
+    minutes = (remaining % 3600) // 60
+    return RichDoc(
+        heading(1, "[ SYSTEM DAILY ALLOCATION // 보급품 대기 ]"),
+        quote(
+            "You have already collected your daily ration from the System.<br>"
+            f"⏱️ <b>Next ration ready in:</b> {code(f'{hours}h {minutes:02d}m')}<br>"
+            "• Return after the cooldown expires to claim your next ration.",
+            expandable=True,
+        ),
+    )
+
+
 async def handle(client: Client, message: Message) -> None:
     """Handle the /claim command — daily reward."""
     user = message.from_user
@@ -67,13 +84,19 @@ async def handle(client: Client, message: Message) -> None:
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Check 24h cooldown (persisted on the hunter)
     remaining = _check_cooldown(hunter, user.id)
     if remaining is not None:
-        await message.reply_text(_format_cooldown(remaining), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, _format_cooldown_rich(remaining),
+            fallback=lambda: message.reply_text(_format_cooldown(remaining), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Set cooldown — both in-memory cache and persisted field
@@ -104,5 +127,16 @@ async def handle(client: Client, message: Message) -> None:
         new_rank=new_rank,
     )
 
-    await message.reply_text(msg_text, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message,
+        build_claim_rich(
+            hunter,
+            gold_reward,
+            xp_reward,
+            streak=1,
+            leveled_up=leveled_up,
+            new_rank=new_rank,
+        ),
+        fallback=lambda: message.reply_text(msg_text, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"Daily claim by {hunter.hunter_name}: +{xp_reward} XP, +{gold_reward} Gold")

@@ -13,10 +13,11 @@ from pyrogram import Client, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CopyTextButton
 
 from channel_db import ChannelDB
-from game.captions import build_profile_caption
-from game.formatting import format_profile, format_not_registered
+from game.captions import build_profile_caption, build_profile_rich
+from game.formatting import format_profile, format_not_registered, format_not_registered_rich, format_profile_rich
 from game.photo_helper import fetch_user_pfp_image
 from game.profile_image import render_profile_image
+from game.rich_send import photo_media, reply_rich
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,10 @@ async def handle(client: Client, message: Message) -> None:
 
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     inventory = await db.get_inventory(user.id)
@@ -63,16 +67,24 @@ async def handle(client: Client, message: Message) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📋 Copy Hunter ID", copy_text=CopyTextButton(text=str(hunter.user_id)), style=enums.ButtonStyle.PRIMARY)]
         ])
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_profile_rich(hunter, inventory, full_name),
             reply_markup=keyboard,
-            show_caption_above_media=True,
+            media=[photo_media("profile", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=keyboard,
+                show_caption_above_media=True,
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render profile image, falling back to text: %s", exc, exc_info=True)
-        await message.reply_text(
-            format_profile(hunter, inventory),
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, format_profile_rich(hunter, inventory),
+            fallback=lambda: message.reply_text(
+                format_profile(hunter, inventory),
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )

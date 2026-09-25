@@ -18,13 +18,19 @@ from game.captions import (
     build_inventory_caption,
     build_start_welcome_caption,
     build_start_existing_caption,
+    build_shop_rich,
+    build_inventory_rich,
 )
 from game.font_manager import clean_and_normalize_name
 from game.hunter import create_new_hunter
 from game.items import create_starter_weapon
-from game.formatting import format_welcome, format_already_registered, format_inventory
+from game.formatting import (
+    format_welcome, format_already_registered, format_inventory,
+    format_welcome_rich, format_already_registered_rich,
+)
 from game.inventory_image import render_inventory_image
 from game.rich_text import escape_html, copy_button
+from game.rich_send import photo_media, reply_rich
 from handlers.inventory import _inventory_keyboard
 
 logger = logging.getLogger(__name__)
@@ -90,18 +96,27 @@ async def handle(client: Client, message: Message) -> None:
             caption = build_shop_caption(existing, "menu")
             try:
                 photo_buf = await asyncio.to_thread(render_shop_image, existing, "menu")
-                await message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    message, build_shop_rich(existing, "menu", photo_first=False),
                     reply_markup=_shop_category_keyboard(),
-                    show_caption_above_media=True,
+                    media=[photo_media("shop", photo_buf)],
+                    fallback=lambda: message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_shop_category_keyboard(),
+                        show_caption_above_media=True,
+                    ),
                 )
             except Exception:
-                await message.reply_text(
-                    caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    message, build_shop_rich(existing, "menu"),
                     reply_markup=_shop_category_keyboard(),
+                    fallback=lambda: message.reply_text(
+                        caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_shop_category_keyboard(),
+                    ),
                 )
             return
         if is_inventory_deeplink:
@@ -109,25 +124,37 @@ async def handle(client: Client, message: Message) -> None:
             caption = build_inventory_caption(existing, inventory, "weapon")
             try:
                 photo_buf = await asyncio.to_thread(render_inventory_image, existing, inventory, "weapon")
-                await message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    message, build_inventory_rich(existing, inventory, "weapon", photo_first=False),
                     reply_markup=_inventory_keyboard(inventory, "weapon"),
-                    show_caption_above_media=True,
+                    media=[photo_media("inventory", photo_buf)],
+                    fallback=lambda: message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_inventory_keyboard(inventory, "weapon"),
+                        show_caption_above_media=True,
+                    ),
                 )
             except Exception:
                 text = format_inventory(inventory, existing, "weapon")
-                await message.reply_text(
-                    text,
+                await reply_rich(
+                    message, build_inventory_rich(existing, inventory, "weapon"),
                     reply_markup=_inventory_keyboard(inventory, "weapon"),
-                    parse_mode=enums.ParseMode.HTML,
+                    fallback=lambda: message.reply_text(
+                        text,
+                        reply_markup=_inventory_keyboard(inventory, "weapon"),
+                        parse_mode=enums.ParseMode.HTML,
+                    ),
                 )
             return
         kb = InlineKeyboardMarkup([
             [copy_button("📋 Copy Hunter ID", str(existing.user_id), style=enums.ButtonStyle.PRIMARY)],
         ])
-        await message.reply_text(format_already_registered(existing), reply_markup=kb, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_already_registered_rich(existing), reply_markup=kb,
+            fallback=lambda: message.reply_text(format_already_registered(existing), reply_markup=kb, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Create new hunter
@@ -144,7 +171,10 @@ async def handle(client: Client, message: Message) -> None:
     welcome_kb = InlineKeyboardMarkup([
         [copy_button("📋 Copy Hunter ID", str(hunter.user_id), style=enums.ButtonStyle.PRIMARY)],
     ])
-    await message.reply_text(format_welcome(hunter), reply_markup=welcome_kb, parse_mode=enums.ParseMode.HTML)
+    await reply_rich(
+        message, format_welcome_rich(hunter), reply_markup=welcome_kb,
+        fallback=lambda: message.reply_text(format_welcome(hunter), reply_markup=welcome_kb, parse_mode=enums.ParseMode.HTML),
+    )
     logger.info(f"New hunter created: {hunter.hunter_name} (ID: {user.id})")
 
     # If awakened via redeem deep-link, immediately trigger redemption
@@ -172,18 +202,27 @@ async def handle(client: Client, message: Message) -> None:
         caption = build_shop_caption(hunter, "menu")
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
-            await message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message, build_shop_rich(hunter, "menu", photo_first=False),
                 reply_markup=_shop_category_keyboard(),
-                show_caption_above_media=True,
+                media=[photo_media("shop", photo_buf)],
+                fallback=lambda: message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_shop_category_keyboard(),
+                    show_caption_above_media=True,
+                ),
             )
         except Exception:
-            await message.reply_text(
-                caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message, build_shop_rich(hunter, "menu"),
                 reply_markup=_shop_category_keyboard(),
+                fallback=lambda: message.reply_text(
+                    caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_shop_category_keyboard(),
+                ),
             )
         return
 
@@ -193,17 +232,26 @@ async def handle(client: Client, message: Message) -> None:
         caption = build_inventory_caption(hunter, inv, "weapon")
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inv, "weapon")
-            await message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message, build_inventory_rich(hunter, inv, "weapon", photo_first=False),
                 reply_markup=_inventory_keyboard(inv, "weapon"),
-                show_caption_above_media=True,
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_inventory_keyboard(inv, "weapon"),
+                    show_caption_above_media=True,
+                ),
             )
         except Exception:
             text = format_inventory(inv, hunter, "weapon")
-            await message.reply_text(
-                text,
+            await reply_rich(
+                message, build_inventory_rich(hunter, inv, "weapon"),
                 reply_markup=_inventory_keyboard(inv, "weapon"),
-                parse_mode=enums.ParseMode.HTML,
+                fallback=lambda: message.reply_text(
+                    text,
+                    reply_markup=_inventory_keyboard(inv, "weapon"),
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
