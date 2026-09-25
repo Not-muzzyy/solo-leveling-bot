@@ -23,10 +23,12 @@ from pyrogram.types import (
 
 from channel_db import ChannelDB
 from config import EQUIPPABLE_TYPES, RARITY_EMOJI
-from game.captions import build_forge_caption
+from game.captions import build_forge_caption, build_forge_rich
 from game.crafting import upgrade_equipment, fuse_items, get_upgrade_cost
-from game.formatting import format_not_registered
+from game.formatting import format_not_registered, format_not_registered_rich
 from game.rich_text import escape_html
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, photo_media, reply_rich
 from game.forge_image import render_forge_image
 from models import Hunter, Inventory, Item
 
@@ -104,22 +106,41 @@ async def handle(client: Client, message: Message) -> None:
             "To keep public chat clean, manage equipment forging in Private Chat."
             "</blockquote>"
         )
-        await message.reply_text(
-            gc_text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚒️ Open Forge in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
-            ]),
-            parse_mode=enums.ParseMode.HTML,
+        gc_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚒️ Open Forge in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
+        ])
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
+                quote(
+                    "The Blacksmith's Anvil contains searing heat &amp; delicate runes.<br>"
+                    "To keep public chat clean, manage equipment forging in Private Chat.",
+                    expandable=True,
+                ),
+            ),
+            reply_markup=gc_keyboard,
+            fallback=lambda: message.reply_text(
+                gc_text,
+                reply_markup=gc_keyboard,
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     inventory = await db.get_inventory(user.id)
     if not inventory:
-        await message.reply_text("❌ Could not load dimensional inventory.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph("❌ Could not load dimensional inventory.")),
+            fallback=lambda: message.reply_text("❌ Could not load dimensional inventory.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # Check if user specified an item ID e.g. /forge 4 or /upgrade 4
@@ -136,16 +157,25 @@ async def handle(client: Client, message: Message) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_forge_image, hunter, inventory, selected_item)
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_forge_rich(hunter, inventory, selected_item, photo_first=False),
             reply_markup=_forge_keyboard(inventory, selected_item),
-            show_caption_above_media=True,
+            media=[photo_media("forge", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_forge_keyboard(inventory, selected_item),
+                show_caption_above_media=True,
+            ),
         )
     except Exception as e:
         logger.error("Failed to render forge image: %s", e, exc_info=True)
-        await message.reply_text(caption, reply_markup=_forge_keyboard(inventory, selected_item), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, build_forge_rich(hunter, inventory, selected_item),
+            reply_markup=_forge_keyboard(inventory, selected_item),
+            fallback=lambda: message.reply_text(caption, reply_markup=_forge_keyboard(inventory, selected_item), parse_mode=enums.ParseMode.HTML),
+        )
 
 
 async def callback(client: Client, query: CallbackQuery) -> None:
@@ -173,17 +203,28 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = build_forge_caption(hunter, inventory, None)
         photo_buf = await asyncio.to_thread(render_forge_image, hunter, inventory, None)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_forge_rich(hunter, inventory, None, photo_first=False),
                 reply_markup=_forge_keyboard(inventory, None),
+                media=[photo_media("forge", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_forge_keyboard(inventory, None),
+                ),
             )
         elif query.message:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                query.message, build_forge_rich(hunter, inventory, None, photo_first=False),
                 reply_markup=_forge_keyboard(inventory, None),
-                show_caption_above_media=True,
+                media=[photo_media("forge", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_forge_keyboard(inventory, None),
+                    show_caption_above_media=True,
+                ),
             )
         return
 
@@ -199,9 +240,15 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = build_forge_caption(hunter, inventory, item)
         photo_buf = await asyncio.to_thread(render_forge_image, hunter, inventory, item)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_forge_rich(hunter, inventory, item, photo_first=False),
                 reply_markup=_forge_keyboard(inventory, item),
+                media=[photo_media("forge", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_forge_keyboard(inventory, item),
+                ),
             )
         return
 
@@ -222,9 +269,15 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = build_forge_caption(hunter, inventory, item, notice=notice)
         photo_buf = await asyncio.to_thread(render_forge_image, hunter, inventory, item, notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_forge_rich(hunter, inventory, item, notice=notice, photo_first=False),
                 reply_markup=_forge_keyboard(inventory, item),
+                media=[photo_media("forge", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_forge_keyboard(inventory, item),
+                ),
             )
         return
 
@@ -242,8 +295,14 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = build_forge_caption(hunter, inventory, new_item, notice=notice)
         photo_buf = await asyncio.to_thread(render_forge_image, hunter, inventory, new_item, notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_forge_rich(hunter, inventory, new_item, notice=notice, photo_first=False),
                 reply_markup=_forge_keyboard(inventory, new_item),
+                media=[photo_media("forge", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_forge_keyboard(inventory, new_item),
+                ),
             )
         return

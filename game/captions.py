@@ -749,6 +749,188 @@ def build_explore_rich(
     return RichDoc(*blocks)
 
 
+def build_leaderboard_rich(category: str = "power", photo_first: bool | None = None) -> "RichDoc":
+    """Rich twin of build_leaderboard_caption (photo: HUD card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    cat_titles = {
+        "power": "Combat Power",
+        "level": "Hunter Level",
+        "wealth": "Gold Wealth",
+        "victories": "Dungeon Victories",
+        "trophies": "War Trophies",
+    }
+    cat_name = cat_titles.get(category, category.title())
+    blocks = [
+        heading(1, f"[ HALL OF FAME // {cat_name.upper()} ]"),
+        paragraph(f"📊 <b>Category:</b> {InlineCode(escape_html(cat_name)).to_html()}"),
+        quote(
+            "<b>Rankings Directory:</b><br>"
+            "• Visual ranking matrix displayed on the HUD card above.<br>"
+            "• Switch classification tabs using the controls below.",
+            expandable=True,
+        ),
+        paragraph("<i>Updated in real-time from Hunter Association records.</i>"),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("leaderboard"))
+    elif photo_first is False:
+        blocks.append(photo_block("leaderboard"))
+    return RichDoc(*blocks)
+
+
+def build_tower_rich(
+    hunter: Hunter,
+    guardian: Any,
+    result: Any | None = None,
+    notice: str | None = None,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_tower_caption (photo: Demon Castle card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(hunter.hunter_name)
+    g_name = escape_html(guardian.name) if guardian else "Floor Boss"
+    keys_str = InlineCode(escape_html(f"{hunter.tower_keys}/3")).to_html()
+    floor_str = InlineCode(escape_html(f"{hunter.tower_floor}/100")).to_html()
+    head = paragraph(
+        f"👤 <b>Challenger:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
+        f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}"
+    )
+
+    if result:
+        outcome_title = "✅ FLOOR CLEARED!" if result.victory else "☠️ CHALLENGER FALLEN!"
+        loot_line = ""
+        if result.item_drop:
+            loot_line = f"<br>• 🎁 <b>Drop:</b> {InlineCode(f'[{escape_html(result.item_drop.rarity)}]').to_html()} {Bold(escape_html(result.item_drop.name)).to_html()}"
+        title_line = ""
+        if result.title_unlocked:
+            title_line = f"<br>• 👑 <b>Title:</b> {Italic(escape_html(result.title_unlocked)).to_html()}"
+        blocks = [
+            heading(1, "[ DEMON CASTLE // TRIAL RESOLUTION ]"),
+            head,
+            quote(
+                f"<b>{escape_html(outcome_title)}</b><br>"
+                f"• Dealt: {InlineCode(escape_html(f'{result.damage_dealt:,} DMG')).to_html()} ┊ Taken: {InlineCode(escape_html(f'{result.damage_taken:,} DMG')).to_html()}<br>"
+                f"• Bounty: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} Gold')).to_html()} ┊ ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}"
+                f"{loot_line}{title_line}<br>"
+                f"• Health: {InlineCode(escape_html(f'{hunter.hp}/{hunter.max_hp} HP')).to_html()}",
+                expandable=True,
+            ),
+        ]
+    elif guardian:
+        blocks = [
+            heading(1, "[ DEMON CASTLE // TRIAL CHAMBER ]"),
+            head,
+            quote(
+                f"<b>Chamber Guardian:</b> {Bold(g_name).to_html()}<br>"
+                f"• Vitality: {InlineCode(escape_html(f'{guardian.hp:,} HP')).to_html()}<br>"
+                f"• Offense: {InlineCode(escape_html(f'{guardian.atk} ATK')).to_html()} ┊ Defense: {InlineCode(escape_html(f'{guardian.defense} DEF')).to_html()}",
+                expandable=True,
+            ),
+            paragraph("<i>Expend 1 Demon Castle Key to challenge the guardian:</i>"),
+        ]
+    else:
+        blocks = [
+            heading(1, "[ DEMON CASTLE // TRIAL CHAMBER ]"),
+            head,
+            quote(
+                f"<b>Chamber Guardian:</b> {Bold(g_name).to_html()}<br>"
+                "• Status: <i>Awaiting Challenger</i>",
+                expandable=True,
+            ),
+            paragraph("<i>Expend 1 Demon Castle Key to challenge the guardian:</i>"),
+        ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("tower"))
+    elif photo_first is False:
+        blocks.append(photo_block("tower"))
+    return RichDoc(*blocks)
+
+
+def build_quest_rich(hunter: Hunter, photo_first: bool | None = None) -> "RichDoc":
+    """Rich twin of build_quest_caption (photo: daily quest card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(hunter.hunter_name)
+    all_done = (
+        hunter.daily_quest_hunts >= 5 and
+        hunter.daily_quest_explore >= 1 and
+        hunter.daily_quest_duel >= 1 and
+        hunter.daily_quest_use >= 1
+    )
+    status_tag = "✅ COMPLETED" if all_done else "⏳ IN PROGRESS"
+    blocks = [
+        heading(1, "[ DAILY QUEST // 강해지기 위한 준비 ]"),
+        paragraph(
+            f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
+            f"⚡ <b>Status:</b> {Bold(escape_html(status_tag)).to_html()}"
+        ),
+        quote(
+            "<b>Mandatory Physical Conditioning:</b><br>"
+            f"• ⚔️ Gate Hunts: {InlineCode(escape_html(f'{min(5, hunter.daily_quest_hunts)}/5')).to_html()}<br>"
+            f"• 🗺️ World Expeditions: {InlineCode(escape_html(f'{min(1, hunter.daily_quest_explore)}/1')).to_html()}<br>"
+            f"• 🤺 Hunter Duels: {InlineCode(escape_html(f'{min(1, hunter.daily_quest_duel)}/1')).to_html()}<br>"
+            f"• 🧪 Potion/Alchemy: {InlineCode(escape_html(f'{min(1, hunter.daily_quest_use)}/1')).to_html()}<br><br>"
+            "🎁 <b>Completion Reward:</b> <code>+3 Free Stat Points</code>",
+            expandable=True,
+        ),
+        paragraph(
+            f"⚡ <b>Available Stat Points:</b> {InlineCode(escape_html(str(hunter.unspent_stat_points))).to_html()}<br>"
+            "<i>Allocate via /stats or buttons below:</i>"
+        ),
+    ]
+    if photo_first is True:
+        blocks.insert(0, photo_block("quest"))
+    elif photo_first is False:
+        blocks.append(photo_block("quest"))
+    return RichDoc(*blocks)
+
+
+def build_forge_rich(
+    hunter: Hunter,
+    inventory: Inventory,
+    selected_item: Item | None = None,
+    notice: str | None = None,
+    photo_first: bool | None = None,
+) -> "RichDoc":
+    """Rich twin of build_forge_caption (photo: forge card)."""
+    from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+    h_name = escape_html(hunter.hunter_name)
+
+    blocks = [
+        heading(1, "[ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
+        paragraph(
+            f"👤 <b>Artisan:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
+            f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
+        ),
+    ]
+    if notice:
+        blocks.append(quote(
+            f"<b>🔥 Blacksmith Anvil:</b> <i>{escape_html(notice)}</i>",
+            expandable=False,
+        ))
+    if selected_item:
+        enhancement_lvl = getattr(selected_item, "upgrade_level", getattr(selected_item, "enhancement", 0))
+        blocks.append(quote(
+            "<b>Selected Gear for Enhancement:</b><br>"
+            f"• Item: {Bold(escape_html(selected_item.name)).to_html()} {InlineCode(f'[{escape_html(selected_item.rarity)}]').to_html()}<br>"
+            f"• Refinement Level: {Bold(escape_html(f'+{enhancement_lvl}')).to_html()}<br>"
+            f"• Stats: {InlineCode(escape_html(selected_item.stat_summary())).to_html()}",
+            expandable=True,
+        ))
+    else:
+        blocks.append(quote(
+            "<b>Enhancement &amp; Synthesis Protocols:</b><br>"
+            "• <i>Enhance gear from +1 to +10 for exponential stat boosts</i><br>"
+            "• <i>Fuse duplicate equipment pieces to ascend rarity</i>",
+            expandable=True,
+        ))
+    blocks.append(paragraph("<i>Select an item below to refine or synthesize:</i>"))
+    if photo_first is True:
+        blocks.insert(0, photo_block("forge"))
+    elif photo_first is False:
+        blocks.append(photo_block("forge"))
+    return RichDoc(*blocks)
+
+
 def build_claim_caption(
     hunter: Hunter,
     reward_gold: int,

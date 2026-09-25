@@ -19,7 +19,9 @@ from channel_db import ChannelDB
 from game.font_manager import clean_and_normalize_name
 from game.leaderboard_image import render_leaderboard_image
 from game.rich_text import escape_html
-from game.captions import build_leaderboard_caption
+from game.captions import build_leaderboard_caption, build_leaderboard_rich
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, photo_media, reply_rich
 from models import Hunter
 
 logger = logging.getLogger(__name__)
@@ -108,13 +110,21 @@ async def handle(client: Client, message: Message) -> None:
 
     all_hunters = await db.get_all_hunters()
     if not all_hunters:
-        await message.reply_text(
-            "<b>[ HALL OF FAME // 명예의 전당 ]</b>\n\n"
-            "<i>No hunters have awakened yet in the System registry!</i>\n\n"
-            "<blockquote expandable>"
-            "• Use <code>/start</code> to awaken as the first registered Hunter."
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ HALL OF FAME // 명예의 전당 ]"),
+                paragraph("<i>No hunters have awakened yet in the System registry!</i>"),
+                quote("• Use <code>/start</code> to awaken as the first registered Hunter.", expandable=True),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ HALL OF FAME // 명예의 전당 ]</b>\n\n"
+                "<i>No hunters have awakened yet in the System registry!</i>\n\n"
+                "<blockquote expandable>"
+                "• Use <code>/start</code> to awaken as the first registered Hunter."
+                "</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -132,18 +142,26 @@ async def handle(client: Client, message: Message) -> None:
             requesting_user_id=user.id,
         )
         caption = build_leaderboard_caption(category)
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
+        await reply_rich(
+            message, build_leaderboard_rich(category, photo_first=False),
             reply_markup=_leaderboard_keyboard(category),
-            parse_mode=enums.ParseMode.HTML,
-            show_caption_above_media=True,
+            media=[photo_media("leaderboard", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_leaderboard_keyboard(category),
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render leaderboard image: %s", exc, exc_info=True)
-        await message.reply_text(
-            "❌ System Error: Failed to render leaderboard. Please try again later.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, RichDoc(paragraph("❌ System Error: Failed to render leaderboard. Please try again later.")),
+            fallback=lambda: message.reply_text(
+                "❌ System Error: Failed to render leaderboard. Please try again later.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
 
 
@@ -182,17 +200,28 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         caption = build_leaderboard_caption(category)
 
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_leaderboard_rich(category, photo_first=False),
                 reply_markup=_leaderboard_keyboard(category),
+                media=[photo_media("leaderboard", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_leaderboard_keyboard(category),
+                ),
             )
         elif query.message:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
+            await reply_rich(
+                query.message, build_leaderboard_rich(category, photo_first=False),
                 reply_markup=_leaderboard_keyboard(category),
-                parse_mode=enums.ParseMode.HTML,
-                show_caption_above_media=True,
+                media=[photo_media("leaderboard", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_leaderboard_keyboard(category),
+                    parse_mode=enums.ParseMode.HTML,
+                    show_caption_above_media=True,
+                ),
             )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):

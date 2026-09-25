@@ -22,15 +22,52 @@ from pyrogram.types import (
 )
 
 from channel_db import ChannelDB
-from game.captions import build_quest_caption
-from game.formatting import format_not_registered
+from game.captions import build_quest_caption, build_quest_rich
+from game.formatting import format_not_registered, format_not_registered_rich
 from game.hunter import add_xp
 from game.items import generate_accessory, generate_weapon
 from game.quest_image import render_quest_image
 from game.rich_text import escape_html
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, photo_media, reply_rich
 from models import Hunter, Inventory, Item
 
 logger = logging.getLogger(__name__)
+
+
+def _stats_menu_rich(hunter: Hunter, variant: str = "full") -> RichDoc:
+    """Rich twin of the STAT ALLOCATION texts (full / alloc / compact variants)."""
+    h_name = escape_html(hunter.hunter_name)
+    header = (
+        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]<br>"
+        f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>"
+    )
+    if variant == "compact":
+        attrs = (
+            f"• <b>STR:</b> <code>{hunter.str_stat}</code> ┊ • <b>AGI:</b> <code>{hunter.agi}</code><br>"
+            f"• <b>VIT:</b> <code>{hunter.vit}</code> ┊ • <b>INT:</b> <code>{hunter.int_stat}</code> ┊ • <b>PER:</b> <code>{hunter.per}</code><br><br>"
+            f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>"
+        )
+        footer = "<i>Tap an attribute below to invest points:</i>"
+    else:
+        double = "  " if variant == "alloc" else ""
+        power_label = "Total Combat Power" if variant == "alloc" else "Combat Power"
+        attrs = (
+            "<b>Current Attributes:</b><br>"
+            f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code><br>"
+            f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code><br>"
+            f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>{double}(Max HP: <code>{hunter.max_hp}</code>)<br>"
+            f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code><br>"
+            f"• <b>PER (Perception):</b> <code>{hunter.per}</code><br><br>"
+            f"💪 <b>{power_label}:</b> <code>{hunter.power:,}</code>"
+        )
+        footer = "<i>Tap an attribute button below to invest points:</i>"
+    return RichDoc(
+        heading(1, "[ STAT ALLOCATION // 능력치 배분 ]"),
+        paragraph(header),
+        quote(attrs, expandable=True),
+        paragraph(footer),
+    )
 
 
 def _quest_keyboard(hunter: Hunter) -> InlineKeyboardMarkup:
@@ -105,7 +142,10 @@ async def handle_daily(client: Client, message: Message) -> None:
     db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     hunter.check_and_reset_daily()
@@ -113,16 +153,25 @@ async def handle_daily(client: Client, message: Message) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_quest_image, hunter)
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_quest_rich(hunter, photo_first=False),
             reply_markup=_quest_keyboard(hunter),
-            show_caption_above_media=True,
+            media=[photo_media("quest", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_quest_keyboard(hunter),
+                show_caption_above_media=True,
+            ),
         )
     except Exception as e:
         logger.error("Failed to render daily quest image: %s", e, exc_info=True)
-        await message.reply_text(caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, build_quest_rich(hunter),
+            reply_markup=_quest_keyboard(hunter),
+            fallback=lambda: message.reply_text(caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML),
+        )
 
 
 async def handle_stats(client: Client, message: Message) -> None:
@@ -134,7 +183,10 @@ async def handle_stats(client: Client, message: Message) -> None:
     db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     args = (message.text or "").split()
@@ -147,10 +199,17 @@ async def handle_stats(client: Client, message: Message) -> None:
             amount = max(1, int(args[2]))
 
         if hunter.unspent_stat_points < amount:
-            await message.reply_text(
-                f"❌ You only have <code>{hunter.unspent_stat_points}</code> unspent stat points available!\n"
-                "Complete your <code>/daily</code> quest to earn more points.",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(
+                    f"❌ You only have <code>{hunter.unspent_stat_points}</code> unspent stat points available!<br>"
+                    "Complete your <code>/daily</code> quest to earn more points."
+                )),
+                fallback=lambda: message.reply_text(
+                    f"❌ You only have <code>{hunter.unspent_stat_points}</code> unspent stat points available!\n"
+                    "Complete your <code>/daily</code> quest to earn more points.",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -164,9 +223,15 @@ async def handle_stats(client: Client, message: Message) -> None:
 
         attr = stat_map.get(stat_name)
         if not attr:
-            await message.reply_text(
-                "❌ Unknown attribute! Choose: <code>str</code>, <code>agi</code>, <code>vit</code>, <code>int</code>, or <code>per</code>.",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(
+                    "❌ Unknown attribute! Choose: <code>str</code>, <code>agi</code>, <code>vit</code>, <code>int</code>, or <code>per</code>."
+                )),
+                fallback=lambda: message.reply_text(
+                    "❌ Unknown attribute! Choose: <code>str</code>, <code>agi</code>, <code>vit</code>, <code>int</code>, or <code>per</code>.",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -179,35 +244,55 @@ async def handle_stats(client: Client, message: Message) -> None:
 
         await db.save_all(user.id)
 
-        await message.reply_text(
-            "<b>[ ATTRIBUTE ENHANCED // 능력치 강화 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}\n"
-            f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!\n\n"
-            "<blockquote expandable>"
-            f"• Total Combat Power: <code>{hunter.power:,}</code>\n"
-            f"• Remaining Unspent Points: <code>{hunter.unspent_stat_points}</code>\n"
-            "</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ ATTRIBUTE ENHANCED // 능력치 강화 ]"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}<br>"
+                    f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!"
+                ),
+                quote(
+                    f"• Total Combat Power: <code>{hunter.power:,}</code><br>"
+                    f"• Remaining Unspent Points: <code>{hunter.unspent_stat_points}</code>",
+                    expandable=True,
+                ),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ ATTRIBUTE ENHANCED // 능력치 강화 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}\n"
+                f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!\n\n"
+                "<blockquote expandable>"
+                f"• Total Combat Power: <code>{hunter.power:,}</code>\n"
+                f"• Remaining Unspent Points: <code>{hunter.unspent_stat_points}</code>\n"
+                "</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     # Default /stats menu
-    text = (
-        "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
-        f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
-        f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-        "<blockquote expandable>"
-        "<b>Current Attributes:</b>\n"
-        f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
-        f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
-        f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code> (Max HP: <code>{hunter.max_hp}</code>)\n"
-        f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
-        f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
-        f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
-        "</blockquote>\n\n"
-        "<i>Tap an attribute button below to invest points:</i>"
+    await reply_rich(
+        message, _stats_menu_rich(hunter),
+        reply_markup=_stats_keyboard(hunter),
+        fallback=lambda: message.reply_text(
+            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
+            f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
+            "<blockquote expandable>"
+            "<b>Current Attributes:</b>\n"
+            f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
+            f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
+            f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code> (Max HP: <code>{hunter.max_hp}</code>)\n"
+            f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
+            f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
+            f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
+            "</blockquote>\n\n"
+            "<i>Tap an attribute button below to invest points:</i>",
+            reply_markup=_stats_keyboard(hunter),
+            parse_mode=enums.ParseMode.HTML,
+        ),
     )
-    await message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
 
 
 async def callback(client: Client, query: CallbackQuery) -> None:
@@ -275,12 +360,33 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             f"{gift_line}\n"
             "</blockquote>"
         )
+        gift_line_rich = gift_line.replace("\n", "<br>")
+        claim_doc = RichDoc(
+            heading(1, "[ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]"),
+            paragraph(
+                f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b><br>"
+                f"⚡ <b>Stat Points Available:</b> <code>{hunter.unspent_stat_points}</code>"
+            ),
+            quote(
+                "<b>✨ Rewards Granted:</b><br>"
+                "• ⚡ <code>+3</code> Unallocated Stat Points<br>"
+                f"• 💰 <code>+600 Gold</code> ┊ ✨ <code>+250 XP</code>"
+                f"{gift_line_rich}",
+                expandable=True,
+            ),
+        )
 
         photo_buf = await asyncio.to_thread(render_quest_image, hunter, notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                claim_doc,
                 reply_markup=_quest_keyboard(hunter),
+                media=[photo_media("quest", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_quest_keyboard(hunter),
+                ),
             )
         return
 
@@ -307,50 +413,86 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             await db.save_all(user.id)
             await query.answer(f"Allocated +{amount} into {stat_name.upper()}! Power: {hunter.power}")
 
-        text = (
-            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
-            f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-            "<blockquote expandable>"
-            "<b>Current Attributes:</b>\n"
-            f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
-            f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
-            f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
-            f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
-            f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
-            f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
-            "</blockquote>\n\n"
-            "<i>Tap an attribute button below to invest points:</i>"
-        )
         if query.message and query.message.photo:
-            await query.message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
+            await reply_rich(
+                query.message, _stats_menu_rich(hunter, "alloc"),
+                reply_markup=_stats_keyboard(hunter),
+                fallback=lambda: query.message.reply_text(
+                    "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
+                    f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
+                    "<blockquote expandable>"
+                    "<b>Current Attributes:</b>\n"
+                    f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
+                    f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
+                    f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
+                    f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
+                    f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
+                    f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
+                    "</blockquote>\n\n"
+                    "<i>Tap an attribute button below to invest points:</i>",
+                    reply_markup=_stats_keyboard(hunter),
+                    parse_mode=enums.ParseMode.HTML,
+                ),
+            )
         elif query.message:
-            await query.edit_message_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                _stats_menu_rich(hunter, "alloc"),
+                reply_markup=_stats_keyboard(hunter),
+                fallback=lambda: query.edit_message_text(
+                    "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
+                    f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
+                    "<blockquote expandable>"
+                    "<b>Current Attributes:</b>\n"
+                    f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
+                    f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
+                    f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
+                    f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
+                    f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
+                    f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
+                    "</blockquote>\n\n"
+                    "<i>Tap an attribute button below to invest points:</i>",
+                    reply_markup=_stats_keyboard(hunter),
+                    parse_mode=enums.ParseMode.HTML,
+                ),
+            )
         return
 
     # 3. Stats menu toggle
     if data == "stats_menu":
         await query.answer()
-        text = (
-            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
-            f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-            "<blockquote expandable>"
-            "<b>Current Attributes:</b>\n"
-            f"• <b>STR:</b> <code>{hunter.str_stat}</code> ┊ • <b>AGI:</b> <code>{hunter.agi}</code>\n"
-            f"• <b>VIT:</b> <code>{hunter.vit}</code> ┊ • <b>INT:</b> <code>{hunter.int_stat}</code> ┊ • <b>PER:</b> <code>{hunter.per}</code>\n\n"
-            f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
-            "</blockquote>\n\n"
-            "<i>Tap an attribute below to invest points:</i>"
+        await reply_rich(
+            query.message, _stats_menu_rich(hunter, "compact"),
+            reply_markup=_stats_keyboard(hunter),
+            fallback=lambda: query.message.reply_text(
+                "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
+                f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
+                "<blockquote expandable>"
+                "<b>Current Attributes:</b>\n"
+                f"• <b>STR:</b> <code>{hunter.str_stat}</code> ┊ • <b>AGI:</b> <code>{hunter.agi}</code>\n"
+                f"• <b>VIT:</b> <code>{hunter.vit}</code> ┊ • <b>INT:</b> <code>{hunter.int_stat}</code> ┊ • <b>PER:</b> <code>{hunter.per}</code>\n\n"
+                f"💪 <b>Combat Power:</b> <code>{hunter.power:,}</code>\n"
+                "</blockquote>\n\n"
+                "<i>Tap an attribute below to invest points:</i>",
+                reply_markup=_stats_keyboard(hunter),
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
-        await query.message.reply_text(text, reply_markup=_stats_keyboard(hunter), parse_mode=enums.ParseMode.HTML)
         return
 
     if data == "quest_menu":
         await query.answer()
         caption = build_quest_caption(hunter)
         photo_buf = await asyncio.to_thread(render_quest_image, hunter)
-        await query.message.reply_photo(photo=photo_buf, caption=caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML, show_caption_above_media=True)
+        await reply_rich(
+            query.message, build_quest_rich(hunter, photo_first=False),
+            reply_markup=_quest_keyboard(hunter),
+            media=[photo_media("quest", photo_buf)],
+            fallback=lambda: query.message.reply_photo(photo=photo_buf, caption=caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML, show_caption_above_media=True),
+        )
         return
 
     if data == "quest_noop":

@@ -24,10 +24,12 @@ from pyrogram.types import (
 
 from channel_db import ChannelDB
 from config import RARITY_EMOJI, EQUIPPABLE_TYPES
-from game.formatting import format_inventory, format_not_registered, _hp_bar
+from game.formatting import format_inventory, format_not_registered, format_not_registered_rich, _hp_bar
 from game.rich_text import escape_html
 from game.items import apply_consumable
-from game.captions import build_inventory_caption, build_shop_caption
+from game.captions import build_inventory_caption, build_inventory_rich, build_shop_caption, build_shop_rich
+from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.inventory_image import render_inventory_image
 from game.shop_image import render_shop_image
 from game.shop import get_shop_items_by_type, get_shop_item, create_item_from_shop
@@ -213,6 +215,46 @@ def _format_shop_category(item_type: str, gold: int) -> str:
     return "\n".join(lines)
 
 
+def _format_shop_category_rich(item_type: str, gold: int) -> RichDoc:
+    """Rich twin of _format_shop_category (catalog listing for degraded-path edits)."""
+    TYPE_LABELS = {
+        "weapon": "⚔️ WEAPONS",
+        "armor": "🛡️ ARMOR",
+        "accessory": "💍 ACCESSORIES",
+        "consumable": "🧪 CONSUMABLES",
+        "material": "📦 MATERIALS",
+    }
+    label = TYPE_LABELS.get(item_type, item_type.upper())
+    items = get_shop_items_by_type(item_type)
+
+    lines = ["<b>Catalog Inventory:</b>"]
+    for entry in items:
+        rarity_icon = RARITY_EMOJI.get(entry["rarity"], "⚪")
+        stats_parts = []
+        if entry["atk"]:
+            stats_parts.append(f"+{entry['atk']} ATK")
+        if entry["def"]:
+            stats_parts.append(f"+{entry['def']} DEF")
+        if entry["hp"]:
+            stats_parts.append(f"+{entry['hp']} HP")
+        if entry["spd"]:
+            stats_parts.append(f"+{entry['spd']} SPD")
+        stats = ", ".join(stats_parts) if stats_parts else "Crafting Material"
+
+        can_afford = "✅" if gold >= entry["price"] else "❌"
+        i_name = escape_html(entry["name"])
+        r_name = escape_html(entry["rarity"])
+        lines.append(f"• {rarity_icon} <b>{i_name}</b> [<b>{r_name}</b>]")
+        lines.append(f"  └ <code>{escape_html(stats)}</code> ┊ 💰 <code>{entry['price']:,} G</code> {can_afford}")
+
+    return RichDoc(
+        heading(1, f"[ EXCHANGE DEPOT // {label} ]"),
+        paragraph(f"💰 <b>Available Treasury:</b> <code>{gold:,} G</code>"),
+        quote("<br>".join(lines), expandable=True),
+        paragraph("<i>Tap an item button below to complete purchase:</i>"),
+    )
+
+
 # ── Handlers ──────────────────────────────────────────────
 
 async def handle(client: Client, message: Message) -> None:
@@ -246,7 +288,20 @@ async def handle(client: Client, message: Message) -> None:
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡ Awaken in Bot PM", url=pm_url)]
             ])
-            await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
+                    paragraph(f"👤 <b>Citizen:</b> <b>{u_name}</b>"),
+                    quote(
+                        "• You have not awakened as an active Hunter yet.<br>"
+                        "• Tap below to awaken in private chat and claim your starter inventory.",
+                        expandable=False,
+                    ),
+                ),
+                reply_markup=keyboard,
+                fallback=lambda: message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+            )
             return
 
         inventory = await db.get_inventory(user.id)
@@ -257,13 +312,19 @@ async def handle(client: Client, message: Message) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
             caption = build_inventory_caption(hunter, inventory, "weapon")
-            await client.send_photo(
-                chat_id=user.id,
-                photo=photo_buf,
-                caption=caption,
+            await send_rich(
+                client, user.id,
+                build_inventory_rich(hunter, inventory, "weapon", photo_first=False),
                 reply_markup=_inventory_keyboard(inventory, "weapon"),
-                parse_mode=enums.ParseMode.HTML,
-                show_caption_above_media=True,
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: client.send_photo(
+                    chat_id=user.id,
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=_inventory_keyboard(inventory, "weapon"),
+                    parse_mode=enums.ParseMode.HTML,
+                    show_caption_above_media=True,
+                ),
             )
             direct_sent = True
         except Exception:
@@ -290,12 +351,33 @@ async def handle(client: Client, message: Message) -> None:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎒 Open Inventory in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
         ])
-        await message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SHADOW STORAGE // 그림자 보관함 ]"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> <b>{h_name}</b> [Rank <b>{hunter.rank}</b>]<br>"
+                    f"📦 <b>Vault:</b> <code>{len(inventory.items)} items</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>"
+                ),
+                quote(
+                    "<b>Notice: Group Chat Privacy Protocol</b><br>"
+                    "• Dimensional inventory operations are restricted to private chat.<br>"
+                    f"• {status_notice}",
+                    expandable=True,
+                ),
+                paragraph("<i>Tap below to open your dimensional vault:</i>"),
+            ),
+            reply_markup=keyboard,
+            fallback=lambda: message.reply_text(gc_text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     # 2. Private Chat (PM) — render dimensional inventory image card
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     inventory = await db.get_inventory(user.id)
@@ -303,20 +385,29 @@ async def handle(client: Client, message: Message) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "weapon")
-        await message.reply_photo(
-            photo=photo_buf,
-            caption=caption,
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message, build_inventory_rich(hunter, inventory, "weapon", photo_first=False),
             reply_markup=_inventory_keyboard(inventory, "weapon"),
-            show_caption_above_media=True,
+            media=[photo_media("inventory", photo_buf)],
+            fallback=lambda: message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=_inventory_keyboard(inventory, "weapon"),
+                show_caption_above_media=True,
+            ),
         )
     except Exception as exc:
         logger.error("Failed to render inventory image, falling back to text: %s", exc, exc_info=True)
         text = format_inventory(inventory, hunter, "weapon")
-        await message.reply_text(
-            text,
+        await reply_rich(
+            message, build_inventory_rich(hunter, inventory, "weapon"),
             reply_markup=_inventory_keyboard(inventory, "weapon"),
-            parse_mode=enums.ParseMode.HTML,
+            fallback=lambda: message.reply_text(
+                text,
+                reply_markup=_inventory_keyboard(inventory, "weapon"),
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
 
 
@@ -371,10 +462,20 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             "Select an equipment piece below to bind it to your Hunter's soul resonance:"
             "</blockquote>"
         )
+        equip_doc = RichDoc(
+            heading(1, "[ EQUIPMENT BINDING // 장비 장착 ]"),
+            paragraph(f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code>"),
+            quote("Select an equipment piece below to bind it to your Hunter's soul resonance:", expandable=False),
+        )
         if query.message and query.message.photo:
             await query.edit_message_caption(caption=equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML)
         else:
-            await query.edit_message_text(equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML)
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                equip_doc,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                fallback=lambda: query.edit_message_text(equip_caption, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=enums.ParseMode.HTML),
+            )
         return
 
     # ── Inventory tabs ────────────────────────────────────
@@ -386,16 +487,27 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, category)
             if query.message and query.message.photo:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_inventory_rich(hunter, inventory, category, photo_first=True),
                     reply_markup=_inventory_keyboard(inventory, category),
+                    media=[photo_media("inventory", photo_buf)],
+                    fallback=lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                        reply_markup=_inventory_keyboard(inventory, category),
+                    ),
                 )
             else:
-                await query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    query.message, build_inventory_rich(hunter, inventory, category, photo_first=True),
                     reply_markup=_inventory_keyboard(inventory, category),
+                    media=[photo_media("inventory", photo_buf)],
+                    fallback=lambda: query.message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_inventory_keyboard(inventory, category),
+                    ),
                 )
         except MessageNotModified:
             return  # double-tapped an already-open tab — no-op, not an error
@@ -405,7 +517,12 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             if query.message and query.message.photo:
                 await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, category), parse_mode=enums.ParseMode.HTML)
             else:
-                await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, category), parse_mode=enums.ParseMode.HTML)
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_inventory_rich(hunter, inventory, category),
+                    reply_markup=_inventory_keyboard(inventory, category),
+                    fallback=lambda: query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, category), parse_mode=enums.ParseMode.HTML),
+                )
 
     # ── Shop menu ─────────────────────────────────────────
     elif data == "shop_menu":
@@ -413,16 +530,27 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
             if query.message and query.message.photo:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_shop_rich(hunter, "menu", photo_first=True),
                     reply_markup=_shop_category_keyboard(),
+                    media=[photo_media("shop", photo_buf)],
+                    fallback=lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                        reply_markup=_shop_category_keyboard(),
+                    ),
                 )
             else:
-                await query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    query.message, build_shop_rich(hunter, "menu", photo_first=True),
                     reply_markup=_shop_category_keyboard(),
+                    media=[photo_media("shop", photo_buf)],
+                    fallback=lambda: query.message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_shop_category_keyboard(),
+                    ),
                 )
         except MessageNotModified:
             return  # double-tapped the already-open shop menu
@@ -431,7 +559,12 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             if query.message and query.message.photo:
                 await query.edit_message_caption(caption=caption, reply_markup=_shop_category_keyboard(), parse_mode=enums.ParseMode.HTML)
             else:
-                await query.edit_message_text(caption, reply_markup=_shop_category_keyboard(), parse_mode=enums.ParseMode.HTML)
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_shop_rich(hunter, "menu"),
+                    reply_markup=_shop_category_keyboard(),
+                    fallback=lambda: query.edit_message_text(caption, reply_markup=_shop_category_keyboard(), parse_mode=enums.ParseMode.HTML),
+                )
 
     # ── Shop category view ────────────────────────────────
     elif data.startswith("shop_"):
@@ -440,16 +573,27 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, category)
             if query.message and query.message.photo:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_shop_rich(hunter, category, photo_first=True),
                     reply_markup=_shop_items_keyboard(category),
+                    media=[photo_media("shop", photo_buf)],
+                    fallback=lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                        reply_markup=_shop_items_keyboard(category),
+                    ),
                 )
             else:
-                await query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
+                await reply_rich(
+                    query.message, build_shop_rich(hunter, category, photo_first=True),
                     reply_markup=_shop_items_keyboard(category),
+                    media=[photo_media("shop", photo_buf)],
+                    fallback=lambda: query.message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=_shop_items_keyboard(category),
+                    ),
                 )
         except MessageNotModified:
             return  # double-tapped an already-open shop category
@@ -461,8 +605,13 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
                     caption=text, reply_markup=_shop_items_keyboard(category), parse_mode=enums.ParseMode.HTML
                 )
             else:
-                await query.edit_message_text(
-                    text, reply_markup=_shop_items_keyboard(category), parse_mode=enums.ParseMode.HTML
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    _format_shop_category_rich(category, hunter.gold),
+                    reply_markup=_shop_items_keyboard(category),
+                    fallback=lambda: query.edit_message_text(
+                        text, reply_markup=_shop_items_keyboard(category), parse_mode=enums.ParseMode.HTML
+                    ),
                 )
 
 
@@ -549,16 +698,27 @@ async def equip_callback(client: Client, query: CallbackQuery) -> None:
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, return_cat, notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_inventory_rich(hunter, inventory, return_cat, notice=notice, photo_first=True),
                 reply_markup=_inventory_keyboard(inventory, return_cat),
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_inventory_keyboard(inventory, return_cat),
+                ),
             )
         else:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                query.message, build_inventory_rich(hunter, inventory, return_cat, notice=notice, photo_first=True),
                 reply_markup=_inventory_keyboard(inventory, return_cat),
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_inventory_keyboard(inventory, return_cat),
+                ),
             )
     except Exception as e:
         logger.error("Failed to render inventory image on equip: %s", e, exc_info=True)
@@ -566,7 +726,12 @@ async def equip_callback(client: Client, query: CallbackQuery) -> None:
         if query.message and query.message.photo:
             await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, return_cat), parse_mode=enums.ParseMode.HTML)
         else:
-            await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, return_cat), parse_mode=enums.ParseMode.HTML)
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_inventory_rich(hunter, inventory, return_cat, notice=notice),
+                reply_markup=_inventory_keyboard(inventory, return_cat),
+                fallback=lambda: query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, return_cat), parse_mode=enums.ParseMode.HTML),
+            )
 
 
 async def buy_callback(client: Client, query: CallbackQuery) -> None:
@@ -620,16 +785,27 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, cat, notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_shop_rich(hunter, cat, notice=notice, photo_first=True),
                 reply_markup=_shop_items_keyboard(cat),
+                media=[photo_media("shop", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_shop_items_keyboard(cat),
+                ),
             )
         else:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                query.message, build_shop_rich(hunter, cat, notice=notice, photo_first=True),
                 reply_markup=_shop_items_keyboard(cat),
+                media=[photo_media("shop", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_shop_items_keyboard(cat),
+                ),
             )
     except Exception as e:
         logger.error("Failed to render shop purchase image: %s", e, exc_info=True)
@@ -639,8 +815,13 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
                 caption=text, reply_markup=_shop_items_keyboard(cat), parse_mode=enums.ParseMode.HTML
             )
         else:
-            await query.edit_message_text(
-                text, reply_markup=_shop_items_keyboard(cat), parse_mode=enums.ParseMode.HTML
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                _format_shop_category_rich(cat, hunter.gold),
+                reply_markup=_shop_items_keyboard(cat),
+                fallback=lambda: query.edit_message_text(
+                    text, reply_markup=_shop_items_keyboard(cat), parse_mode=enums.ParseMode.HTML
+                ),
             )
 
 
@@ -698,16 +879,27 @@ async def use_callback(client: Client, query: CallbackQuery) -> None:
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "consumable", notice)
         if query.message and query.message.photo:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_inventory_rich(hunter, inventory, "consumable", notice=notice, photo_first=True),
                 reply_markup=_inventory_keyboard(inventory, "consumable"),
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_inventory_keyboard(inventory, "consumable"),
+                ),
             )
         else:
-            await query.message.reply_photo(
-                photo=photo_buf,
-                caption=caption,
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                query.message, build_inventory_rich(hunter, inventory, "consumable", notice=notice, photo_first=True),
                 reply_markup=_inventory_keyboard(inventory, "consumable"),
+                media=[photo_media("inventory", photo_buf)],
+                fallback=lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=_inventory_keyboard(inventory, "consumable"),
+                ),
             )
     except Exception as e:
         logger.error("Failed to render inventory image on potion use: %s", e, exc_info=True)
@@ -715,7 +907,12 @@ async def use_callback(client: Client, query: CallbackQuery) -> None:
         if query.message and query.message.photo:
             await query.edit_message_caption(caption=caption, reply_markup=_inventory_keyboard(inventory, "consumable"), parse_mode=enums.ParseMode.HTML)
         else:
-            await query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, "consumable"), parse_mode=enums.ParseMode.HTML)
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_inventory_rich(hunter, inventory, "consumable", notice=notice),
+                reply_markup=_inventory_keyboard(inventory, "consumable"),
+                fallback=lambda: query.edit_message_text(text, reply_markup=_inventory_keyboard(inventory, "consumable"), parse_mode=enums.ParseMode.HTML),
+            )
 
 
 async def handle_use(client: Client, message: Message) -> None:
@@ -727,12 +924,18 @@ async def handle_use(client: Client, message: Message) -> None:
     db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
     if not hunter:
-        await message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, format_not_registered_rich(),
+            fallback=lambda: message.reply_text(format_not_registered(), parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     inventory = await db.get_inventory(user.id)
     if not inventory:
-        await message.reply_text("❌ Your inventory could not be loaded.", parse_mode=enums.ParseMode.HTML)
+        await reply_rich(
+            message, RichDoc(paragraph("❌ Your inventory could not be loaded.")),
+            fallback=lambda: message.reply_text("❌ Your inventory could not be loaded.", parse_mode=enums.ParseMode.HTML),
+        )
         return
 
     command_text = message.text or ""
@@ -753,26 +956,52 @@ async def handle_use(client: Client, message: Message) -> None:
 
         h_name = escape_html(hunter.hunter_name)
         if not healing_item:
-            await message.reply_text(
-                "<b>[ SYSTEM ALERT // 회복 포션 부재 ]</b>\n\n"
-                f"👤 <b>Hunter:</b> {h_name}\n"
-                f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
-                "<blockquote>"
-                "You do not possess any Health Potions in storage.\n"
-                "Visit <code>/shop</code> to purchase recovery elixirs!"
-                "</blockquote>",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM ALERT // 회복 포션 부재 ]"),
+                    paragraph(
+                        f"👤 <b>Hunter:</b> {h_name}<br>"
+                        f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>"
+                    ),
+                    quote(
+                        "You do not possess any Health Potions in storage.<br>"
+                        "Visit <code>/shop</code> to purchase recovery elixirs!",
+                        expandable=False,
+                    ),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SYSTEM ALERT // 회복 포션 부재 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {h_name}\n"
+                    f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
+                    "<blockquote>"
+                    "You do not possess any Health Potions in storage.\n"
+                    "Visit <code>/shop</code> to purchase recovery elixirs!"
+                    "</blockquote>",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
         success, result_msg = apply_consumable(hunter, healing_item)
         if not success:
-            await message.reply_text(
-                "<b>[ SYSTEM NOTICE // 체력 회복 불필요 ]</b>\n\n"
-                f"👤 <b>Hunter:</b> {h_name}\n"
-                f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
-                f"<blockquote>{escape_html(result_msg)}</blockquote>",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SYSTEM NOTICE // 체력 회복 불필요 ]"),
+                    paragraph(
+                        f"👤 <b>Hunter:</b> {h_name}<br>"
+                        f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>  {_hp_bar(hunter.hp, hunter.max_hp)}"
+                    ),
+                    quote(escape_html(result_msg), expandable=False),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SYSTEM NOTICE // 체력 회복 불필요 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {h_name}\n"
+                    f"❤️ <b>Current HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
+                    f"<blockquote>{escape_html(result_msg)}</blockquote>",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -781,15 +1010,29 @@ async def handle_use(client: Client, message: Message) -> None:
         hunter.daily_quest_use += 1
         await db.save_all(user.id)
 
-        await message.reply_text(
-            "<b>[ SYSTEM RESTORATION // 활력 회복 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
-            f"✨ <b>Item Used:</b> {escape_html(healing_item.name)}\n"
-            f"📊 <b>Recovery:</b> {escape_html(result_msg)}\n"
-            f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
-            f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
-            "<blockquote><i>「 Your wounds knit together as mana circulates through your core. 」</i></blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ SYSTEM RESTORATION // 활력 회복 ]"),
+                paragraph(
+                    f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]<br>"
+                    f"✨ <b>Item Used:</b> {escape_html(healing_item.name)}<br>"
+                    f"📊 <b>Recovery:</b> {escape_html(result_msg)}<br>"
+                    f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code><br>"
+                    f"  {_hp_bar(hunter.hp, hunter.max_hp)}"
+                ),
+                quote("「 Your wounds knit together as mana circulates through your core. 」", expandable=False),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ SYSTEM RESTORATION // 활력 회복 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
+                f"✨ <b>Item Used:</b> {escape_html(healing_item.name)}\n"
+                f"📊 <b>Recovery:</b> {escape_html(result_msg)}\n"
+                f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
+                f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n\n"
+                "<blockquote><i>「 Your wounds knit together as mana circulates through your core. 」</i></blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -797,14 +1040,26 @@ async def handle_use(client: Client, message: Message) -> None:
     h_name = escape_html(hunter.hunter_name)
     if not arg:
         if not consumables:
-            await message.reply_text(
-                "<b>[ SHADOW STORAGE // 소비 아이템 ]</b>\n\n"
-                f"👤 <b>Hunter:</b> {h_name}\n\n"
-                "<blockquote>"
-                "You do not have any potions, elixirs, or scrolls in storage.\n"
-                "Visit <code>/shop</code> to browse available consumable items!"
-                "</blockquote>",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(
+                    heading(1, "[ SHADOW STORAGE // 소비 아이템 ]"),
+                    paragraph(f"👤 <b>Hunter:</b> {h_name}"),
+                    quote(
+                        "You do not have any potions, elixirs, or scrolls in storage.<br>"
+                        "Visit <code>/shop</code> to browse available consumable items!",
+                        expandable=False,
+                    ),
+                ),
+                fallback=lambda: message.reply_text(
+                    "<b>[ SHADOW STORAGE // 소비 아이템 ]</b>\n\n"
+                    f"👤 <b>Hunter:</b> {h_name}\n\n"
+                    "<blockquote>"
+                    "You do not have any potions, elixirs, or scrolls in storage.\n"
+                    "Visit <code>/shop</code> to browse available consumable items!"
+                    "</blockquote>",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
 
@@ -827,14 +1082,23 @@ async def handle_use(client: Client, message: Message) -> None:
             InlineKeyboardButton("🛒 Hunter Shop", callback_data="shop_consumable", style=enums.ButtonStyle.PRIMARY)
         ])
 
-        await message.reply_text(
-            "<b>[ AVAILABLE CONSUMABLES // 사용 가능 아이템 ]</b>\n\n"
-            f"👤 <b>Hunter:</b> {h_name} ┊ ❤️ <b>HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
-            "<blockquote>"
-            "Select an item below to consume immediately, or type <code>/use &lt;item name&gt;</code>:"
-            "</blockquote>",
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ AVAILABLE CONSUMABLES // 사용 가능 아이템 ]"),
+                paragraph(f"👤 <b>Hunter:</b> {h_name} ┊ ❤️ <b>HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>"),
+                quote("Select an item below to consume immediately, or type <code>/use &lt;item name&gt;</code>:", expandable=False),
+            ),
             reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode=enums.ParseMode.HTML,
+            fallback=lambda: message.reply_text(
+                "<b>[ AVAILABLE CONSUMABLES // 사용 가능 아이템 ]</b>\n\n"
+                f"👤 <b>Hunter:</b> {h_name} ┊ ❤️ <b>HP:</b> <code>{hunter.hp}/{hunter.max_hp}</code>\n\n"
+                "<blockquote>"
+                "Select an item below to consume immediately, or type <code>/use &lt;item name&gt;</code>:"
+                "</blockquote>",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -844,9 +1108,15 @@ async def handle_use(client: Client, message: Message) -> None:
         target_id = int(arg)
         target_item = inventory.get_item(target_id)
         if target_item and target_item.type != "consumable":
-            await message.reply_text(
-                f"❌ Item #<code>{target_id}</code> ({escape_html(target_item.name)}) is a {escape_html(target_item.type)}, not a consumable!",
-                parse_mode=enums.ParseMode.HTML,
+            await reply_rich(
+                message,
+                RichDoc(paragraph(
+                    f"❌ Item #<code>{target_id}</code> ({escape_html(target_item.name)}) is a {escape_html(target_item.type)}, not a consumable!"
+                )),
+                fallback=lambda: message.reply_text(
+                    f"❌ Item #<code>{target_id}</code> ({escape_html(target_item.name)}) is a {escape_html(target_item.type)}, not a consumable!",
+                    parse_mode=enums.ParseMode.HTML,
+                ),
             )
             return
     else:
@@ -862,19 +1132,33 @@ async def handle_use(client: Client, message: Message) -> None:
                     break
 
     if not target_item:
-        await message.reply_text(
-            f"❌ Consumable matching '<code>{escape_html(arg)}</code>' not found in your inventory.\n"
-            "Check <code>/inventory</code> (Consumables tab) to see what items you carry.",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(paragraph(
+                f"❌ Consumable matching '<code>{escape_html(arg)}</code>' not found in your inventory.<br>"
+                "Check <code>/inventory</code> (Consumables tab) to see what items you carry."
+            )),
+            fallback=lambda: message.reply_text(
+                f"❌ Consumable matching '<code>{escape_html(arg)}</code>' not found in your inventory.\n"
+                "Check <code>/inventory</code> (Consumables tab) to see what items you carry.",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
     success, result_msg = apply_consumable(hunter, target_item)
     if not success:
-        await message.reply_text(
-            "<b>[ ACTION CANCELLED // 사용 취소 ]</b>\n\n"
-            f"<blockquote>{escape_html(result_msg)}</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
+        await reply_rich(
+            message,
+            RichDoc(
+                heading(1, "[ ACTION CANCELLED // 사용 취소 ]"),
+                quote(escape_html(result_msg), expandable=False),
+            ),
+            fallback=lambda: message.reply_text(
+                "<b>[ ACTION CANCELLED // 사용 취소 ]</b>\n\n"
+                f"<blockquote>{escape_html(result_msg)}</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            ),
         )
         return
 
@@ -883,15 +1167,30 @@ async def handle_use(client: Client, message: Message) -> None:
     hunter.daily_quest_use += 1
     await db.save_all(user.id)
 
-    await message.reply_text(
-        "<b>[ ITEM CONSUMED // 아이템 사용 완료 ]</b>\n\n"
-        f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
-        f"✨ <b>Used:</b> {escape_html(target_item.name)} [<code>{target_item.rarity}</code>]\n"
-        f"📊 <b>Effect:</b> {escape_html(result_msg)}\n"
-        f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
-        f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n"
-        f"💪 <b>Total Power:</b> <code>{hunter.power:,}</code>\n\n"
-        "<blockquote><i>「 The System records your enhanced status. 」</i></blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+    await reply_rich(
+        message,
+        RichDoc(
+            heading(1, "[ ITEM CONSUMED // 아이템 사용 완료 ]"),
+            paragraph(
+                f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]<br>"
+                f"✨ <b>Used:</b> {escape_html(target_item.name)} [<code>{target_item.rarity}</code>]<br>"
+                f"📊 <b>Effect:</b> {escape_html(result_msg)}<br>"
+                f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code><br>"
+                f"  {_hp_bar(hunter.hp, hunter.max_hp)}<br>"
+                f"💪 <b>Total Power:</b> <code>{hunter.power:,}</code>"
+            ),
+            quote("「 The System records your enhanced status. 」", expandable=False),
+        ),
+        fallback=lambda: message.reply_text(
+            "<b>[ ITEM CONSUMED // 아이템 사용 완료 ]</b>\n\n"
+            f"👤 <b>Hunter:</b> {h_name} [Rank <b>{hunter.rank}</b>]\n"
+            f"✨ <b>Used:</b> {escape_html(target_item.name)} [<code>{target_item.rarity}</code>]\n"
+            f"📊 <b>Effect:</b> {escape_html(result_msg)}\n"
+            f"❤️ <b>Vitality:</b> <code>{hunter.hp} / {hunter.max_hp}</code>\n"
+            f"  {_hp_bar(hunter.hp, hunter.max_hp)}\n"
+            f"💪 <b>Total Power:</b> <code>{hunter.power:,}</code>\n\n"
+            "<blockquote><i>「 The System records your enhanced status. 」</i></blockquote>",
+            parse_mode=enums.ParseMode.HTML,
+        ),
     )
 
