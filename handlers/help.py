@@ -242,15 +242,15 @@ def _topic_rich(title: str, *blocks: str) -> str:
 
 
 def _sec(title: str, *items: str) -> list[str]:
-    """h2 section header + bullet list (classic copy preserved verbatim)."""
-    return [heading(2, title), bullet_list(list(items))]
+    """Collapsible section toggle + bullet list (classic copy preserved verbatim)."""
+    return [details(title, bullet_list(list(items)))]
 
 
 TOPIC_RICH = {
     "tiers": (
         "<h1>[ SYSTEM DIRECTIVE // ASCENSION &amp; TIERS ]</h1>"
         "<hr/>"
-        "<h2>⭐ Hunter Rank Progression</h2>"
+        "<details><summary>⭐ Hunter Rank Progression</summary>"
         "<table>"
         "<tr><th>Rank</th><th>Requirement</th></tr>"
         "<tr><td><b>E-Rank</b></td><td>Level 1+ — The Awakened Novice</td></tr>"
@@ -263,8 +263,8 @@ TOPIC_RICH = {
         "<tr><td><b>SSS-Rank</b></td><td>Level 95+ — Apex Sovereign</td></tr>"
         "<tr><td><b>National Level</b></td><td>Level 100+ — Living Calamity</td></tr>"
         "<tr><td><b>Monarch</b></td><td>Level 120+ — Shadow Monarch Sovereign</td></tr>"
-        "</table>"
-        "<h2>💎 Item Rarity Spectrum &amp; Drop Probabilities</h2>"
+        "</table></details>"
+        "<details><summary>💎 Item Rarity Spectrum &amp; Drop Probabilities</summary>"
         "<table>"
         "<tr><th>Rarity</th><th>Drop Rate</th><th>Loot Profile</th></tr>"
         "<tr><td>⚪ <b>Common</b></td><td>50.0%</td><td>Basic dungeon gear &amp; smelting iron</td></tr>"
@@ -273,7 +273,7 @@ TOPIC_RICH = {
         "<tr><td>🟣 <b>Epic</b></td><td>7.0%</td><td>High-mana crystalline artifacts</td></tr>"
         "<tr><td>🟡 <b>Legendary</b></td><td>2.5%</td><td>Sovereign-forged ancient relics</td></tr>"
         "<tr><td>🔴 <b>Mythic</b></td><td>0.5%</td><td>Divine dimensional armaments</td></tr>"
-        "</table>"
+        "</table></details>"
         "<hr/>"
         "<blockquote>「 The System acknowledges those who strive to grow stronger. 」</blockquote>"
         "<footer>Solo Leveling Hunter System // Archives V2.5</footer>"
@@ -325,15 +325,17 @@ TOPIC_RICH = {
     ),
     "quests": _topic_rich(
         "DAILY CONDITIONING",
-        heading(2, "🏋️ Daily Physical Conditioning (<code>/daily</code>)"),
-        paragraph("<i>「 The System demands daily physical conditioning. Failure is not an option. 」</i>"),
-        paragraph("Complete 4 mandatory daily directives before 00:00 UTC:"),
-        number_list([
-            "⚔️ Slay at least 5 gate monsters (<code>/hunt</code>)",
-            "🗺️ Undertake at least 1 world expedition (<code>/explore</code>)",
-            "🤺 Engage in at least 1 combat duel (<code>/duel</code>)",
-            "🧪 Drink at least 1 recovery potion or elixir (<code>/use</code> or <code>/heal</code>)",
-        ]),
+        details(
+            "🏋️ Daily Physical Conditioning (<code>/daily</code>)",
+            paragraph("<i>「 The System demands daily physical conditioning. Failure is not an option. 」</i>")
+            + paragraph("Complete 4 mandatory daily directives before 00:00 UTC:")
+            + number_list([
+                "⚔️ Slay at least 5 gate monsters (<code>/hunt</code>)",
+                "🗺️ Undertake at least 1 world expedition (<code>/explore</code>)",
+                "🤺 Engage in at least 1 combat duel (<code>/duel</code>)",
+                "🧪 Drink at least 1 recovery potion or elixir (<code>/use</code> or <code>/heal</code>)",
+            ]),
+        ),
         *_sec("🎁 Daily Quest Completion Rewards:",
               "<b>+3 Free Stat Points</b> to invest freely into your attributes!",
               "<b>+600 Gold</b> &amp; <b>+250 XP</b>",
