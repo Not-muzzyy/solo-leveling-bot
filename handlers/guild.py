@@ -34,7 +34,7 @@ from game.font_manager import clean_and_normalize_name
 from game.guild_image import render_guild_image
 from game.guild_leaderboard_image import render_guild_leaderboard_image
 from game.rich_text import escape_html
-from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
 from game.captions import build_guild_caption, build_guild_rich, build_guild_leaderboard_rich
 from game.miniapp import send_miniapp_entry
@@ -297,25 +297,27 @@ async def handle(client: Client, message: Message) -> None:
             RichDoc(
                 heading(1, "[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]"),
                 paragraph("<b>시스템 안내 // 헌터 길드 본부</b>"),
-                quote(
-                    "<b>⚔️ Syndicate Directives:</b>\n"
-                    "• <code>/guild view [name]</code> — View guild card & join\n"
-                    "• <code>/guild create &lt;name&gt;</code> — Establish guild (<code>500 Gold</code>)\n"
-                    "• <code>/guild join &lt;name&gt;</code> — Pledge allegiance to a guild\n"
-                    "• <code>/guild leave</code> — Depart current guild\n"
-                    "• <code>/guild members</code> — Inspect guild roster\n"
-                    "• <code>/guild top</code> — Top 10 guilds leaderboard\n"
-                    "• <code>/guild war &lt;name&gt;</code> — Challenge rival guild to war\n"
-                    "• <code>/guild kick</code> — Expel member (reply in group)\n"
-                    "• <code>/guild disband</code> — Dissolve guild (owner only)\n"
-                    "• <code>/guild edit &lt;desc&gt;</code> — Update syndicate creed",
-                    expandable=True,
+                details(
+                    "⚔️ Syndicate Directives:",
+                    bullet_list([
+                        "<code>/guild view [name]</code> — View guild card & join",
+                        "<code>/guild create &lt;name&gt;</code> — Establish guild (<code>500 Gold</code>)",
+                        "<code>/guild join &lt;name&gt;</code> — Pledge allegiance to a guild",
+                        "<code>/guild leave</code> — Depart current guild",
+                        "<code>/guild members</code> — Inspect guild roster",
+                        "<code>/guild top</code> — Top 10 guilds leaderboard",
+                        "<code>/guild war &lt;name&gt;</code> — Challenge rival guild to war",
+                        "<code>/guild kick</code> — Expel member (reply in group)",
+                        "<code>/guild disband</code> — Dissolve guild (owner only)",
+                        "<code>/guild edit &lt;desc&gt;</code> — Update syndicate creed",
+                    ]),
                 ),
-                quote(
-                    "<b>🎁 Gifting Protocols:</b>\n"
-                    "• <code>/gift gold &lt;amount&gt; @user</code> — Gift gold to guildmate\n"
-                    "• <code>/gift item &lt;id&gt; @user</code> — Gift equipment to guildmate",
-                    expandable=True,
+                details(
+                    "🎁 Gifting Protocols:",
+                    bullet_list([
+                        "<code>/gift gold &lt;amount&gt; @user</code> — Gift gold to guildmate",
+                        "<code>/gift item &lt;id&gt; @user</code> — Gift equipment to guildmate",
+                    ]),
                 ),
                 paragraph("<i>Syndicate members receive 🎁 <b>+10% EXP</b> on all dungeon hunts!</i>"),
             ),

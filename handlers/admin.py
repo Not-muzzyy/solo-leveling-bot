@@ -42,7 +42,7 @@ from game.hunter import add_xp, check_rank_up, xp_for_level
 from game.formatting import _stat_bar, _rank_badge
 from game.rich_text import escape_html
 from game.shop import get_shop_item, create_item_from_shop, SHOP_ITEMS
-from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, quote
 from game.rich_send import edit_rich, reply_rich
 from models import Hunter, RedeemCode, Item
 
@@ -242,38 +242,48 @@ async def handle_admin_help(client: Client, message: Message) -> None:
             heading(1, "[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]"),
             paragraph("<b>관리자 제어 // 최고 관리자 터미널</b>"),
             paragraph("<i>Executive Hunter Management &amp; Balances</i>"),
-            quote(
-                "⚡ <b>Gold &amp; Economy Controls:</b>\n"
-                "• <code>/addgold &lt;amount&gt;</code> — Add gold to your own treasury\n"
-                "• <code>/addgold &lt;amount&gt; &lt;user_id|@username&gt;</code> — Credit gold to target Hunter\n"
-                "• <code>/setgold &lt;amount&gt; [target]</code> — Overwrite exact gold balance\n"
-                "<i>(Aliases: <code>/addcoins</code>, <code>/setcoins</code>)</i>"
+            details(
+                "⚡ Gold &amp; Economy Controls:",
+                bullet_list([
+                    "<code>/addgold &lt;amount&gt;</code> — Add gold to your own treasury",
+                    "<code>/addgold &lt;amount&gt; &lt;user_id|@username&gt;</code> — Credit gold to target Hunter",
+                    "<code>/setgold &lt;amount&gt; [target]</code> — Overwrite exact gold balance",
+                    "<i>(Aliases: <code>/addcoins</code>, <code>/setcoins</code>)</i>",
+                ]),
             ),
-            quote(
-                "✨ <b>XP &amp; Level Progression:</b>\n"
-                "• <code>/addxp &lt;amount&gt;</code> — Grant XP to yourself (triggers level &amp; rank ups)\n"
-                "• <code>/addxp &lt;amount&gt; &lt;user_id|@username&gt;</code> — Grant XP to target Hunter\n"
-                "• <code>/setlevel &lt;level&gt; [target]</code> — Force set hunter level &amp; stats\n"
-                "<i>(Aliases: <code>/addep</code>, <code>/setep</code>)</i>"
+            details(
+                "✨ XP &amp; Level Progression:",
+                bullet_list([
+                    "<code>/addxp &lt;amount&gt;</code> — Grant XP to yourself (triggers level &amp; rank ups)",
+                    "<code>/addxp &lt;amount&gt; &lt;user_id|@username&gt;</code> — Grant XP to target Hunter",
+                    "<code>/setlevel &lt;level&gt; [target]</code> — Force set hunter level &amp; stats",
+                    "<i>(Aliases: <code>/addep</code>, <code>/setep</code>)</i>",
+                ]),
             ),
-            quote(
-                "🎁 <b>Promo &amp; Gift Code System:</b>\n"
-                "• <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge gold gift code\n"
-                "• <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code> — Forge item code\n"
-                "• <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n"
-                "• <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge XP promo code\n"
-                "• <code>/listcodes</code> (or <code>/codes</code>) — View all promo codes &amp; telemetry\n"
-                "• <code>/deletecode &lt;CODE&gt;</code> — Purge / revoke a promo code"
+            details(
+                "🎁 Promo &amp; Gift Code System:",
+                bullet_list([
+                    "<code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge gold gift code",
+                    "<code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code> — Forge item code",
+                    "<code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>",
+                    "<code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code> — Forge XP promo code",
+                    "<code>/listcodes</code> (or <code>/codes</code>) — View all promo codes &amp; telemetry",
+                    "<code>/deletecode &lt;CODE&gt;</code> — Purge / revoke a promo code",
+                ]),
             ),
-            quote(
-                "🔍 <b>Diagnostics &amp; Inspection:</b>\n"
-                "• <code>/inspect [user_id|@username]</code> — Deep telemetry &amp; raw attributes"
+            details(
+                "🔍 Diagnostics &amp; Inspection:",
+                bullet_list([
+                    "<code>/inspect [user_id|@username]</code> — Deep telemetry &amp; raw attributes",
+                ]),
             ),
-            quote(
-                "🚀 <b>Lifecycle &amp; Remote Updates:</b>\n"
-                "• <code>/update</code> — Check remote git commits, changed files &amp; code lines\n"
-                "• <code>/restart</code> — Pull latest commits &amp; reboot bot process\n"
-                "• <code>/stop</code> (or <code>/shutdown</code>) — Terminate &amp; kill bot process"
+            details(
+                "🚀 Lifecycle &amp; Remote Updates:",
+                bullet_list([
+                    "<code>/update</code> — Check remote git commits, changed files &amp; code lines",
+                    "<code>/restart</code> — Pull latest commits &amp; reboot bot process",
+                    "<code>/stop</code> (or <code>/shutdown</code>) — Terminate &amp; kill bot process",
+                ]),
             ),
             quote("💡 <i>Tip: Reply to any message with <code>/addgold 50000</code> or <code>/addxp 2500</code>.</i>", expandable=False),
         ),
@@ -701,18 +711,18 @@ async def handle_create_code(client: Client, message: Message) -> None:
                 heading(1, "[ SYSTEM DIRECTIVE // CODE FORGE ]"),
                 paragraph("<b>코드 생성 // 프로모션 코드 제작 지침</b>"),
                 paragraph("<i>Create Promo &amp; Gift Codes for Hunters</i>"),
-                quote(
-                    "⚡ <b>Supported Syntaxes:</b>\n"
-                    "1. <b>Gold Code:</b>\n"
-                    "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
-                    "   <i>Example:</i> <code>/createcode gold LEVELUP 10000 50</code>\n\n"
-                    "2. <b>Item Code (from Shop Catalog):</b>\n"
-                    "   <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code>\n"
-                    "   <i>Example:</i> <code>/createcode item FREEBLADE knight_killer 20</code>\n\n"
-                    "3. <b>Custom Item Code:</b>\n"
-                    "   <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n\n"
-                    "4. <b>XP Code:</b>\n"
-                    "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
+                details(
+                    "⚡ Supported Syntaxes:",
+                    "1. <b>Gold Code:</b><br>"
+                    "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code><br>"
+                    "   <i>Example:</i> <code>/createcode gold LEVELUP 10000 50</code><br><br>"
+                    "2. <b>Item Code (from Shop Catalog):</b><br>"
+                    "   <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code><br>"
+                    "   <i>Example:</i> <code>/createcode item FREEBLADE knight_killer 20</code><br><br>"
+                    "3. <b>Custom Item Code:</b><br>"
+                    "   <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code><br><br>"
+                    "4. <b>XP Code:</b><br>"
+                    "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code><br>"
                     "   <i>Example:</i> <code>/createcode xp FASTXP 2500 100</code>"
                 ),
                 quote("💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i>", expandable=False),

@@ -19,7 +19,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from game.hunter import add_xp, check_rank_up
 from game.rich_text import escape_html
-from game.rich_message import RichDoc, heading, paragraph, quote
+from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, quote
 from game.rich_send import reply_rich, send_rich
 from models import Item, Inventory, Hunter
 
@@ -122,14 +122,19 @@ async def handle_redeem(client: Client, message: Message) -> None:
             RichDoc(
                 heading(1, "[ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]"),
                 paragraph("<b>코드 교환 // 보상 수령 터미널</b>"),
-                quote(
-                    "Enter a secret System promo code to receive dimensional supplies, rare artifacts, or gold.<br><br>"
-                    "<b>Command Syntax:</b><br>"
-                    "<code>/redeem &lt;CODE&gt;</code><br><br>"
-                    "<b>Examples:</b><br>"
-                    "• <code>/redeem WELCOME1000</code><br>"
-                    "• <code>/redeem SHADOWBLADE</code>",
-                    expandable=True,
+                paragraph(
+                    "Enter a secret System promo code to receive dimensional supplies, rare artifacts, or gold."
+                ),
+                details(
+                    "Command Syntax:",
+                    "<code>/redeem &lt;CODE&gt;</code>",
+                ),
+                details(
+                    "Examples:",
+                    bullet_list([
+                        "<code>/redeem WELCOME1000</code>",
+                        "<code>/redeem SHADOWBLADE</code>",
+                    ]),
                 ),
                 quote("「 The System rewards those who remain vigilant. 」", expandable=False),
             ),

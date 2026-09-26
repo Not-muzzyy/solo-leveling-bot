@@ -36,7 +36,7 @@ from game.duel import simulate_duel
 from game.font_manager import clean_and_normalize_name
 from game.formatting import format_not_registered, format_not_registered_rich
 from game.rich_text import escape_html
-from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+from game.rich_message import RichDoc, bullet_list, details, heading, number_list, paragraph, photo_block, quote
 from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.captions import (
     build_war_challenge_caption,
@@ -290,17 +290,30 @@ async def handle_war(client: Client, message: Message) -> None:
                 heading(1, "[ SYSTEM DIRECTIVE // GUILD WARFARE ]"),
                 paragraph("<b>길드 전쟁 // 연맹 간 총력전</b>"),
                 paragraph("<i>Challenge another Hunter Syndicate to official clan warfare!</i>"),
-                quote(
-                    "<b>Declaration Directive:</b>\n"
-                    "• <code>/guild war &lt;guild_name&gt;</code> — Challenge a rival guild\n\n"
-                    "<b>Combat Structure:</b>\n"
-                    "1. Guild Sovereign issues the war declaration\n"
-                    "2. Opposing Sovereign accepts or declines the challenge\n"
-                    "3. Roster members clash in 1v1 ladder duels\n"
-                    "4. Syndicate with the most victories claims the spoils!\n\n"
-                    f"🎁 <b>Spoils:</b> <code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>/fighter, <code>+{GUILD_WAR_WIN_SCORE} War Score</code>, bonus EXP\n"
-                    f"💀 <b>Defeat:</b> <code>-{GUILD_WAR_LOSS_SCORE} War Score</code>, <code>-{GUILD_WAR_XP_PENALTY} EXP</code>",
-                    expandable=True,
+                details(
+                    "Declaration Directive:",
+                    bullet_list([
+                        "<code>/guild war &lt;guild_name&gt;</code> — Challenge a rival guild",
+                    ]),
+                ),
+                details(
+                    "Combat Structure:",
+                    number_list([
+                        "Guild Sovereign issues the war declaration",
+                        "Opposing Sovereign accepts or declines the challenge",
+                        "Roster members clash in 1v1 ladder duels",
+                        "Syndicate with the most victories claims the spoils!",
+                    ]),
+                ),
+                details(
+                    "🎁 Spoils:",
+                    f"<code>+{GUILD_WAR_GOLD_REWARD:,} Gold</code>/fighter, "
+                    f"<code>+{GUILD_WAR_WIN_SCORE} War Score</code>, bonus EXP",
+                ),
+                details(
+                    "💀 Defeat:",
+                    f"<code>-{GUILD_WAR_LOSS_SCORE} War Score</code>, "
+                    f"<code>-{GUILD_WAR_XP_PENALTY} EXP</code>",
                 ),
             ),
             fallback=lambda: message.reply_text(text, parse_mode=ParseMode.HTML),

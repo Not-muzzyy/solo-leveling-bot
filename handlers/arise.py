@@ -36,7 +36,7 @@ from config import (
 )
 from game.font_manager import clean_and_normalize_name
 from game.hunter import add_xp
-from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
+from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, photo_block, quote
 from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.rich_text import escape_html, callback_button
 from game.captions import build_shadows_rich
@@ -703,14 +703,20 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
             message,
             RichDoc(
                 heading(1, "[ COMMAND SYNTAX ERROR // 사진 누락 ]"),
-                quote(
-                    "To add a shadow character, you must <b>reply to an image</b> or <b>attach a photo</b>!\n\n"
-                    "<b>Syntax:</b>\n"
-                    "<code>/addshadow &lt;Rarity&gt; &lt;Character Name&gt; [| alias1, alias2]</code>\n\n"
-                    "<b>Example:</b>\n"
-                    "<code>/addshadow Legendary Blood-Red Commander Igris | Igris, 핏빛의 이그리트</code>\n\n"
-                    "<b>Valid Rarities:</b>\n"
-                    f"{', '.join(RARITIES)}"
+                paragraph(
+                    "To add a shadow character, you must <b>reply to an image</b> or <b>attach a photo</b>!"
+                ),
+                details(
+                    "Syntax:",
+                    "<code>/addshadow &lt;Rarity&gt; &lt;Character Name&gt; [| alias1, alias2]</code>",
+                ),
+                details(
+                    "Example:",
+                    "<code>/addshadow Legendary Blood-Red Commander Igris | Igris, 핏빛의 이그리트</code>",
+                ),
+                details(
+                    "Valid Rarities:",
+                    f"{', '.join(RARITIES)}",
                 ),
             ),
             fallback=lambda: message.reply_text(

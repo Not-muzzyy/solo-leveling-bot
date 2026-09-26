@@ -398,7 +398,9 @@ def build_help_rich() -> "RichDoc":
         toc([(label, name) for label, name, _ in sections]),
         divider(),
     ]
-    for label, name, items in sections:
+    for i, (label, name, items) in enumerate(sections):
+        if i:
+            blocks.append(divider())
         blocks.append(anchor(name))
         blocks.append(details(label, bullet_list(items)))
     blocks.append(quote(
