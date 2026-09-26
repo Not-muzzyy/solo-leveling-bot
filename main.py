@@ -22,9 +22,19 @@ from pyrogram import Client, filters, enums, utils
 # Support modern 64-bit Telegram channel IDs (e.g. -1004250848098)
 utils.MIN_CHANNEL_ID = -10099999999999
 
-from config import BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID, SHADOWS_CHANNEL_ID
+from config import (
+    BOT_TOKEN,
+    API_ID,
+    API_HASH,
+    DATA_CHANNEL_ID,
+    SHADOWS_CHANNEL_ID,
+    MINIAPP_API_ENABLED,
+    MINIAPP_API_HOST,
+    MINIAPP_API_PORT,
+)
 from channel_db import ChannelDB
 from shadows_db import ShadowsDB
+from miniapp_api import api_app
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich
 from game.rich_text import escape_html
@@ -49,6 +59,8 @@ app = Client(
     bot_token=BOT_TOKEN,
     parse_mode=enums.ParseMode.HTML,
 )
+_api_server = None
+_api_task: asyncio.Task | None = None
 
 
 # ── Lifecycle ─────────────────────────────────────────────
@@ -147,11 +159,46 @@ async def on_start(client):
             except Exception:
                 pass
 
+    if MINIAPP_API_ENABLED:
+        global _api_server, _api_task
+        import uvicorn
+
+        api_app.state.bot = client
+        server_config = uvicorn.Config(
+            api_app,
+            host=MINIAPP_API_HOST,
+            port=MINIAPP_API_PORT,
+            log_level="warning",
+            access_log=False,
+            loop="asyncio",
+        )
+        _api_server = uvicorn.Server(server_config)
+        _api_task = asyncio.create_task(_api_server.serve(), name="miniapp-api")
+        for _ in range(100):
+            if _api_server.started:
+                break
+            if _api_task.done():
+                await _api_task
+            await asyncio.sleep(0.05)
+        if not _api_server.started:
+            _api_server.should_exit = True
+            raise RuntimeError("Mini App API did not start within five seconds")
+        logger.info("Mini App API listening on %s:%s", MINIAPP_API_HOST, MINIAPP_API_PORT)
+    else:
+        logger.info("Mini App API disabled; set MINIAPP_API_ENABLED=true to enable it.")
+
     logger.info("Bot initialized and ready!")
 
 
 async def on_stop(client):
     logger.info("Bot shutting down...")
+    if _api_server is not None:
+        _api_server.should_exit = True
+    if _api_task is not None:
+        try:
+            await asyncio.wait_for(_api_task, timeout=10)
+        except asyncio.TimeoutError:
+            logger.warning("Mini App API shutdown timed out")
 
 
 if hasattr(app, "on_start"):

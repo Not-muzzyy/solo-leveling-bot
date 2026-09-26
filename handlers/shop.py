@@ -19,6 +19,7 @@ from game.formatting import format_not_registered, format_not_registered_rich
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import photo_media, reply_rich, send_rich
 from game.rich_text import escape_html
+from game.miniapp import send_miniapp_entry
 from game.shop_image import render_shop_image
 from handlers.inventory import _shop_category_keyboard
 
@@ -30,6 +31,15 @@ async def handle(client: Client, message: Message) -> None:
     user = message.from_user
     chat = message.chat
     if not user or not chat:
+        return
+
+    if await send_miniapp_entry(
+        message,
+        section="shop",
+        title="[ HUNTER EXCHANGE DEPOT ]",
+        description="Browse the System catalogue and purchase equipment in the Mini App.",
+        button_label="⚔ Open Hunter Shop",
+    ):
         return
 
     db: ChannelDB = client.db

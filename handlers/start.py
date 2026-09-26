@@ -31,6 +31,7 @@ from game.formatting import (
 from game.inventory_image import render_inventory_image
 from game.rich_text import escape_html, copy_button
 from game.rich_send import photo_media, reply_rich
+from game.miniapp import send_miniapp_entry
 from handlers.inventory import _inventory_keyboard
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,14 @@ async def handle(client: Client, message: Message) -> None:
             await handle_stats(client, message)
             return
         if is_shop_deeplink:
+            if await send_miniapp_entry(
+                message,
+                section="shop",
+                title="[ HUNTER EXCHANGE DEPOT ]",
+                description="Browse the System catalogue and purchase equipment in the Mini App.",
+                button_label="⚔ Open Hunter Shop",
+            ):
+                return
             from game.shop_image import render_shop_image
             from handlers.inventory import _shop_category_keyboard
             caption = build_shop_caption(existing, "menu")
@@ -197,6 +206,14 @@ async def handle(client: Client, message: Message) -> None:
 
     # If awakened via shop deep-link, immediately show the Hunter Shop
     if is_shop_deeplink:
+        if await send_miniapp_entry(
+            message,
+            section="shop",
+            title="[ HUNTER EXCHANGE DEPOT ]",
+            description="Browse the System catalogue and purchase equipment in the Mini App.",
+            button_label="⚔ Open Hunter Shop",
+        ):
+            return
         from game.shop_image import render_shop_image
         from handlers.inventory import _shop_category_keyboard
         caption = build_shop_caption(hunter, "menu")

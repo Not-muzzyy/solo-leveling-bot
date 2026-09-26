@@ -2,3 +2,5 @@ kurigram>=2.2.25
 python-dotenv>=1.0.0
 Pillow>=10.0.0
 telegram-text>=0.2.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0

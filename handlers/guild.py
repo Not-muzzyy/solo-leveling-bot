@@ -37,6 +37,7 @@ from game.rich_text import escape_html
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
 from game.captions import build_guild_caption, build_guild_rich, build_guild_leaderboard_rich
+from game.miniapp import send_miniapp_entry
 from handlers import guild_war
 
 logger = logging.getLogger(__name__)
@@ -148,12 +149,27 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         return
 
     db: ChannelDB = client.db
+    target_guild = await db.get_guild_by_name(target_query) if target_query else None
+    launch_section = "guilds"
+    if target_guild:
+        launch_section = f"guild_{target_guild.guild_id}"
+
+    if not target_query or target_guild:
+        if await send_miniapp_entry(
+            message,
+            section=launch_section,
+            title="[ GUILD DIRECTORY ]",
+            description="Review guild standings, member rosters, and your own syndicate in the Mini App.",
+            button_label="♜ Open Guild Directory",
+        ):
+            return
+
     viewer_guild = await db.get_user_guild(user.id)
     all_guilds = await db.get_all_guilds()
 
     guild = None
     if target_query:
-        guild = await db.get_guild_by_name(target_query)
+        guild = target_guild
         if not guild:
             q_esc = escape_html(target_query)
             await reply_rich(

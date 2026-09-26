@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-**Solo Leveling Hunter RPG Bot** — A high-performance, atmospheric Telegram group RPG bot inspired by the **Solo Leveling** Hunter System. Players awaken as Hunters, battle dimensional gate monsters, gear up with glowing equipment, join guilds, challenge rivals in PvP arena duels, and command a growing **Shadow Monarch Army** (`/arise` & `/shadows`).
+**Solo Leveling Hunter RPG Bot** — A high-performance, atmospheric Telegram group RPG bot inspired by the **Solo Leveling** Hunter System. Players awaken as Hunters, battle dimensional gate monsters, gear up with glowing equipment, join guilds, challenge rivals in PvP arena duels, and command a growing **Shadow Monarch Army** (`/arise` & `/shadows`). A companion Telegram Mini App handles daily claims, shop purchases, and read-only guild browsing.
 
-- **Language**: Python 3.11+
-- **Framework**: `kurigram` v2.2.25+ (Pyrogram fork, MTProto API, fully asynchronous, decorator pattern)
-- **Database**: **Telegram Channel Databases** (`channel_db.py` & `shadows_db.py`) — private Telegram channels store all game records and shadow entities as JSON messages (no external SQLite/Postgres server required).
+- **Languages**: Python 3.11+ for the bot and API; TypeScript for the Telegram Mini App.
+- **Frameworks**: `kurigram` v2.2.25+ for the bot; FastAPI for the Mini App API; React and Vite for the frontend.
+- **Database**: **Telegram Channel Databases** (`channel_db.py` & `shadows_db.py`) — private Telegram channels store all game records and shadow entities as JSON messages. The Mini App API runs in the bot process and uses its initialized `ChannelDB`; do not add an external database for Mini App state.
 - **Design System**: Hallmark-compliant anti-slop visual renderer using Pillow with universal font cascading (0 tofu blocks for any Unicode/Fraktur/CJK/Emoji characters).
 
 ---
@@ -18,8 +18,9 @@ solo-leveling-bot/
 ├── .env                     # Secrets: BOT_TOKEN, API_ID, API_HASH, DATA_CHANNEL_ID, SHADOWS_CHANNEL_ID, SUPERADMIN_IDS (gitignored)
 ├── .env.example             # Configuration template
 ├── .gitignore               # Secrets, session databases, scratch files ignored
-├── requirements.txt         # kurigram>=2.2.25, python-dotenv, Pillow>=10.0.0
+├── requirements.txt         # kurigram, python-dotenv, Pillow, FastAPI, Uvicorn
 ├── main.py                  # Entry point — registers handlers, initializes DBs, runs polling
+├── miniapp_api.py           # Authenticated FastAPI routes sharing the bot's ChannelDB
 ├── config.py                # Game balances: ranks, rarities, XP curves, shop items, guild settings
 ├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild, ShadowCharacter, UserShadow
 ├── channel_db.py            # Primary ChannelDB class — Telegram channel storage for hunters & guilds
@@ -28,7 +29,9 @@ solo-leveling-bot/
 │   ├── hunter.py            # Hunter creation, XP gain, level/rank up calculations
 │   ├── combat.py            # Monster generation, combat damage formula, hunt simulation
 │   ├── items.py             # Procedural loot generation & rarity weight tables
-│   ├── shop.py              # 21 purchasable items across 5 categories, purchasing logic
+│   ├── shop.py              # Shop catalogue and purchasing logic
+│   ├── economy.py           # Shared locked claim and shop purchase operations
+│   ├── miniapp.py           # Bot command launch links for Mini App sections
 │   ├── font_manager.py      # Universal Unicode Font Cascade & Normalizer (Fraktur, Hangul, CJK, Emoji, zero tofu)
 │   ├── design_tokens.py     # Hallmark design system tokens, atmospheric canvas, and vector shapes
 │   ├── profile_image.py     # Pillow renderer — High-res System Status Window with avatar neon ring
@@ -43,13 +46,13 @@ solo-leveling-bot/
 │   ├── leaderboard_image.py # Pillow renderer — High-res System Hall of Fame with real names & podium
 │   ├── duel.py              # Pure combat simulation engine for PvP arena duels
 │   ├── duel_image.py        # Pillow renderer — 920x580 High-def Duel Card with VS clash, WON/LOST banners
-│   └── formatting.py        # Plain-text formatting with Unicode box-drawing
-└── handlers/
+│   ├── formatting.py        # Plain-text formatting with Unicode box-drawing
+├── handlers/
     ├── start.py             # /start & deep-link router (inventory, shop, help)
     ├── profile.py           # /profile — photo status card
     ├── hunt.py              # /hunt — visual combat resolution card (60s cooldown, 20/day cap)
     ├── inventory.py         # /inventory — image storage, 1-tap equip & shop (PM protection)
-    ├── shop.py              # /shop — visual exchange depot image cards (PM protection)
+    ├── shop.py              # /shop — Mini App handoff when enabled; visual bot shop fallback
     ├── leaderboard.py       # /leaderboard — visual Hall of Fame with interactive category tabs
     ├── duel.py              # /duel — PvP arena with visual resolution card
     ├── arise.py             # /arise & /shadows — automated 250-msg spawns, name guessing, army browser, superadmin suite
@@ -57,6 +60,10 @@ solo-leveling-bot/
     ├── guild_war.py         # /guild war — guild-vs-guild war system with visual cards
     ├── claim.py             # /claim — daily reward (24h cooldown)
     └── help.py              # /help — operational manual
+└── miniapp/                 # TypeScript + React + Vite Telegram Mini App (static frontend)
+    ├── src/App.tsx          # Claim, shop, and read-only guild directory UI
+    ├── src/api/client.ts    # API client; sends Telegram initData
+    └── README.md            # Local run and Vercel/GitHub Pages setup
 ```
 
 ---
@@ -83,6 +90,15 @@ solo-leveling-bot/
 - Universal font cascade in `game/font_manager.py` resolves Windows, Linux, and macOS fonts with safe glyph fallbacks (Fraktur, Hangul, CJK, Emoji).
 - Pure high-contrast typography tokens from `game/design_tokens.py`.
 - Native geometric vector icons (Diamond, Crown, Skull, Lightning, Coin, Shield) prevent tofu boxes (`□`).
+
+### 5. Telegram Mini App
+- **Frontend**: `miniapp/` is a TypeScript, React, and Vite static app. It can be hosted on Vercel or GitHub Pages; only the frontend is deployed there.
+- **API**: `miniapp_api.py` is served by Uvicorn inside `main.py` after both Telegram databases initialize. It uses the same running bot client and `ChannelDB` cache as command handlers.
+- **Authentication**: Send `Telegram.WebApp.initData` to the API and validate its HMAC with `BOT_TOKEN` on the server. Never authorize from `initDataUnsafe`, user-supplied IDs, or frontend secrets. Never put `BOT_TOKEN` in a `VITE_*` variable.
+- **Features**: Claim and shop mutations share `game/economy.py` with the bot handlers. Guild directory and guild detail routes are read-only. Guild management remains in bot commands.
+- **Persistence limits**: Hunter and inventory state are separate Telegram messages. Shared locks and compensating saves reduce inconsistent writes, but Telegram does not provide a transaction spanning those messages.
+- **Enablement**: The API is opt-in via `MINIAPP_API_ENABLED`. Set `MINIAPP_BOT_USERNAME`, `MINIAPP_ALLOWED_ORIGINS`, and the API's public HTTPS endpoint before using the app links. `/claim`, `/shop`, and `/guild info` retain their bot behavior until the API and bot username are configured.
+- **Local frontend**: From `miniapp/`, copy `.env.example` to `.env.local`, set `VITE_API_BASE_URL`, then run `npm install` and `npm run dev`. Browser-only requests have no Telegram `initData`; full authenticated behavior requires opening the app in Telegram through an HTTPS frontend URL and a reachable API. See `miniapp/README.md`.
 
 ---
 

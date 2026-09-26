@@ -735,7 +735,7 @@ class ChannelDB:
             )
             logger.info(f"Created hunter: {hunter.hunter_name} (ID: {user_id})")
 
-    async def save_hunter(self, user_or_id: int | Hunter) -> None:
+    async def save_hunter(self, user_or_id: int | Hunter) -> bool:
         """Flush cached hunter data to channel."""
         if isinstance(user_or_id, Hunter):
             user_id = user_or_id.user_id
@@ -748,7 +748,7 @@ class ChannelDB:
 
         entry = self._cache.get(user_id)
         if not entry:
-            return
+            return False
 
         if str(user_id) in self._index:
             self._index[str(user_id)]["guild_id"] = entry.hunter.guild_id
@@ -760,10 +760,11 @@ class ChannelDB:
                     message_id=entry.hunter_msg_id,
                     text=entry.hunter.to_json(),
                 )
+                return True
             except RPCError as e:
                 err_str = str(e).lower()
                 if "not modified" in err_str:
-                    return
+                    return True
                 if "message_id_invalid" in err_str or "message not found" in err_str:
                     logger.warning(f"Hunter message {entry.hunter_msg_id} was deleted/invalid. Re-posting hunter {user_id}...")
                     new_msg = await self.bot.send_message(
@@ -776,14 +777,16 @@ class ChannelDB:
                     else:
                         self._index[str(user_id)] = {"hunter_msg_id": new_msg.id, "inv_msg_id": entry.inventory_msg_id}
                     await self._update_index_message()
+                    return True
                 else:
                     logger.error(f"Failed to save hunter {user_id}: {e}")
+                    return False
 
-    async def save_inventory(self, user_id: int) -> None:
+    async def save_inventory(self, user_id: int) -> bool:
         """Flush cached inventory to channel."""
         entry = self._cache.get(user_id)
         if not entry:
-            return
+            return False
 
         async with self._get_lock(user_id):
             try:
@@ -792,10 +795,11 @@ class ChannelDB:
                     message_id=entry.inventory_msg_id,
                     text=entry.inventory.to_json(),
                 )
+                return True
             except RPCError as e:
                 err_str = str(e).lower()
                 if "not modified" in err_str:
-                    return
+                    return True
                 if "message_id_invalid" in err_str or "message not found" in err_str:
                     logger.warning(f"Inventory message {entry.inventory_msg_id} was deleted/invalid. Re-posting inventory {user_id}...")
                     new_msg = await self.bot.send_message(
@@ -808,8 +812,10 @@ class ChannelDB:
                     else:
                         self._index[str(user_id)] = {"hunter_msg_id": entry.hunter_msg_id, "inv_msg_id": new_msg.id}
                     await self._update_index_message()
+                    return True
                 else:
                     logger.error(f"Failed to save inventory {user_id}: {e}")
+                    return False
 
     async def save_all(self, user_id: int) -> None:
         """Flush both hunter and inventory to channel."""

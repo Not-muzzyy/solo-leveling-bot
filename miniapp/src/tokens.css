@@ -1,0 +1,59 @@
+/* Hallmark · macrostructure: System Console · theme: Solo Leveling Midnight
+ * palette: abyss navy / system cyan / treasury gold / monarch violet
+ */
+:root {
+  color-scheme: dark;
+  --color-canvas: #070b18;
+  --color-canvas-deep: #03050c;
+  --color-panel: #0b1222;
+  --color-panel-raised: #121c34;
+  --color-panel-active: #1a2a49;
+  --color-border: #1e3862;
+  --color-border-strong: #30558b;
+  --color-ink: #f8fafc;
+  --color-ink-secondary: #94a3b8;
+  --color-ink-muted: #64748b;
+  --color-cyan: #00e5ff;
+  --color-sky: #38bdf8;
+  --color-gold: #facc15;
+  --color-violet: #a855f7;
+  --color-red: #ef4444;
+  --color-green: #22c55e;
+  --color-focus: #67e8f9;
+  --color-cyan-wash: rgb(0 229 255 / 9%);
+  --color-cyan-line: rgb(0 229 255 / 22%);
+  --color-violet-wash: rgb(168 85 247 / 9%);
+  --color-gold-wash: rgb(250 204 21 / 10%);
+  --color-green-wash: rgb(34 197 94 / 10%);
+  --color-green-line: rgb(34 197 94 / 32%);
+  --color-red-wash: rgb(239 68 68 / 10%);
+  --color-red-line: rgb(239 68 68 / 35%);
+  --color-grid: rgb(69 103 154 / 8%);
+  --color-nav-glass: rgb(7 11 24 / 94%);
+
+  --font-display: "Arial Narrow", "Roboto Condensed", "Bahnschrift", system-ui, sans-serif;
+  --font-body: Inter, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.85rem;
+  --radius-lg: 1.2rem;
+  --radius-cut: 1.2rem 0.45rem 1.2rem 0.45rem;
+  --shadow-panel: 0 18px 44px rgb(0 0 0 / 22%);
+  --ease-system: cubic-bezier(0.2, 0.75, 0.25, 1);
+  --duration-fast: 140ms;
+
+  --telegram-bg: var(--color-canvas);
+  --telegram-text: var(--color-ink);
+  --telegram-hint: var(--color-ink-secondary);
+}

@@ -32,22 +32,11 @@ from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.inventory_image import render_inventory_image
 from game.shop_image import render_shop_image
-from game.shop import get_shop_items_by_type, get_shop_item, create_item_from_shop
+from game.shop import get_shop_items_by_type, get_shop_item
+from game.economy import GameActionError, purchase_shop_item
 from models import Inventory, Item
 
 logger = logging.getLogger(__name__)
-
-# Per-user purchase lock: serializes gold check → deduct → save across await points.
-# ponytail: handler-level, NOT ChannelDB._get_lock — that lock is non-reentrant and
-# add_item/save_hunter acquire it internally (wrapping would deadlock).
-_buy_locks: dict[int, asyncio.Lock] = {}
-
-
-def _get_buy_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _buy_locks:
-        _buy_locks[user_id] = asyncio.Lock()
-    return _buy_locks[user_id]
-
 
 # ── Keyboard layouts ──────────────────────────────────────
 
@@ -748,11 +737,6 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
 
     db: ChannelDB = client.db
 
-    hunter = await db.get_hunter(user.id)
-    if not hunter:
-        await query.answer("You are not a registered Hunter!", show_alert=True)
-        return
-
     # Extract item key: "buy_iron_sword" → "iron_sword"
     item_key = query.data.replace("buy_", "")
     shop_entry = get_shop_item(item_key)
@@ -761,20 +745,23 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
         await query.answer("❌ Item not found!", show_alert=True)
         return
 
-    # Check gold + purchase atomically per user
-    price = shop_entry["price"]
-    async with _get_buy_lock(user.id):
-        if hunter.gold < price:
-            await query.answer(
-                f"❌ Not enough gold! Need {price:,}💰, you have {hunter.gold:,}💰",
-                show_alert=True,
-            )
-            return
+    try:
+        purchase = await purchase_shop_item(
+            db,
+            user.id,
+            item_key,
+            request_id=f"callback-{query.id}",
+        )
+    except GameActionError as exc:
+        await query.answer(exc.message, show_alert=True)
+        return
 
-        hunter.gold -= price
-        new_item = create_item_from_shop(shop_entry)
-        await db.add_item(user.id, new_item)
-        await db.save_hunter(user.id)
+    hunter = await db.get_hunter(user.id)
+    if not hunter:
+        await query.answer("Hunter profile unavailable. Please reopen the shop.", show_alert=True)
+        return
+    price = purchase.price
+    new_item = purchase.item
 
     notice = f"Acquired {new_item.name}! (-{price:,} G)"
     await query.answer(f"✅ Purchased {new_item.name}!", show_alert=True)

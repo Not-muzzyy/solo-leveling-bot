@@ -14,6 +14,17 @@ API_HASH: str = os.getenv("API_HASH", "")
 DATA_CHANNEL_ID: int = int(os.getenv("DATA_CHANNEL_ID", "0"))
 SHADOWS_CHANNEL_ID: int = int(os.getenv("SHADOWS_CHANNEL_ID", "0"))
 
+# ── Telegram Mini App API ─────────────────────────────────
+MINIAPP_API_ENABLED: bool = os.getenv("MINIAPP_API_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+MINIAPP_API_HOST: str = os.getenv("MINIAPP_API_HOST", "0.0.0.0")
+MINIAPP_API_PORT: int = int(os.getenv("MINIAPP_API_PORT", os.getenv("PORT", "8080")))
+MINIAPP_BOT_USERNAME: str = os.getenv("MINIAPP_BOT_USERNAME", "").strip().lstrip("@")
+MINIAPP_ALLOWED_ORIGINS: list[str] = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("MINIAPP_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 # ── Shadow Monarch Spawning & Extraction ─────────────────────
 SHADOW_SPAWN_MESSAGE_THRESHOLD: int = 250
 SHADOW_SPAWN_EXPIRY_SECONDS: int = 900  # 15 minutes before shadow disappears

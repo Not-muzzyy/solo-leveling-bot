@@ -1,11 +1,12 @@
 # ⚔️ Solo Leveling Hunter RPG Bot
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Mini_App-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![kurigram](https://img.shields.io/badge/kurigram-v2.2.25+-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://github.com/Mayuri-Chan/kurigram)
 [![Pillow](https://img.shields.io/badge/Pillow-Graphics-FF6F00?style=for-the-badge)](https://python-pillow.org)
 [![License](https://img.shields.io/badge/License-MIT-green.style=for-the-badge)](LICENSE)
 
-An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling** Hunter System. Awaken as a Hunter, challenge menacing Gate dungeons, collect rare weapons, gear up with glowing dimensional equipment, and climb from E-Rank to the legendary rank of **Shadow Monarch**.
+An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling** Hunter System. Awaken as a Hunter, challenge menacing Gate dungeons, collect rare weapons, gear up with glowing dimensional equipment, and climb from E-Rank to the legendary rank of **Shadow Monarch**. A companion TypeScript Mini App supports daily claims, shop purchases, and guild browsing.
 
 ---
 
@@ -37,7 +38,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 - **5 Full Exchange Departments**: Weapons, Armor, Accessories, Consumables, and Materials.
 - **Dynamic Real-Time Affordability**: Displays your Hunter Treasury vault, item stats, prices, and live affordability badges (`READY TO PURCHASE` vs. `NEED X G MORE`).
 - **Live In-Place Purchases**: Tapping buy instantly executes transactions, deposits gear, and updates the image card in-place with real-time acquisition notices!
-- **Group Chat Protection**: Deep-links to Bot PM (`t.me/<bot>?start=shop`) when invoked in groups to ensure secure transactions.
+- When the Mini App API and bot username are configured, `/shop` opens the TypeScript Mini App. Otherwise, the existing visual bot shop remains available; group commands direct hunters to Bot PM.
 
 ### 🏰 Hunter Guild System (`/guild`)
 - **Create & Manage Guilds**: Establish your own Hunter Guild for a 500💰 investment.
@@ -49,7 +50,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
   - `/guild create <name>` — Create a guild (1 per user, max 15 members)
   - `/guild join <name>` — Join an existing guild
   - `/guild leave` — Leave your current guild
-  - `/guild info` — View guild card with owner, top 5, and member roster
+  - `/guild info` — View guild information; opens the Mini App directory when enabled
   - `/guild members` — List all guild members with stats
   - `/guild top` — Top 10 guilds leaderboard with category tabs
   - `/guild war <name>` — Challenge another guild to war (owner only)
@@ -81,6 +82,14 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 ### 💰 Daily Hunter Allowance (`/claim`)
 - Claim daily rewards once every 24 hours.
 - Rewards dynamically scale with the Hunter's level to accelerate progression.
+- When the Mini App API and bot username are configured, `/claim` opens the Mini App claim panel.
+
+### 📱 Telegram Mini App (`miniapp/`)
+- **TypeScript + React + Vite** frontend with Claim, Shop, and Guild Directory sections, styled with the project's Hallmark tokens.
+- **Shared Telegram-backed data**: the FastAPI API runs in the existing bot process and uses its initialized `ChannelDB` cache. The Mini App adds no database.
+- **Authenticated actions**: the API validates Telegram `initData` server-side; claim and shop use the same game service as the bot handlers. Guild browsing is read-only.
+- **Frontend hosting**: deploy the static app on Vercel or GitHub Pages. The API stays alongside the always-on bot and needs a public HTTPS endpoint.
+- See [`miniapp/README.md`](miniapp/README.md) for local setup, API configuration, and deployment instructions.
 
 ### 🎁 Guild Gift System (`/gift`)
 - **Gift Items**: Transfer any unequipped inventory item to a guildmate with `/gift item <id>` (reply to their message).
@@ -115,13 +124,13 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 | `/profile` | PM & Groups | View your high-resolution visual RPG Status Window |
 | `/hunt` | PM & Groups | Slay gate monsters & earn loot via visual Combat Cards (60s cooldown, 20/day cap) |
 | `/inventory` | PM & Groups | Open visual Dimensional Storage with 1-tap equip & shop (redirects to PM in groups) |
-| `/shop` | PM & Groups | Open visual Hunter Shop & Exchange Depot (redirects to PM in groups) |
+| `/shop` | PM & Groups | Open the Mini App when configured; otherwise open the visual bot shop |
 | `/leaderboard` | PM & Groups | View visual System Hall of Fame with interactive category tabs |
 | `/duel` | Groups (Reply) | Challenge another Hunter to a PvP Arena duel with visual resolution |
 | `/arise <name>` | Groups | Claim active wild shadow entities appearing in chat |
 | `/shadows` | PM & Groups | Browse your personal Shadow Monarch Army collection |
-| `/claim` | PM & Groups | Claim daily Hunter allowance (scaled XP + Gold, 24h cooldown) |
-| `/guild` | PM & Groups | Manage your Hunter Guild (create, join, top, info, etc.) |
+| `/claim` | PM & Groups | Open Mini App claim when configured; otherwise claim the daily Hunter allowance |
+| `/guild` | PM & Groups | Manage guilds; `/guild info` opens the Mini App directory when configured |
 | `/gift` | PM & Groups | Gift items or gold to guildmates (reply to their message) |
 | `/help` | PM & Groups | Display the Hunter operational guide |
 | `/addshadow` | Admin (Reply) | Add a new shadow character with photo and aliases (Superadmin) |
@@ -164,6 +173,7 @@ An immersive, high-performance Telegram RPG bot inspired by the **Solo Leveling*
 
 ### 1. Prerequisites
 - **Python 3.11+** installed on your system.
+- **Node.js and npm** to run or build the optional Mini App frontend.
 - A **Telegram Bot Token** from [@BotFather](https://t.me/BotFather).
 - A **Telegram API ID & Hash** from [my.telegram.org](https://my.telegram.org) (required for kurigram userbot+bot mode).
 - A **Private Telegram Channel** to serve as your database.
@@ -218,6 +228,23 @@ SUPERADMIN_IDS=123456789,987654321
 python main.py
 ```
 
+### 7. Run the Mini App frontend locally
+In a second PowerShell window:
+
+```powershell
+cd miniapp
+Copy-Item .env.example .env.local
+```
+
+If the bot API is reachable, edit `.env.local` and set `VITE_API_BASE_URL` to its origin. Then run:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open the Vite URL printed in the terminal to inspect the interface. Browser-only use has no Telegram `initData`, so authenticated profile and game requests require launching through Telegram. For the complete local flow, run the bot API, use HTTPS tunnels for the frontend and local API, point the bot's Main Mini App URL in BotFather to the frontend tunnel, and allow that exact frontend origin in `MINIAPP_ALLOWED_ORIGINS`. See [`miniapp/README.md`](miniapp/README.md).
+
 ---
 
 ## 📂 Project Architecture
@@ -226,8 +253,9 @@ python main.py
 solo-leveling-bot/
 ├── .env.example             # Configuration template
 ├── .gitignore               # Ignored files (secrets, cache, venvs)
-├── requirements.txt         # Dependencies (kurigram, Pillow, python-dotenv)
+├── requirements.txt         # Bot and API dependencies (kurigram, Pillow, FastAPI, Uvicorn)
 ├── main.py                  # Entry point — registers handlers, initializes DB
+├── miniapp_api.py           # Authenticated API hosted in the bot process
 ├── config.py                # Game balances: ranks, rarities, XP curves, shop items, guild settings
 ├── models.py                # Dataclasses: Hunter, Item, Inventory, Monster, HuntResult, Guild, ShadowCharacter, UserShadow
 ├── channel_db.py            # Primary Telegram channel database with in-memory caching
@@ -237,6 +265,8 @@ solo-leveling-bot/
 │   ├── combat.py            # Monster generation, combat damage formula, hunt simulation
 │   ├── items.py             # Procedural loot generation & rarity weight tables
 │   ├── shop.py              # Hunter shop items and purchasing logic
+│   ├── economy.py           # Shared claim and purchase operations
+│   ├── miniapp.py           # Telegram Mini App launch links from bot commands
 │   ├── profile_image.py     # Pillow renderer: High-res System Status Window
 │   ├── hunt_image.py        # Pillow renderer: 16:9 Combat Cards (Victory & Defeat)
 │   ├── hunt_gif.py          # Backward compatibility shim for hunt_image
@@ -247,8 +277,8 @@ solo-leveling-bot/
 │   ├── guild_leaderboard_image.py # Pillow renderer: Guild Leaderboard HUD card
 │   ├── guild_war_image.py   # Pillow renderer: War challenge, status, and result cards
 │   ├── font_manager.py      # Universal Unicode font cascade for zero-tofu rendering
-│   └── formatting.py        # Plain-text formatting with Unicode box-drawing
-└── handlers/
+│   ├── formatting.py        # Plain-text formatting with Unicode box-drawing
+├── handlers/
     ├── start.py             # /start & deep-link router (inventory, shop, help)
     ├── profile.py           # /profile — photo status card
     ├── hunt.py              # /hunt — visual combat resolution card
@@ -261,6 +291,7 @@ solo-leveling-bot/
     ├── guild_war.py         # /guild war — guild-vs-guild war system with visual cards
     ├── claim.py             # /claim — daily reward (24h cooldown)
     └── help.py              # /help — operational manual
+└── miniapp/                 # TypeScript + React + Vite frontend and setup guide
 ```
 
 ---

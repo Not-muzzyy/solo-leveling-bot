@@ -6,6 +6,11 @@
 .env
 .env.*
 !.env.example
+!miniapp/.env.example
+
+# Mini App build output and installed dependencies
+/miniapp/node_modules/
+/miniapp/dist/
 
 # Python Cache, Bytecode & Build Artifacts
 __pycache__/

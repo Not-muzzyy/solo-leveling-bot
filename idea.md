@@ -198,11 +198,15 @@ Once the MVP works, expand the system with:
 
 ## Tech Stack
 
-- **Language**: Python 3.11+
-- **Framework**: `kurigram` v2.2.25+ (Pyrogram fork, MTProto API, fully async, decorator pattern)
-- **Database**: Telegram Channel (private channel stores all game data as JSON messages)
+- **Bot and API**: Python 3.11+, `kurigram` v2.2.25+, FastAPI
+- **Telegram Mini App**: TypeScript, React, Vite; static frontend deployable to Vercel or GitHub Pages
+- **Database**: Telegram Channels (private channels store game data as JSON messages). The Mini App API runs in the existing bot process and uses its `ChannelDB` cache; it does not add a separate database.
 - **Graphics**: Pillow (high-res visual cards for all major commands)
 - **Config**: `python-dotenv` loading `.env` (contains `BOT_TOKEN`, `API_ID`, `API_HASH`, and `DATA_CHANNEL_ID`)
+
+### Mini App Scope
+
+The current Mini App covers daily claims, shop purchases, and read-only guild information. The frontend is hosted separately; authenticated requests go to the API running with the bot. Telegram `initData` is validated server-side, and `BOT_TOKEN` stays on the bot host.
 
 ---
 
