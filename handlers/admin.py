@@ -711,18 +711,18 @@ async def handle_create_code(client: Client, message: Message) -> None:
                 heading(1, "[ SYSTEM DIRECTIVE // CODE FORGE ]"),
                 paragraph("<b>코드 생성 // 프로모션 코드 제작 지침</b>"),
                 paragraph("<i>Create Promo &amp; Gift Codes for Hunters</i>"),
-                quote(
-                    "⚡ <b>Supported Syntaxes:</b>\n"
-                    "1. <b>Gold Code:</b>\n"
-                    "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
-                    "   <i>Example:</i> <code>/createcode gold LEVELUP 10000 50</code>\n\n"
-                    "2. <b>Item Code (from Shop Catalog):</b>\n"
-                    "   <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code>\n"
-                    "   <i>Example:</i> <code>/createcode item FREEBLADE knight_killer 20</code>\n\n"
-                    "3. <b>Custom Item Code:</b>\n"
-                    "   <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code>\n\n"
-                    "4. <b>XP Code:</b>\n"
-                    "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code>\n"
+                details(
+                    "⚡ Supported Syntaxes:",
+                    "1. <b>Gold Code:</b><br>"
+                    "   <code>/createcode gold &lt;CODE&gt; &lt;amount&gt; [max_uses]</code><br>"
+                    "   <i>Example:</i> <code>/createcode gold LEVELUP 10000 50</code><br><br>"
+                    "2. <b>Item Code (from Shop Catalog):</b><br>"
+                    "   <code>/createcode item &lt;CODE&gt; &lt;shop_key&gt; [max_uses]</code><br>"
+                    "   <i>Example:</i> <code>/createcode item FREEBLADE knight_killer 20</code><br><br>"
+                    "3. <b>Custom Item Code:</b><br>"
+                    "   <code>/createcode custom &lt;CODE&gt; &lt;type&gt; &lt;rarity&gt; &lt;name&gt; &lt;atk&gt; &lt;def&gt; &lt;hp&gt; [max_uses]</code><br><br>"
+                    "4. <b>XP Code:</b><br>"
+                    "   <code>/createcode xp &lt;CODE&gt; &lt;amount&gt; [max_uses]</code><br>"
                     "   <i>Example:</i> <code>/createcode xp FASTXP 2500 100</code>"
                 ),
                 quote("💡 <i>Tip: Set max_uses to 0 for unlimited uses.</i>", expandable=False),

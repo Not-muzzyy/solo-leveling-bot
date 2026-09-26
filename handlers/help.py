@@ -402,6 +402,13 @@ TOPIC_RICH = {
 }
 
 
+# separate adjacent toggles with a divider (approved /help toggle shape)
+TOPIC_RICH = {
+    k: v.replace("</details><details>", "</details><hr/><details>")
+    for k, v in TOPIC_RICH.items()
+}
+
+
 def _help_pm_keyboard() -> InlineKeyboardMarkup:
     """Master action buttons for help screen in private chat."""
     return InlineKeyboardMarkup([
