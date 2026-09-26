@@ -605,24 +605,26 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         await query.answer("Opening Master Manual...")
         caption = HELP_CAPTION
         photo_buf = await asyncio.to_thread(generate_help_image)
-        if query.message and query.message.photo:
-            # classic photo message -> classic media edit stays byte-identical
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                reply_markup=_help_pm_keyboard(),
-            )
-        elif query.message:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id, build_help_rich(),
-                reply_markup=_help_pm_keyboard(),
-                media=[photo_media("help", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
+        if query.message:
+            if query.message.photo:
+                # classic-origin message -> verbatim classic media edit on fallback
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
+                    reply_markup=_help_pm_keyboard(),
+                )
+            else:
+                fallback = lambda: query.message.reply_photo(
                     photo=photo_buf,
                     caption=caption,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_help_pm_keyboard(),
                     show_caption_above_media=True,
-                ),
+                )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id, build_help_rich(),
+                reply_markup=_help_pm_keyboard(),
+                media=[photo_media("help", photo_buf)],
+                fallback=fallback,
             )
         return
 
