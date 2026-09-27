@@ -107,9 +107,11 @@ BASE_HP = 100
 BASE_GOLD = 100
 
 # ── Leveling ─────────────────────────────────────────────
+XP_EXPONENT = 1.75               # approach A pacing (spec 2026-09-28)
+
 def xp_for_level(level: int) -> int:
     """XP required to reach the next level."""
-    return int(100 * (level ** 1.5))
+    return int(100 * (level ** XP_EXPONENT))
 
 # ── Combat ───────────────────────────────────────────────
 CRITICAL_HIT_CHANCE = 0.10         # 10%
@@ -123,6 +125,7 @@ HUNT_COOLDOWN_SECONDS = 60         # 1 minute cooldown per hunt
 DAILY_HUNT_LIMIT = 20              # Max 20 hunts per calendar day (UTC)
 EXPLORE_COOLDOWN_SECONDS = 3600    # 1 hour cooldown per exploration
 DAILY_EXPLORE_LIMIT = 3            # Max 3 explorations per calendar day (UTC)
+DAILY_DUEL_XP_LIMIT = 10           # Max duel XP per hunter per calendar day (UTC)
 
 # ── Item Types ───────────────────────────────────────────
 ITEM_TYPES = ["weapon", "armor", "accessory", "consumable", "material"]
@@ -186,12 +189,12 @@ TITLES: dict[str, str] = {
 
 # ── Guilds ──────────────────────────────────────────────
 GUILD_MAX_MEMBERS = 15
-GUILD_XP_BONUS = 0.10  # +10% XP for guild members while hunting
+GUILD_XP_BONUS = 0.05  # +5% XP for guild members while hunting
 
 # ── Guild War Constants ──────────────────────────────────
 GUILD_WAR_GOLD_REWARD = 200     # gold per member for winner
 GUILD_WAR_BASE_XP = 100         # XP for all fighters
-GUILD_WAR_WIN_BONUS_XP = 50     # extra XP per individual duel win
+GUILD_WAR_WIN_BONUS_XP = 50     # extra XP for each winning fighter
 GUILD_WAR_WIN_SCORE = 50        # war_score gained by winner guild
 GUILD_WAR_LOSS_SCORE = 30       # war_score lost by loser guild
 GUILD_WAR_XP_PENALTY = 30       # XP lost by loser guild members
