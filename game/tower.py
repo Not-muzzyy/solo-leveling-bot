@@ -202,9 +202,6 @@ def simulate_tower_climb(hunter: Hunter, floor: int) -> TowerBattleResult:
         elif random.random() < 0.25:
             # Random loot chance on regular floors
             item_drop = generate_accessory(hunter.level)
-    else:
-        # Consolation XP on defeat
-        xp_gained = max(5, guardian.reward_xp // 6)
 
     return TowerBattleResult(
         victory=victory,

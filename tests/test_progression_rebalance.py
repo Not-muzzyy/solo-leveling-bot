@@ -159,4 +159,9 @@ check("hunt loss consolation == max(1, xp_reward // 10)",
 check("hunt loss consolation <= half of old //5 award",
       _res.xp_gained <= (_m100.xp_reward // 5) // 2)
 
+# ── Task 7: dead tower consolation branch removed ────────
+_tw = (Path(__file__).resolve().parent.parent / "game" / "tower.py").read_text(encoding="utf-8")
+check("tower: dead consolation comment absent", "Consolation XP on defeat" not in _tw)
+check("tower: dead consolation formula absent", "reward_xp // 6" not in _tw)
+
 print(f"\n{passed} passed")
