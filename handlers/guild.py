@@ -1267,6 +1267,8 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
     data = query.data or ""
     if not data.startswith("glb_"):
         return
+    if not query.message:
+        return
 
     category = data[4:]
     if category not in GLB_CATEGORY_TITLES:
@@ -1306,31 +1308,26 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
             "</blockquote>"
         )
 
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_guild_leaderboard_rich(cat_name, photo_first=False),
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                 reply_markup=_glb_keyboard(category),
-                media=[photo_media("guild", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
-                    reply_markup=_glb_keyboard(category),
-                ),
             )
-        elif query.message:
-            await reply_rich(
-                query.message,
-                build_guild_leaderboard_rich(cat_name, photo_first=False),
+        else:
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
                 reply_markup=_glb_keyboard(category),
-                media=[photo_media("guild", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    reply_markup=_glb_keyboard(category),
-                    parse_mode=ParseMode.HTML,
-                    show_caption_above_media=True,
-                ),
+                parse_mode=ParseMode.HTML,
+                show_caption_above_media=True,
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_guild_leaderboard_rich(cat_name, photo_first=False),
+            reply_markup=_glb_keyboard(category),
+            media=[photo_media("guild", photo_buf)],
+            fallback=fallback,
+        )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):
             logger.warning("BadRequest during guild leaderboard update: %s", br_err)
@@ -1346,6 +1343,8 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
     data = query.data or ""
     user = query.from_user
     if not user:
+        return
+    if not query.message:
         return
 
     db: ChannelDB = client.db
@@ -1413,17 +1412,26 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
         caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
         keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
         try:
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                     reply_markup=keyboard,
-                    media=[photo_media("guild", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
-                        reply_markup=keyboard,
-                    ),
                 )
+            else:
+                fallback = lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML,
+                    show_caption_above_media=True,
+                )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+                reply_markup=keyboard,
+                media=[photo_media("guild", photo_buf)],
+                fallback=fallback,
+            )
         except BadRequest as e:
             if "not modified" not in str(e).lower():
                 logger.warning(f"Failed to edit guild view: {e}")
@@ -1476,17 +1484,26 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
             caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
             keyboard = _guild_view_keyboard(user.id, target_guild, viewer_guild, all_guilds)
             try:
-                if query.message and query.message.photo:
-                    await edit_rich(
-                        client, query.message.chat.id, query.message.id,
-                        build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+                if query.message.photo:
+                    fallback = lambda: query.edit_message_media(
+                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                         reply_markup=keyboard,
-                        media=[photo_media("guild", photo_buf)],
-                        fallback=lambda: query.edit_message_media(
-                            media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
-                            reply_markup=keyboard,
-                        ),
                     )
+                else:
+                    fallback = lambda: query.message.reply_photo(
+                        photo=photo_buf,
+                        caption=caption,
+                        reply_markup=keyboard,
+                        parse_mode=ParseMode.HTML,
+                        show_caption_above_media=True,
+                    )
+                await edit_rich(
+                    client, query.message.chat.id, query.message.id,
+                    build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+                    reply_markup=keyboard,
+                    media=[photo_media("guild", photo_buf)],
+                    fallback=fallback,
+                )
             except Exception as e:
                 logger.warning(f"In-place media edit error after join: {e}")
         else:
@@ -1531,17 +1548,26 @@ async def guild_interaction_callback(client: Client, query: CallbackQuery) -> No
         caption = build_guild_caption(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS)
         keyboard = _guild_view_keyboard(user.id, target_guild, None, all_guilds)
         try:
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
                     reply_markup=keyboard,
-                    media=[photo_media("guild", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
-                        reply_markup=keyboard,
-                    ),
                 )
+            else:
+                fallback = lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML,
+                    show_caption_above_media=True,
+                )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_guild_rich(target_guild, len(member_hunters), total_power, GUILD_MAX_MEMBERS, photo_first=False),
+                reply_markup=keyboard,
+                media=[photo_media("guild", photo_buf)],
+                fallback=fallback,
+            )
         except Exception as e:
             logger.warning(f"In-place media edit error after leave: {e}")
         return
