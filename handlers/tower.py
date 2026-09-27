@@ -219,35 +219,33 @@ async def _execute_climb(
 
     try:
         photo_buf = await asyncio.to_thread(render_tower_image, hunter, next_guardian, notice)
-        if isinstance(target, CallbackQuery) and target.message and target.message.photo:
+        if isinstance(target, CallbackQuery):
             await target.answer("Ascension battle concluded!", show_alert=False)
-            await edit_rich(
-                client, target.message.chat.id, target.message.id,
-                build_tower_rich(hunter, next_guardian, result, notice, photo_first=False),
-                reply_markup=_tower_keyboard(hunter),
-                media=[photo_media("tower", photo_buf)],
-                fallback=lambda: target.edit_message_media(
+            if not target.message:
+                return
+            if target.message.photo:
+                fallback = lambda: target.edit_message_media(
                     media=InputMediaPhoto(
                         media=photo_buf,
                         caption=caption,
                         parse_mode=enums.ParseMode.HTML,
                     ),
                     reply_markup=_tower_keyboard(hunter),
-                ),
-            )
-        elif isinstance(target, CallbackQuery):
-            await target.answer("Ascension battle concluded!", show_alert=False)
-            await reply_rich(
-                target.message, build_tower_rich(hunter, next_guardian, result, notice, photo_first=False),
-                reply_markup=_tower_keyboard(hunter),
-                media=[photo_media("tower", photo_buf)],
-                fallback=lambda: target.message.reply_photo(
+                )
+            else:
+                fallback = lambda: target.message.reply_photo(
                     photo=photo_buf,
                     caption=caption,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=_tower_keyboard(hunter),
                     show_caption_above_media=True,
-                ),
+                )
+            await edit_rich(
+                client, target.message.chat.id, target.message.id,
+                build_tower_rich(hunter, next_guardian, result, notice, photo_first=False),
+                reply_markup=_tower_keyboard(hunter),
+                media=[photo_media("tower", photo_buf)],
+                fallback=fallback,
             )
         else:
             await reply_rich(
@@ -295,6 +293,8 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if not hunter:
         await query.answer("You are not a registered Hunter!", show_alert=True)
         return
+    if not query.message:
+        return
 
     if query.data == "tower_climb":
         await _execute_climb(client, query, hunter, user.id)
@@ -303,33 +303,29 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         guardian = generate_guardian(min(100, hunter.tower_floor))
         caption = build_tower_caption(hunter, guardian)
         photo_buf = await asyncio.to_thread(render_tower_image, hunter, guardian)
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_tower_rich(hunter, guardian, photo_first=False),
-                reply_markup=_tower_keyboard(hunter),
-                media=[photo_media("tower", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(
-                        media=photo_buf,
-                        caption=caption,
-                        parse_mode=enums.ParseMode.HTML,
-                    ),
-                    reply_markup=_tower_keyboard(hunter),
-                ),
-            )
-        elif query.message:
-            await reply_rich(
-                query.message, build_tower_rich(hunter, guardian, photo_first=False),
-                reply_markup=_tower_keyboard(hunter),
-                media=[photo_media("tower", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(
+                    media=photo_buf,
                     caption=caption,
-                    reply_markup=_tower_keyboard(hunter),
                     parse_mode=enums.ParseMode.HTML,
-                    show_caption_above_media=True,
                 ),
+                reply_markup=_tower_keyboard(hunter),
             )
+        else:
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_tower_keyboard(hunter),
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
+            )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_tower_rich(hunter, guardian, photo_first=False),
+            reply_markup=_tower_keyboard(hunter),
+            media=[photo_media("tower", photo_buf)],
+            fallback=fallback,
+        )
     elif query.data == "tower_noop":
         await query.answer("Daily keys depleted. Resets at midnight UTC.", show_alert=True)
