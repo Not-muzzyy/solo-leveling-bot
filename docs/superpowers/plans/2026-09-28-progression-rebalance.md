@@ -31,7 +31,7 @@ Pacing target (grinder, daily caps): D≈4d, C≈19d, B≈60d, A≈123d, S≈235
 
 ## Review Focus (final whole-branch review)
 
-1. Cap arithmetic: partial award `remaining` never negative, never exceeds limit; counter only increments when XP is actually granted.
+1. Cap arithmetic (spec §5.3, corrected after final review): `duel_xp_today < DAILY_DUEL_XP_LIMIT` → award FULL XP and `counter += 1`; at/over limit → 0 XP, counter unchanged; counter never exceeds limit; `grant_xp=False` touches neither XP nor counter.
 2. `grant_xp=False` path: gold and `DuelResult` still correct; XP fields = 0.
 3. Handler ordering: `check_and_reset_daily()` for both hunters AFTER the missing-hunter guard and BEFORE `simulate_duel(`; saves persist the counter.
 4. No gold / tower-XP / quest-counter behavior changed beyond spec.
@@ -86,7 +86,7 @@ Pacing target (grinder, daily caps): D≈4d, C≈19d, B≈60d, A≈123d, S≈235
    - Winner XP: `int(25 + loser.level * 6 + random.randint(0, 10))`.
    - Loser XP: flat `10`.
    - When `grant_xp` is False: both awarded XP = 0, counters untouched.
-   - When True: `remaining = max(0, config.DAILY_DUEL_XP_LIMIT - hunter.duel_xp_today)`; awarded = `min(needed, remaining)` (can be 0); if awarded > 0: `hunter.duel_xp_today += awarded`.
+   - When True and `hunter.duel_xp_today < DAILY_DUEL_XP_LIMIT`: award FULL XP (formula value) and `hunter.duel_xp_today += 1`. When at/over limit: awarded = 0, counter unchanged. (Spec §5.3 per-duel counting — corrected after final review; the original XP-budget wording here was a plan defect.)
    - `DuelResult.winner_xp_gained` / `loser_xp_gained` = actually-awarded values (card honestly shows +0 when capped).
    - Gold formulas untouched (compute gold regardless of the cap).
 4. No changes to `handlers/duel.py` quest counters here (Task 4 covers reset; quest counters stay as-is).

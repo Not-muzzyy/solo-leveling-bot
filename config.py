@@ -125,7 +125,7 @@ HUNT_COOLDOWN_SECONDS = 60         # 1 minute cooldown per hunt
 DAILY_HUNT_LIMIT = 20              # Max 20 hunts per calendar day (UTC)
 EXPLORE_COOLDOWN_SECONDS = 3600    # 1 hour cooldown per exploration
 DAILY_EXPLORE_LIMIT = 3            # Max 3 explorations per calendar day (UTC)
-DAILY_DUEL_XP_LIMIT = 10           # Max duel XP per hunter per calendar day (UTC)
+DAILY_DUEL_XP_LIMIT = 10           # Max XP-awarding duels per hunter per calendar day (UTC)
 
 # ── Item Types ───────────────────────────────────────────
 ITEM_TYPES = ["weapon", "armor", "accessory", "consumable", "material"]

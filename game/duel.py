@@ -181,18 +181,19 @@ def simulate_duel(
 
     winner.gold += base_winner_gold
 
-    # Daily duel XP cap (DAILY_DUEL_XP_LIMIT per hunter per UTC day).
+    # Daily duel XP cap (spec §5.3): first DAILY_DUEL_XP_LIMIT duels per UTC day
+    # award FULL XP and increment the counter; duel 11+ awards 0 XP (gold still given).
     # DuelResult XP fields show actually-awarded amounts (0 when capped).
     w_awarded = l_awarded = 0
     w_leveled_up, w_new_rank = False, None
     if grant_xp:
-        w_awarded = min(base_winner_xp, max(0, DAILY_DUEL_XP_LIMIT - winner.duel_xp_today))
-        l_awarded = min(base_loser_xp, max(0, DAILY_DUEL_XP_LIMIT - loser.duel_xp_today))
-        if w_awarded > 0:
-            winner.duel_xp_today += w_awarded
+        if winner.duel_xp_today < DAILY_DUEL_XP_LIMIT:
+            winner.duel_xp_today += 1
+            w_awarded = base_winner_xp
             w_leveled_up, w_new_rank = add_xp(winner, w_awarded)
-        if l_awarded > 0:
-            loser.duel_xp_today += l_awarded
+        if loser.duel_xp_today < DAILY_DUEL_XP_LIMIT:
+            loser.duel_xp_today += 1
+            l_awarded = base_loser_xp
             add_xp(loser, l_awarded)
 
     return DuelResult(

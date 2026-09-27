@@ -50,7 +50,9 @@ h_fresh.last_duel_date = _today
 h_fresh.check_and_reset_daily()
 check("fresh date keeps duel_xp_today", h_fresh.duel_xp_today == 7)
 
-# ── Task 3: duel XP formulas + daily cap + grant_xp ──────
+# ── Task 3: duel XP formulas + per-duel daily cap ────────
+# Spec §5.3: first 10 duels/day award FULL XP (counter += 1 per duel);
+# duel 11+ awards 0 XP (gold still given).
 import random as _random
 from game.hunter import add_xp
 from game.duel import simulate_duel
@@ -60,43 +62,44 @@ def _mk(level, uid, name, duel_xp=0):
                xp_needed=config.xp_for_level(level), duel_xp_today=duel_xp)
     return h
 
-# 1+2. Formula band + flat loser XP (raise limit so raw formulas are observable)
-import game.duel as _duel_mod
-config.DAILY_DUEL_XP_LIMIT = 100000
-_duel_mod.DAILY_DUEL_XP_LIMIT = 100000
-try:
-    for i in range(50):
-        w = _mk(20, 200 + i, "W")
-        o = _mk(30, 300 + i, "O")
-        r = simulate_duel(w, None, o, None)
-        lo = r.loser
-        base = 25 + lo.level * 6
-        check(f"winner XP in band [{base}..{base+10}] (loser L{lo.level})",
-              base <= r.winner_xp_gained <= base + 10)
-        check(f"loser XP flat 10 (loser L{lo.level})", r.loser_xp_gained == 10)
-finally:
-    config.DAILY_DUEL_XP_LIMIT = 10
-    _duel_mod.DAILY_DUEL_XP_LIMIT = 10
+# 1+2. Formula band + flat loser XP (first duel of the day → full XP, no patching needed)
+for i in range(50):
+    w = _mk(20, 200 + i, "W")
+    o = _mk(30, 300 + i, "O")
+    r = simulate_duel(w, None, o, None)
+    lo = r.loser
+    base = 25 + lo.level * 6
+    check(f"winner XP in band [{base}..{base+10}] (loser L{lo.level})",
+          base <= r.winner_xp_gained <= base + 10)
+    check(f"loser XP flat 10 (loser L{lo.level})", r.loser_xp_gained == 10)
 
-# 3. Full cap: counter 0 → awarded 10, counter 10
+# 3. Under cap: full XP, counter 0 → 1
 w = _mk(20, 401, "W")
 o = _mk(30, 402, "O")
 r = simulate_duel(w, None, o, None)
-check("full cap: awarded winner XP == 10", r.winner_xp_gained == 10)
-check("full cap: awarded loser XP == 10", r.loser_xp_gained == 10)
-check("full cap: winner counter == 10", r.winner.duel_xp_today == 10)
-check("full cap: loser counter == 10", r.loser.duel_xp_today == 10)
+check("under cap: winner counter == 1", r.winner.duel_xp_today == 1)
+check("under cap: loser counter == 1", r.loser.duel_xp_today == 1)
 
-# 4. Partial cap: counter 8 → awarded 2, counter 10 (outcome-independent)
+# 4. Counter 8 → full XP awarded, counter 9 (outcome-independent)
 w = _mk(20, 403, "W", duel_xp=8)
 o = _mk(30, 404, "O")
 r = simulate_duel(w, None, o, None)
-_capped_awarded = r.winner_xp_gained if r.winner is w else r.loser_xp_gained
-check("partial cap: capped hunter awarded 2", _capped_awarded == 2)
-check("partial cap: capped hunter counter == 10", w.duel_xp_today == 10)
-check("partial cap: uncapped hunter counter == 10", o.duel_xp_today == 10)
+_w_awarded = r.winner_xp_gained if r.winner is w else r.loser_xp_gained
+check("counter 8: capped hunter still awarded full XP (>=10, flat loss 10)",
+      _w_awarded >= 10)
+check("counter 8 -> 9", w.duel_xp_today == 9)
+check("counter 0 -> 1", o.duel_xp_today == 1)
 
-# 5. grant_xp=False: 0 XP, counters untouched, gold identical to grant path (same seed)
+# 5. At cap (counter 10): awarded 0, counter stays 10; other hunter still earns
+w = _mk(20, 405, "W", duel_xp=10)
+o = _mk(30, 406, "O")
+r = simulate_duel(w, None, o, None)
+_w_awarded = r.winner_xp_gained if r.winner is w else r.loser_xp_gained
+check("at cap: capped hunter awarded 0", _w_awarded == 0)
+check("at cap: capped counter stays 10", w.duel_xp_today == 10)
+check("at cap: uncapped hunter counter == 1", o.duel_xp_today == 1)
+
+# 6. grant_xp=False: 0 XP, counters untouched, gold identical to grant path (same seed)
 w1 = _mk(20, 405, "A"); o1 = _mk(30, 406, "B")
 w2 = _mk(20, 405, "A"); o2 = _mk(30, 406, "B")
 _random.seed(42)
@@ -112,7 +115,7 @@ check("grant_xp=False: gold matches grant path",
       and r2.winner.gold == r1.winner.gold
       and r2.loser.gold == r1.loser.gold)
 
-# 6. add_xp: no bonus param; old xp_needed mid-bar hunter still levels up
+# 7. add_xp: no bonus param; old xp_needed mid-bar hunter still levels up
 check("add_xp has no bonus parameter", "bonus" not in inspect.signature(add_xp).parameters)
 h_mid = _mk(1, 407, "Mid")
 h_mid.xp = 90
