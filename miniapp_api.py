@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from config import BOT_TOKEN, MINIAPP_ALLOWED_ORIGINS
+from config import BOT_TOKEN, GUILD_XP_BONUS, MINIAPP_ALLOWED_ORIGINS
 from game.economy import GameActionError, claim_daily_reward, claim_remaining, purchase_shop_item
 from game.shop import SHOP_ITEMS
 from models import Guild, Hunter
@@ -90,6 +90,12 @@ def _hunter_summary(hunter: Hunter) -> dict:
         "xp_needed": hunter.xp_needed,
         "gold": hunter.gold,
         "power": hunter.power,
+        "str_stat": hunter.str_stat,
+        "agi": hunter.agi,
+        "vit": hunter.vit,
+        "int_stat": hunter.int_stat,
+        "per": hunter.per,
+        "title": hunter.title,
         "last_claim_time": hunter.last_claim_time,
         "claim_remaining_seconds": claim_remaining(hunter),
         "guild_id": hunter.guild_id,
@@ -127,7 +133,7 @@ async def _guild_view(db, guild: Guild) -> dict:
         "war_score": guild.war_score,
         "war_wins": guild.war_wins,
         "war_losses": guild.war_losses,
-        "xp_bonus_percent": 10,
+        "xp_bonus_percent": int(GUILD_XP_BONUS * 100),
         "members": members,
     }
 
