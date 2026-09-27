@@ -140,4 +140,23 @@ check("guild_war: has a simulate_duel call", len(_gw_call_lines) >= 1)
 check("guild_war: simulate_duel call passes grant_xp=False",
       any("grant_xp=False" in ln for ln in _gw_call_lines))
 
+# ── Task 6: hunt loss consolation halved ─────────────────
+from game.combat import simulate_hunt
+from models import Monster
+
+_weak = Hunter(user_id=501, username="u", hunter_name="Weak", level=1)
+_weak.str_stat = 0
+_weak.agi = 0
+_weak.per = 0
+_weak.vit = 0
+# hp 10000 → monster_score ~1000 vs hunter_score ≤ 6: guaranteed defeat
+_m100 = Monster(name="Test Dummy", level=5, rank="E", hp=10000, attack=1,
+                defense=0, xp_reward=100, gold_reward=50)
+_res = simulate_hunt(_weak, _m100)
+check("hunt defeat is guaranteed in this fixture", not _res.victory)
+check("hunt loss consolation == max(1, xp_reward // 10)",
+      _res.xp_gained == max(1, _m100.xp_reward // 10))
+check("hunt loss consolation <= half of old //5 award",
+      _res.xp_gained <= (_m100.xp_reward // 5) // 2)
+
 print(f"\n{passed} passed")

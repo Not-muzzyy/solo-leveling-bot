@@ -137,7 +137,7 @@ def simulate_hunt(hunter: Hunter, monster: Monster) -> HuntResult:
         # Defeat penalty: lose some gold
         gold_lost = max(1, int(hunter.gold * GOLD_LOSS_ON_DEFEAT_PERCENT))
         # Still get a small amount of XP for trying
-        xp_gained = max(1, monster.xp_reward // 5)
+        xp_gained = max(1, monster.xp_reward // 10)
 
     return HuntResult(
         victory=victory,
