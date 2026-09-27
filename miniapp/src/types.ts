@@ -1,4 +1,4 @@
-export type Section = 'claim' | 'shop' | 'guilds';
+export type Section = 'profile' | 'claim' | 'shop' | 'guilds';
 export type ShopCategory = 'weapon' | 'armor' | 'accessory' | 'consumable' | 'material';
 export type GuildSort = 'power' | 'level' | 'gold' | 'members';
 
@@ -10,6 +10,12 @@ export interface HunterSummary {
   xp_needed: number;
   gold: number;
   power: number;
+  str_stat: number;
+  agi: number;
+  vit: number;
+  int_stat: number;
+  per: number;
+  title: string;
   last_claim_time: number;
   claim_remaining_seconds: number;
   guild_id: number | null;

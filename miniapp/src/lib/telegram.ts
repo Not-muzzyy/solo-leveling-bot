@@ -26,16 +26,16 @@ export function telegramInitData(): string {
 
 const param = webApp()?.initDataUnsafe?.start_param ?? '';
 
-// startapp carries a section name (claim/shop/guilds) or a guild link
-// (guild_<id>, guild-<id>, or bare digits); default claim.
+// startapp carries a section name (profile/claim/shop/guilds) or a guild link
+// (guild_<id>, guild-<id>, or bare digits); default profile (home status window).
 const guildMatch = /^(?:guild[-_])?(\d+)$/.exec(param);
 
 const sectionParam: Section =
-  param === 'claim' || param === 'shop' || param === 'guilds'
+  param === 'profile' || param === 'claim' || param === 'shop' || param === 'guilds'
     ? param
     : guildMatch
       ? 'guilds'
-      : 'claim';
+      : 'profile';
 
 export const initialSection: Section = sectionParam;
 
