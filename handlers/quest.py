@@ -307,6 +307,8 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     if not hunter:
         await query.answer("You are not a registered Hunter!", show_alert=True)
         return
+    if not query.message:
+        return
 
     hunter.check_and_reset_daily()
     data = query.data
@@ -377,17 +379,25 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         )
 
         photo_buf = await asyncio.to_thread(render_quest_image, hunter, notice)
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                claim_doc,
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_quest_keyboard(hunter),
-                media=[photo_media("quest", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                    reply_markup=_quest_keyboard(hunter),
-                ),
             )
+        else:
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                reply_markup=_quest_keyboard(hunter),
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
+            )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id, claim_doc,
+            reply_markup=_quest_keyboard(hunter),
+            media=[photo_media("quest", photo_buf)],
+            fallback=fallback,
+        )
         return
 
     # 2. Stats allocation callback: "stats_add_str_1"
@@ -413,58 +423,46 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             await db.save_all(user.id)
             await query.answer(f"Allocated +{amount} into {stat_name.upper()}! Power: {hunter.power}")
 
-        if query.message and query.message.photo:
-            await reply_rich(
-                query.message, _stats_menu_rich(hunter, "alloc"),
+        classic_text = (
+            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+            f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
+            f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
+            "<blockquote expandable>"
+            "<b>Current Attributes:</b>\n"
+            f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
+            f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
+            f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
+            f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
+            f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
+            f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
+            "</blockquote>\n\n"
+            "<i>Tap an attribute button below to invest points:</i>"
+        )
+        if query.message.photo:
+            fallback = lambda: query.message.reply_text(
+                classic_text,
                 reply_markup=_stats_keyboard(hunter),
-                fallback=lambda: query.message.reply_text(
-                    "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
-                    f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
-                    f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-                    "<blockquote expandable>"
-                    "<b>Current Attributes:</b>\n"
-                    f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
-                    f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
-                    f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
-                    f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
-                    f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
-                    f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
-                    "</blockquote>\n\n"
-                    "<i>Tap an attribute button below to invest points:</i>",
-                    reply_markup=_stats_keyboard(hunter),
-                    parse_mode=enums.ParseMode.HTML,
-                ),
+                parse_mode=enums.ParseMode.HTML,
             )
-        elif query.message:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                _stats_menu_rich(hunter, "alloc"),
+        else:
+            fallback = lambda: query.edit_message_text(
+                classic_text,
                 reply_markup=_stats_keyboard(hunter),
-                fallback=lambda: query.edit_message_text(
-                    "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
-                    f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
-                    f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
-                    "<blockquote expandable>"
-                    "<b>Current Attributes:</b>\n"
-                    f"• <b>STR (Strength):</b> <code>{hunter.str_stat}</code>\n"
-                    f"• <b>AGI (Agility):</b> <code>{hunter.agi}</code>\n"
-                    f"• <b>VIT (Vitality):</b> <code>{hunter.vit}</code>  (Max HP: <code>{hunter.max_hp}</code>)\n"
-                    f"• <b>INT (Intelligence):</b> <code>{hunter.int_stat}</code>\n"
-                    f"• <b>PER (Perception):</b> <code>{hunter.per}</code>\n\n"
-                    f"💪 <b>Total Combat Power:</b> <code>{hunter.power:,}</code>\n"
-                    "</blockquote>\n\n"
-                    "<i>Tap an attribute button below to invest points:</i>",
-                    reply_markup=_stats_keyboard(hunter),
-                    parse_mode=enums.ParseMode.HTML,
-                ),
+                parse_mode=enums.ParseMode.HTML,
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            _stats_menu_rich(hunter, "alloc"),
+            reply_markup=_stats_keyboard(hunter),
+            fallback=fallback,
+        )
         return
 
     # 3. Stats menu toggle
     if data == "stats_menu":
         await query.answer()
-        await reply_rich(
-            query.message, _stats_menu_rich(hunter, "compact"),
+        await edit_rich(
+            client, query.message.chat.id, query.message.id, _stats_menu_rich(hunter, "compact"),
             reply_markup=_stats_keyboard(hunter),
             fallback=lambda: query.message.reply_text(
                 "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
@@ -487,8 +485,8 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         await query.answer()
         caption = build_quest_caption(hunter)
         photo_buf = await asyncio.to_thread(render_quest_image, hunter)
-        await reply_rich(
-            query.message, build_quest_rich(hunter, photo_first=False),
+        await edit_rich(
+            client, query.message.chat.id, query.message.id, build_quest_rich(hunter, photo_first=False),
             reply_markup=_quest_keyboard(hunter),
             media=[photo_media("quest", photo_buf)],
             fallback=lambda: query.message.reply_photo(photo=photo_buf, caption=caption, reply_markup=_quest_keyboard(hunter), parse_mode=enums.ParseMode.HTML, show_caption_above_media=True),
