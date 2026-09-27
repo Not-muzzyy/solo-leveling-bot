@@ -87,12 +87,14 @@ check("full cap: awarded loser XP == 10", r.loser_xp_gained == 10)
 check("full cap: winner counter == 10", r.winner.duel_xp_today == 10)
 check("full cap: loser counter == 10", r.loser.duel_xp_today == 10)
 
-# 4. Partial cap: counter 8 → awarded 2, counter 10
+# 4. Partial cap: counter 8 → awarded 2, counter 10 (outcome-independent)
 w = _mk(20, 403, "W", duel_xp=8)
 o = _mk(30, 404, "O")
 r = simulate_duel(w, None, o, None)
-check("partial cap: awarded winner XP == 2", r.winner_xp_gained == 2)
-check("partial cap: winner counter == 10", r.winner.duel_xp_today == 10)
+_capped_awarded = r.winner_xp_gained if r.winner is w else r.loser_xp_gained
+check("partial cap: capped hunter awarded 2", _capped_awarded == 2)
+check("partial cap: capped hunter counter == 10", w.duel_xp_today == 10)
+check("partial cap: uncapped hunter counter == 10", o.duel_xp_today == 10)
 
 # 5. grant_xp=False: 0 XP, counters untouched, gold identical to grant path (same seed)
 w1 = _mk(20, 405, "A"); o1 = _mk(30, 406, "B")
@@ -118,5 +120,17 @@ h_mid.xp_needed = 100  # old-curve mid-bar value
 _lvl, _ = add_xp(h_mid, 20)
 check("mid-bar hunter levels up", _lvl and h_mid.level == 2)
 check("mid-bar XP remainder == 10", h_mid.xp == 10)
+
+# ── Task 4: duel handler resets dailies before simulate_duel ──
+_src = (Path(__file__).resolve().parent.parent / "handlers" / "duel.py").read_text(encoding="utf-8")
+_guard = _src.find("if not challenger or not opponent:")
+_r_c = _src.find("challenger.check_and_reset_daily()", _guard)
+_r_o = _src.find("opponent.check_and_reset_daily()", _guard)
+_sim = _src.find("simulate_duel(challenger", _guard)
+check("duel handler: guard found", _guard != -1)
+check("duel handler: challenger reset after guard", _r_c > _guard != -1 and _r_c != -1)
+check("duel handler: opponent reset after guard", _r_o > _guard != -1 and _r_o != -1)
+check("duel handler: both resets before simulate_duel",
+      _sim != -1 and _r_c < _sim and _r_o < _sim)
 
 print(f"\n{passed} passed")

@@ -276,6 +276,9 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             )
             return
 
+        challenger.check_and_reset_daily()
+        opponent.check_and_reset_daily()
+
         c_inv = await db.get_inventory(challenger_id)
         o_inv = await db.get_inventory(opponent_id)
 
