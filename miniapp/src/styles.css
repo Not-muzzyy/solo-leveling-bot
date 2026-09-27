@@ -91,8 +91,7 @@ button:focus-visible {
 .topbar-copy { flex: 1; justify-content: space-between; gap: var(--space-2); }
 .micro-label { color: var(--color-ink-secondary); font: 700 0.64rem/1.2 var(--font-mono); letter-spacing: 0.12em; }
 .connection-state { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-green); font: 700 0.62rem/1 var(--font-mono); letter-spacing: 0.08em; }
-.status-dot,
-.availability i { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0.6rem currentColor; }
+.status-dot { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0.6rem currentColor; }
 
 .icon-button {
   display: grid;
@@ -122,7 +121,7 @@ button:focus-visible {
 }
 
 .hunter-identity { min-width: 0; gap: var(--space-3); }
-.rank-seal { width: 2.5rem; height: 2.5rem; border: 1px solid var(--color-border-strong); border-radius: 50%; color: var(--color-cyan); background: var(--color-cyan-wash); font-weight: 800; }
+.rank-seal { width: 2.5rem; height: 2.5rem; border: 1px solid currentColor; border-radius: 50%; color: var(--color-cyan); background: var(--color-cyan-wash); font-weight: 800; }
 .identity-copy { display: grid; min-width: 0; gap: 0.28rem; }
 .identity-copy strong { overflow: hidden; color: var(--color-ink); font-size: 0.9rem; text-overflow: ellipsis; white-space: nowrap; }
 .identity-copy > span { color: var(--color-ink-secondary); font: 600 0.58rem/1.2 var(--font-mono); letter-spacing: 0.07em; }
@@ -141,8 +140,6 @@ button:focus-visible {
 .content-stack { display: grid; gap: var(--space-4); }
 .notice { margin-bottom: var(--space-4); padding: 0.8rem 1rem; border: 1px solid var(--color-cyan-line); border-left: 3px solid var(--color-cyan); border-radius: var(--radius-sm); background: var(--color-cyan-wash); color: var(--color-ink); font-size: 0.82rem; line-height: 1.45; }
 
-.ration-card,
-.guild-card,
 .empty-guild-card,
 .state-panel {
   border: 1px solid var(--color-border);
@@ -151,14 +148,7 @@ button:focus-visible {
   box-shadow: var(--shadow-panel);
 }
 
-.ration-card { position: relative; overflow: hidden; padding: var(--space-5); }
-.ration-card::before { position: absolute; top: -4.6rem; right: -3rem; width: 12rem; height: 12rem; border: 1px solid var(--color-cyan-line); border-radius: 50%; content: ""; box-shadow: 0 0 0 1.4rem var(--color-cyan-wash), 0 0 0 3rem transparent; pointer-events: none; }
-.ration-card.is-ready { border-color: var(--color-border-strong); }
-.ration-topline { justify-content: space-between; gap: var(--space-2); }
-.availability { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-ink-muted); font: 700 0.6rem/1 var(--font-mono); letter-spacing: 0.08em; }
-.availability.available { color: var(--color-green); }
-.availability.available i { background: var(--color-green); }
-.ration-core { gap: var(--space-4); margin: var(--space-6) 0; }
+.ration-core { gap: var(--space-4); margin: var(--space-1) 0; }
 .ration-emblem { width: 4.4rem; height: 4.4rem; border: 1px solid var(--color-cyan-line); border-radius: var(--radius-cut); background: var(--color-cyan-wash); color: var(--color-cyan); font-size: 2rem; box-shadow: inset 0 0 1.5rem var(--color-cyan-wash); }
 .ration-title { display: block; margin-top: 0.3rem; color: var(--color-ink); font: 700 1.4rem/1.1 var(--font-display); }
 .ration-core p { margin: 0.4rem 0 0; color: var(--color-ink-secondary); font-size: 0.78rem; }
@@ -190,8 +180,7 @@ button:focus-visible {
 .button-primary:disabled { background: var(--color-panel-active); color: var(--color-ink-muted); border-color: var(--color-border); }
 .button-secondary { border-color: var(--color-border-strong); background: var(--color-panel-raised); color: var(--color-cyan); }
 .button-secondary:hover { border-color: var(--color-cyan); background: var(--color-cyan-wash); }
-.claim-button { width: 100%; margin-top: var(--space-4); }
-.claim-footnote { margin: var(--space-3) 0 0; color: var(--color-ink-muted); font-size: 0.68rem; text-align: center; }
+.claim-footnote { margin: var(--space-1) 0 0; color: var(--color-ink-muted); font-size: 0.68rem; text-align: center; }
 .button-spinner { width: 0.85rem; height: 0.85rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .info-row { display: flex; align-items: center; gap: var(--space-3); padding: 0.9rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-panel); }
@@ -207,9 +196,10 @@ button:focus-visible {
 .category-chip:hover,
 .sort-chip:hover { border-color: var(--color-border-strong); color: var(--color-ink); }
 .category-chip.is-selected,
-.sort-chip.is-selected { border-color: var(--color-cyan); background: var(--color-cyan-wash); color: var(--color-cyan); }
+.sort-chip.is-selected { border-color: var(--color-cyan); background: var(--color-cyan-wash); box-shadow: var(--glow-sm); color: var(--color-cyan); }
+.item-shortfall { color: var(--color-ink-muted); font: 600 0.55rem/1.3 var(--font-mono); text-align: right; white-space: nowrap; }
 .item-list { display: grid; gap: var(--space-3); }
-.item-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-left: 2px solid var(--color-rarity, var(--color-ink-muted)); border-radius: var(--radius-md); background: linear-gradient(110deg, var(--color-panel-raised), var(--color-panel)); }
+.item-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-left: 2px solid var(--color-rarity, var(--color-ink-muted)); border-radius: var(--radius-md); background: linear-gradient(110deg, var(--color-panel-raised), var(--color-panel)); box-shadow: -6px 0 18px -10px var(--color-rarity, transparent); }
 .rarity-common { --color-rarity: var(--color-ink-secondary); }
 .rarity-uncommon { --color-rarity: var(--color-green); }
 .rarity-rare { --color-rarity: var(--color-sky); }
@@ -233,10 +223,7 @@ button:focus-visible {
 .empty-sigil { display: grid; width: 3rem; height: 3rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--color-violet); border-radius: var(--radius-cut); background: var(--color-violet-wash); color: var(--color-violet); font-size: 1.4rem; }
 .empty-guild-card h2 { margin: 0.45rem 0 0.3rem; color: var(--color-ink); font: 700 1.1rem/1.1 var(--font-display); }
 .empty-guild-card p { margin: 0; color: var(--color-ink-secondary); font-size: 0.75rem; line-height: 1.45; }
-.guild-card { overflow: hidden; padding: var(--space-5); }
-.guild-card-topline { display: flex; justify-content: space-between; gap: var(--space-2); }
-.guild-id { color: var(--color-ink-muted); font: 600 0.63rem/1 var(--font-mono); }
-.guild-title-row { gap: var(--space-3); margin: var(--space-5) 0 var(--space-3); }
+.guild-title-row { gap: var(--space-3); margin: 0 0 var(--space-3); }
 .guild-crest { width: 3.5rem; height: 3.5rem; border: 1px solid var(--color-violet); border-radius: var(--radius-cut); background: var(--color-violet-wash); color: var(--color-violet); font-size: 1.5rem; }
 .guild-title-row h2 { overflow-wrap: anywhere; margin: 0 0 0.3rem; color: var(--color-ink); font: 750 1.45rem/1 var(--font-display); }
 .guild-owner { color: var(--color-ink-secondary); font-size: 0.7rem; }
@@ -291,6 +278,9 @@ button:focus-visible {
 .guild-row:hover,
 .guild-row.is-mine { background: var(--color-cyan-wash); }
 .guild-place { flex: 0 0 1.35rem; color: var(--color-ink-muted); font: 600 0.55rem/1 var(--font-mono); }
+.guild-place.tier-1 { color: var(--color-gold-bright); }
+.guild-place.tier-2 { color: var(--color-silver); }
+.guild-place.tier-3 { color: var(--color-bronze); }
 .guild-row-sigil { width: 1.85rem; height: 1.85rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-violet); font-size: 0.9rem; }
 .guild-row-copy { display: grid; flex: 1; min-width: 0; gap: 0.25rem; }
 .guild-row-copy strong { overflow: hidden; color: var(--color-ink); font: 700 0.78rem/1.15 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
@@ -365,8 +355,13 @@ button:focus-visible {
 .sys-body { padding: var(--space-5); }
 .profile-identity { display: flex; align-items: center; gap: var(--space-3); }
 .profile-seal { width: 3.25rem; height: 3.25rem; font-size: 1.25rem; }
+.profile-title { color: var(--color-ink-secondary); font: italic 600 0.66rem/1.2 var(--font-body); }
+.profile-xp { display: grid; gap: 0.45rem; }
+.profile-xp-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.profile-xp-num { color: var(--color-ink); font: 700 0.68rem/1 var(--font-mono); }
 .profile-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); color: var(--color-ink-secondary); font: 600 0.64rem/1.3 var(--font-mono); }
 .profile-facts b { color: var(--color-ink); font-weight: 700; }
+.profile-cta { display: grid; gap: var(--space-2); }
 .stat-row { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-2); }
 .stat-row-label { color: var(--color-sky); font: 700 0.62rem/1 var(--font-mono); letter-spacing: 0.06em; }
 .stat-row-name { overflow: hidden; color: var(--color-ink-secondary); font-size: 0.64rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -426,7 +421,6 @@ button:focus-visible {
 
 @media (min-width: 600px) {
   .app-shell { padding-right: var(--space-8); padding-left: var(--space-8); }
-  .ration-card { padding: var(--space-8); }
   .item-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .item-card { grid-template-columns: minmax(0, 1fr); align-content: space-between; min-height: 10.5rem; }
   .item-card-action { flex-direction: row; align-items: center; justify-content: space-between; padding-left: 3.1rem; }
@@ -437,8 +431,6 @@ button:focus-visible {
   .app-shell { padding-right: var(--space-3); padding-left: var(--space-3); }
   .hunter-strip { padding-right: var(--space-3); padding-left: var(--space-3); }
   .identity-copy strong { max-width: 10.5rem; }
-  .ration-card,
-  .guild-card { padding: var(--space-4); }
   .reward-cell { padding: 0.78rem; }
   .reward-cell strong { font-size: 0.95rem; }
   .item-card { gap: var(--space-2); padding: 0.75rem; }

@@ -47,7 +47,7 @@ export default function GuildsScreen({
           <div className="guild-list">
             {guilds.map((guild, index) => (
               <button className={`guild-row${currentGuild?.id === guild.id ? ' is-mine' : ''}`} type="button" key={guild.id} onClick={() => onSelect(guild)} aria-label={`View ${guild.name}`}>
-                <span className="guild-place">{String(index + 1).padStart(2, '0')}</span>
+                <span className={`guild-place${index < 3 ? ` tier-${index + 1}` : ''}`}>{String(index + 1).padStart(2, '0')}</span>
                 <span className="guild-row-sigil" aria-hidden="true">♜</span>
                 <span className="guild-row-copy"><strong>{guild.name}</strong><small>{guild.member_count}/{guild.max_members} hunters · {guild.owner_name}</small></span>
                 <span className="guild-row-score"><b>{number(guild.total_power)}</b><small>POWER</small></span>

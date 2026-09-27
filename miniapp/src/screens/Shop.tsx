@@ -83,6 +83,7 @@ function ShopCard({ item, gold, busy, disabled, onBuy }: { item: ShopItem; gold:
         <button className="button button-buy" type="button" onClick={onBuy} disabled={disabled || !affordable} data-state={busy ? 'loading' : affordable ? 'ready' : 'disabled'}>
           {busy ? <><span className="button-spinner" /> Buying</> : affordable ? 'Acquire' : 'Need more'}
         </button>
+        {!affordable && <small className="item-shortfall">Need {number(item.price)}G · have {number(gold)}G</small>}
       </div>
     </article>
   );

@@ -26,7 +26,7 @@ export default function TopBar({
       {me && (
         <section className="hunter-strip" aria-label="Hunter status">
           <div className="hunter-identity">
-            <span className="rank-seal">{me.hunter.rank.slice(0, 1)}</span>
+            <span className={`rank-seal rank-${me.hunter.rank.toLowerCase().replaceAll(' ', '-')}`}>{me.hunter.rank.slice(0, 1)}</span>
             <div className="identity-copy">
               <strong>{me.hunter.display_name}</strong>
               <span>{me.hunter.rank} RANK <i /> LV. {me.hunter.level}</span>
