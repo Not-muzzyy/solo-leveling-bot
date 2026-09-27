@@ -51,6 +51,8 @@ class Hunter:
     last_explore_date: str = ""
     last_explore_time: float = 0.0
     current_explore_node: int = 0
+    duel_xp_today: int = 0
+    last_duel_date: str = ""
     # ── Demon Castle Tower ────────────────────────────────
     tower_floor: int = 1
     tower_highest_floor: int = 0
@@ -77,6 +79,9 @@ class Hunter:
         if self.last_explore_date != today_str:
             self.daily_explores = 0
             self.last_explore_date = today_str
+        if self.last_duel_date != today_str:
+            self.duel_xp_today = 0
+            self.last_duel_date = today_str
         if self.last_tower_date != today_str:
             self.tower_keys = 3
             self.last_tower_date = today_str
