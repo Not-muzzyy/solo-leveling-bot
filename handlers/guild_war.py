@@ -641,7 +641,7 @@ async def _run_war_battles(client: Client, db: ChannelDB, war: dict) -> None:
             d_inv = Inventory(user_id=d_uid)
 
         # Simulate duel
-        result = simulate_duel(c_hunter, c_inv, d_hunter, d_inv)
+        result = simulate_duel(c_hunter, c_inv, d_hunter, d_inv, grant_xp=False)
 
         # Record winner
         winner_uid = result.winner.user_id

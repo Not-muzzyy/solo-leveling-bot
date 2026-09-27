@@ -133,4 +133,11 @@ check("duel handler: opponent reset after guard", _r_o > _guard != -1 and _r_o !
 check("duel handler: both resets before simulate_duel",
       _sim != -1 and _r_c < _sim and _r_o < _sim)
 
+# ── Task 5: guild war excludes war duels from duel XP ────
+_gw = (Path(__file__).resolve().parent.parent / "handlers" / "guild_war.py").read_text(encoding="utf-8")
+_gw_call_lines = [ln for ln in _gw.splitlines() if "simulate_duel(" in ln]
+check("guild_war: has a simulate_duel call", len(_gw_call_lines) >= 1)
+check("guild_war: simulate_duel call passes grant_xp=False",
+      any("grant_xp=False" in ln for ln in _gw_call_lines))
+
 print(f"\n{passed} passed")
