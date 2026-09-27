@@ -475,6 +475,8 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
     user = query.from_user
     if not user:
         return
+    if not query.message:
+        return
 
     db: ChannelDB = client.db
     war = _get_war()
@@ -568,20 +570,23 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
                 active_war["challengers"],
                 active_war["defenders"],
             )
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_war_status_rich(
-                        war['challenger_guild_name'], war['defender_guild_name'],
-                        0, 0, 0, len(active_war["matchups"]),
-                        photo_first=False,
-                    ),
-                    media=[photo_media("war", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
-                        reply_markup=None,
-                    ),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=ParseMode.HTML),
+                    reply_markup=None,
                 )
+            else:
+                fallback = lambda: asyncio.sleep(0)  # ponytail: classic non-photo did nothing; rich path handles refresh
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_war_status_rich(
+                    war['challenger_guild_name'], war['defender_guild_name'],
+                    0, 0, 0, len(active_war["matchups"]),
+                    photo_first=False,
+                ),
+                media=[photo_media("war", photo_buf)],
+                fallback=fallback,
+            )
         except Exception as exc:
             logger.error("Failed to render war status: %s", exc, exc_info=True)
             await edit_rich(
