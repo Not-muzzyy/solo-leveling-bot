@@ -70,14 +70,12 @@ def create_new_hunter(
     )
 
 
-def add_xp(hunter: Hunter, amount: int, bonus: float = 0.0) -> tuple[bool, Optional[str]]:
+def add_xp(hunter: Hunter, amount: int) -> tuple[bool, Optional[str]]:
     """
     Add XP to a hunter. Returns (leveled_up, new_rank_or_None).
     Handles multiple level-ups in one call.
-    Optional bonus multiplier (e.g. 0.10 for +10% guild bonus).
     """
-    actual = int(amount * (1.0 + bonus)) if bonus > 0 else amount
-    hunter.xp += actual
+    hunter.xp += amount
     leveled_up = False
     new_rank = None
 

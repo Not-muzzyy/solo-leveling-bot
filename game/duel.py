@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 from config import (
     CRITICAL_HIT_CHANCE,
     CRITICAL_HIT_MULTIPLIER,
+    DAILY_DUEL_XP_LIMIT,
 )
 from models import Hunter, Inventory, Item, DuelResult
 from game.hunter import add_xp
@@ -53,6 +54,7 @@ def simulate_duel(
     challenger_inv: Optional[Inventory],
     opponent: Hunter,
     opponent_inv: Optional[Inventory],
+    grant_xp: bool = True,
 ) -> DuelResult:
     """
     Simulate a full arena duel between challenger and opponent.
@@ -172,18 +174,26 @@ def simulate_duel(
     loser.duel_losses += 1
 
     # 6. Rewards
-    # Scaling rewards based on opponent level
-    base_winner_xp = int(35 + (loser.level * 8) + random.randint(5, 15))
+    # Rebalanced XP (spec: approach A); gold formulas unchanged.
+    base_winner_xp = int(25 + (loser.level * 6) + random.randint(0, 10))
     base_winner_gold = int(25 + (loser.level * 6) + random.randint(5, 15))
-    base_loser_xp = max(5, int(15 + (winner.level * 2)))
+    base_loser_xp = 10  # flat token XP for losing
 
     winner.gold += base_winner_gold
 
-    # Winner XP & Level progression
-    w_leveled_up, w_new_rank = add_xp(winner, base_winner_xp)
-
-    # Loser consolation XP
-    add_xp(loser, base_loser_xp)
+    # Daily duel XP cap (DAILY_DUEL_XP_LIMIT per hunter per UTC day).
+    # DuelResult XP fields show actually-awarded amounts (0 when capped).
+    w_awarded = l_awarded = 0
+    w_leveled_up, w_new_rank = False, None
+    if grant_xp:
+        w_awarded = min(base_winner_xp, max(0, DAILY_DUEL_XP_LIMIT - winner.duel_xp_today))
+        l_awarded = min(base_loser_xp, max(0, DAILY_DUEL_XP_LIMIT - loser.duel_xp_today))
+        if w_awarded > 0:
+            winner.duel_xp_today += w_awarded
+            w_leveled_up, w_new_rank = add_xp(winner, w_awarded)
+        if l_awarded > 0:
+            loser.duel_xp_today += l_awarded
+            add_xp(loser, l_awarded)
 
     return DuelResult(
         challenger=challenger,
@@ -200,9 +210,9 @@ def simulate_duel(
         challenger_crits=c_crits,
         opponent_crits=o_crits,
         total_rounds=actual_rounds,
-        winner_xp_gained=base_winner_xp,
+        winner_xp_gained=w_awarded,
         winner_gold_gained=base_winner_gold,
-        loser_xp_gained=base_loser_xp,
+        loser_xp_gained=l_awarded,
         winner_leveled_up=w_leveled_up,
         winner_new_level=winner.level if w_leveled_up else None,
         winner_ranked_up=w_new_rank is not None,
