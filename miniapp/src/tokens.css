@@ -19,6 +19,16 @@
   --color-violet: #a855f7;
   --color-red: #ef4444;
   --color-green: #22c55e;
+  /* Rank/rarity accents — byte-match of bot RANK_COLORS/RARITY_COLORS
+   * (currency gold stays #facc15; rank-S/legendary gold is the brighter #fbbf24)
+   */
+  --color-gold-bright: #fbbf24;
+  --color-amber: #f59e0b;
+  --color-rose: #f43f5e;
+  --color-monarch: #c084fc;
+  --color-pink: #ec4899;
+  --glow-sm: 0 0 8px rgb(0 229 255 / 25%);
+  --glow-md: 0 0 18px rgb(0 229 255 / 35%), 0 0 40px rgb(0 229 255 / 12%);
   --color-focus: #67e8f9;
   --color-cyan-wash: rgb(0 229 255 / 9%);
   --color-cyan-line: rgb(0 229 255 / 22%);
