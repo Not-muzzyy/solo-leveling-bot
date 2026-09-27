@@ -413,6 +413,8 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
     if chat and chat.type in ["group", "supergroup"]:
         await query.answer("⚠️ Please manage your inventory in Bot PM!", show_alert=True)
         return
+    if not query.message:
+        return
 
     db: ChannelDB = client.db
     hunter = await db.get_hunter(user.id)
@@ -475,29 +477,25 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
 
         try:
             photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, category)
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_inventory_rich(hunter, inventory, category, photo_first=True),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_inventory_keyboard(inventory, category),
-                    media=[photo_media("inventory", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                        reply_markup=_inventory_keyboard(inventory, category),
-                    ),
                 )
             else:
-                await reply_rich(
-                    query.message, build_inventory_rich(hunter, inventory, category, photo_first=True),
+                fallback = lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_inventory_keyboard(inventory, category),
-                    media=[photo_media("inventory", photo_buf)],
-                    fallback=lambda: query.message.reply_photo(
-                        photo=photo_buf,
-                        caption=caption,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=_inventory_keyboard(inventory, category),
-                    ),
                 )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_inventory_rich(hunter, inventory, category, photo_first=True),
+                reply_markup=_inventory_keyboard(inventory, category),
+                media=[photo_media("inventory", photo_buf)],
+                fallback=fallback,
+            )
         except MessageNotModified:
             return  # double-tapped an already-open tab — no-op, not an error
         except Exception as e:
@@ -518,29 +516,25 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
         caption = build_shop_caption(hunter, "menu")
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, "menu")
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_shop_rich(hunter, "menu", photo_first=True),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_shop_category_keyboard(),
-                    media=[photo_media("shop", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                        reply_markup=_shop_category_keyboard(),
-                    ),
                 )
             else:
-                await reply_rich(
-                    query.message, build_shop_rich(hunter, "menu", photo_first=True),
+                fallback = lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_category_keyboard(),
-                    media=[photo_media("shop", photo_buf)],
-                    fallback=lambda: query.message.reply_photo(
-                        photo=photo_buf,
-                        caption=caption,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=_shop_category_keyboard(),
-                    ),
                 )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_shop_rich(hunter, "menu", photo_first=True),
+                reply_markup=_shop_category_keyboard(),
+                media=[photo_media("shop", photo_buf)],
+                fallback=fallback,
+            )
         except MessageNotModified:
             return  # double-tapped the already-open shop menu
         except Exception as e:
@@ -561,29 +555,25 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
         caption = build_shop_caption(hunter, category)
         try:
             photo_buf = await asyncio.to_thread(render_shop_image, hunter, category)
-            if query.message and query.message.photo:
-                await edit_rich(
-                    client, query.message.chat.id, query.message.id,
-                    build_shop_rich(hunter, category, photo_first=True),
+            if query.message.photo:
+                fallback = lambda: query.edit_message_media(
+                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                     reply_markup=_shop_items_keyboard(category),
-                    media=[photo_media("shop", photo_buf)],
-                    fallback=lambda: query.edit_message_media(
-                        media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                        reply_markup=_shop_items_keyboard(category),
-                    ),
                 )
             else:
-                await reply_rich(
-                    query.message, build_shop_rich(hunter, category, photo_first=True),
+                fallback = lambda: query.message.reply_photo(
+                    photo=photo_buf,
+                    caption=caption,
+                    parse_mode=enums.ParseMode.HTML,
                     reply_markup=_shop_items_keyboard(category),
-                    media=[photo_media("shop", photo_buf)],
-                    fallback=lambda: query.message.reply_photo(
-                        photo=photo_buf,
-                        caption=caption,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=_shop_items_keyboard(category),
-                    ),
                 )
+            await edit_rich(
+                client, query.message.chat.id, query.message.id,
+                build_shop_rich(hunter, category, photo_first=True),
+                reply_markup=_shop_items_keyboard(category),
+                media=[photo_media("shop", photo_buf)],
+                fallback=fallback,
+            )
         except MessageNotModified:
             return  # double-tapped an already-open shop category
         except Exception as e:
@@ -614,6 +604,8 @@ async def equip_callback(client: Client, query: CallbackQuery) -> None:
 
     if chat and chat.type in ["group", "supergroup"]:
         await query.answer("⚠️ Please manage your equipment in Bot PM!", show_alert=True)
+        return
+    if not query.message:
         return
 
     db: ChannelDB = client.db
@@ -686,29 +678,25 @@ async def equip_callback(client: Client, query: CallbackQuery) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, return_cat, notice)
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_inventory_rich(hunter, inventory, return_cat, notice=notice, photo_first=True),
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_inventory_keyboard(inventory, return_cat),
-                media=[photo_media("inventory", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                    reply_markup=_inventory_keyboard(inventory, return_cat),
-                ),
             )
         else:
-            await reply_rich(
-                query.message, build_inventory_rich(hunter, inventory, return_cat, notice=notice, photo_first=True),
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=_inventory_keyboard(inventory, return_cat),
-                media=[photo_media("inventory", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=_inventory_keyboard(inventory, return_cat),
-                ),
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_inventory_rich(hunter, inventory, return_cat, notice=notice, photo_first=True),
+            reply_markup=_inventory_keyboard(inventory, return_cat),
+            media=[photo_media("inventory", photo_buf)],
+            fallback=fallback,
+        )
     except Exception as e:
         logger.error("Failed to render inventory image on equip: %s", e, exc_info=True)
         text = format_inventory(inventory, hunter, return_cat, notice=notice)
@@ -733,6 +721,8 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
 
     if chat and chat.type in ["group", "supergroup"]:
         await query.answer("⚠️ Please use the Hunter Shop in Bot PM!", show_alert=True)
+        return
+    if not query.message:
         return
 
     db: ChannelDB = client.db
@@ -771,29 +761,25 @@ async def buy_callback(client: Client, query: CallbackQuery) -> None:
     caption = build_shop_caption(hunter, cat, notice=notice)
     try:
         photo_buf = await asyncio.to_thread(render_shop_image, hunter, cat, notice)
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_shop_rich(hunter, cat, notice=notice, photo_first=True),
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_shop_items_keyboard(cat),
-                media=[photo_media("shop", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                    reply_markup=_shop_items_keyboard(cat),
-                ),
             )
         else:
-            await reply_rich(
-                query.message, build_shop_rich(hunter, cat, notice=notice, photo_first=True),
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=_shop_items_keyboard(cat),
-                media=[photo_media("shop", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=_shop_items_keyboard(cat),
-                ),
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_shop_rich(hunter, cat, notice=notice, photo_first=True),
+            reply_markup=_shop_items_keyboard(cat),
+            media=[photo_media("shop", photo_buf)],
+            fallback=fallback,
+        )
     except Exception as e:
         logger.error("Failed to render shop purchase image: %s", e, exc_info=True)
         text = _format_shop_category(cat, hunter.gold)
@@ -822,6 +808,8 @@ async def use_callback(client: Client, query: CallbackQuery) -> None:
 
     if chat and chat.type in ["group", "supergroup"]:
         await query.answer("⚠️ Please manage your inventory in Bot PM!", show_alert=True)
+        return
+    if not query.message:
         return
 
     db: ChannelDB = client.db
@@ -865,29 +853,25 @@ async def use_callback(client: Client, query: CallbackQuery) -> None:
 
     try:
         photo_buf = await asyncio.to_thread(render_inventory_image, hunter, inventory, "consumable", notice)
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_inventory_rich(hunter, inventory, "consumable", notice=notice, photo_first=True),
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_inventory_keyboard(inventory, "consumable"),
-                media=[photo_media("inventory", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                    reply_markup=_inventory_keyboard(inventory, "consumable"),
-                ),
             )
         else:
-            await reply_rich(
-                query.message, build_inventory_rich(hunter, inventory, "consumable", notice=notice, photo_first=True),
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=_inventory_keyboard(inventory, "consumable"),
-                media=[photo_media("inventory", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=_inventory_keyboard(inventory, "consumable"),
-                ),
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_inventory_rich(hunter, inventory, "consumable", notice=notice, photo_first=True),
+            reply_markup=_inventory_keyboard(inventory, "consumable"),
+            media=[photo_media("inventory", photo_buf)],
+            fallback=fallback,
+        )
     except Exception as e:
         logger.error("Failed to render inventory image on potion use: %s", e, exc_info=True)
         text = format_inventory(inventory, hunter, "consumable", notice=notice)
