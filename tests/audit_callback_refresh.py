@@ -86,7 +86,7 @@ def audit_file(path: Path) -> list[str]:
 
 def main(argv: list[str]) -> int:
     if argv:
-        files = [Path(a) for a in argv]
+        files = [Path(a).resolve() for a in argv]
     else:
         files = sorted(HANDLERS.glob("*.py"))
     violations: list[str] = []

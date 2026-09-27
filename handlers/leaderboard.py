@@ -174,6 +174,8 @@ async def callback(client: Client, query: CallbackQuery) -> None:
     data = query.data or ""
     if not data.startswith("lb_"):
         return
+    if not query.message:
+        return
 
     category = data[3:]
     if category not in CATEGORY_TITLES:
@@ -199,30 +201,26 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         )
         caption = build_leaderboard_caption(category)
 
-        if query.message and query.message.photo:
-            await edit_rich(
-                client, query.message.chat.id, query.message.id,
-                build_leaderboard_rich(category, photo_first=False),
+        if query.message.photo:
+            fallback = lambda: query.edit_message_media(
+                media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
                 reply_markup=_leaderboard_keyboard(category),
-                media=[photo_media("leaderboard", photo_buf)],
-                fallback=lambda: query.edit_message_media(
-                    media=InputMediaPhoto(media=photo_buf, caption=caption, parse_mode=enums.ParseMode.HTML),
-                    reply_markup=_leaderboard_keyboard(category),
-                ),
             )
-        elif query.message:
-            await reply_rich(
-                query.message, build_leaderboard_rich(category, photo_first=False),
+        else:
+            fallback = lambda: query.message.reply_photo(
+                photo=photo_buf,
+                caption=caption,
                 reply_markup=_leaderboard_keyboard(category),
-                media=[photo_media("leaderboard", photo_buf)],
-                fallback=lambda: query.message.reply_photo(
-                    photo=photo_buf,
-                    caption=caption,
-                    reply_markup=_leaderboard_keyboard(category),
-                    parse_mode=enums.ParseMode.HTML,
-                    show_caption_above_media=True,
-                ),
+                parse_mode=enums.ParseMode.HTML,
+                show_caption_above_media=True,
             )
+        await edit_rich(
+            client, query.message.chat.id, query.message.id,
+            build_leaderboard_rich(category, photo_first=False),
+            reply_markup=_leaderboard_keyboard(category),
+            media=[photo_media("leaderboard", photo_buf)],
+            fallback=fallback,
+        )
     except BadRequest as br_err:
         if "Message is not modified" not in str(br_err):
             logger.warning("BadRequest during leaderboard update: %s", br_err)
