@@ -42,6 +42,7 @@ from game.rich_text import escape_html, callback_button
 from game.captions import build_shadows_rich
 from game.shadows_image import render_shadows_image, RARITY_POWER_VALUES
 from models import Hunter, ShadowCharacter, UserShadow
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -179,14 +180,14 @@ async def spawn_shadow_in_chat(
 
     r_emoji = RARITY_EMOJI.get(character.rarity, "⚪")
     caption = (
-        "🌌 <b>A WILD SHADOW HAS APPEARED!</b>\n\n"
+        f"{premium_emoji('news')} <b>A WILD SHADOW HAS APPEARED!</b>\n\n"
         "Guess the Solo Leveling character name from the image!\n"
         f"• <b>Rarity:</b> <code>[{character.rarity}]</code> {r_emoji}\n"
         "• <b>How to claim:</b> Type <code>/arise &lt;character name&gt;</code>\n\n"
         "⏱️ <i>You have 15 minutes before this rift closes!</i>"
     )
     spawn_blocks = [
-        heading(1, "🌌 A WILD SHADOW HAS APPEARED!"),
+        heading(1, f"{premium_emoji('news')} A WILD SHADOW HAS APPEARED!"),
         paragraph("Guess the Solo Leveling character name from the image!"),
         paragraph(
             f"• <b>Rarity:</b> <code>[{escape_html(character.rarity)}]</code> {r_emoji}\n"
@@ -372,7 +373,7 @@ async def handle_arise(client: Client, message: Message) -> None:
         lvl_banner += f"\n👑 <b>RANK UP!</b> Promoted to Rank <b>{new_rank}</b>!"
 
     victory_text = (
-        f"🎉 <b>CONGRATULATIONS {user.mention}!</b>\n\n"
+        f"{premium_emoji('trophy')} 🎉 <b>CONGRATULATIONS {user.mention}!</b>\n\n"
         f"You successfully acquired <b>{character.name}</b>!\n\n"
         f"• <b>Character:</b> <b>{character.name}</b>\n"
         f"• <b>Rarity:</b> <code>[{character.rarity}]</code> {r_emoji} ({status_str})\n"
@@ -385,7 +386,7 @@ async def handle_arise(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, f"🎉 CONGRATULATIONS {user.mention}!"),
+            heading(1, f"{premium_emoji('trophy')} 🎉 CONGRATULATIONS {user.mention}!"),
             paragraph(f"You successfully acquired <b>{escape_html(character.name)}</b>!"),
             quote(
                 f"• <b>Character:</b> <b>{escape_html(character.name)}</b>\n"
@@ -442,11 +443,11 @@ async def handle_shadows(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(paragraph(
-                "<b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
                 "This player is not yet awakened as a registered Hunter."
             )),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ SYSTEM REJECTED // 미등록 헌터 ]</b>\n\n"
                 "This player is not yet awakened as a registered Hunter.",
                 parse_mode=enums.ParseMode.HTML,
             ),
@@ -524,7 +525,7 @@ def _build_shadows_caption(
     filter_tag = f" ┊ Filter: <code>{filter_rarity}</code>" if filter_rarity else ""
 
     lines = [
-        f"👥 <b>{h_display}'s Shadow Army</b>",
+        f"{premium_emoji('crown')} 👥 <b>{h_display}'s Shadow Army</b>",
         f"👑 <b>Rank {hunter.rank}</b> ┊ <b>Soldiers:</b> <code>{total_soldiers:,}</code> ┊ <b>Forms:</b> <code>{unique_count}</code> (Page {page}/{total_pages}){filter_tag}",
         "",
     ]
@@ -802,7 +803,7 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
     alias_str = ", ".join(char.aliases) if char.aliases else "None"
 
     confirm_text = (
-        "<b>[ SYSTEM REGISTRY // SHADOW CHARACTER ENROLLED ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM REGISTRY // SHADOW CHARACTER ENROLLED ]</b>\n"
         "<b>새로운 그림자 개체 등록 완료</b>\n\n"
         "<blockquote expandable>"
         f"• <b>Character ID:</b> <code>#{char.id}</code>\n"
@@ -817,7 +818,7 @@ async def handle_add_shadow(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM REGISTRY // SHADOW CHARACTER ENROLLED ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM REGISTRY // SHADOW CHARACTER ENROLLED ]"),
             paragraph("<b>새로운 그림자 개체 등록 완료</b>"),
             quote(
                 f"• <b>Character ID:</b> <code>#{char.id}</code>\n"
@@ -856,10 +857,10 @@ async def handle_list_shadows(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(paragraph(
-                "<b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!"
+                f"{premium_emoji('folder')} <b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!"
             )),
             fallback=lambda: message.reply_text(
-                "<b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!",
+                f"{premium_emoji('folder')} <b>[ SHADOW CATALOG EMPTY ]</b>\nNo characters registered yet. Use <code>/addshadow</code> to enroll characters!",
                 parse_mode=enums.ParseMode.HTML,
             ),
         )
@@ -886,7 +887,7 @@ async def handle_list_shadows(client: Client, message: Message) -> None:
 
     roster_str = "\n".join(lines)
     text = (
-        "<b>[ SHADOW CATALOG // REGISTERED CHARACTERS ]</b>\n"
+        f"{premium_emoji('folder')} <b>[ SHADOW CATALOG // REGISTERED CHARACTERS ]</b>\n"
         f"<b>Page {page} of {total_pages} (Total: {len(chars)} Characters)</b>\n\n"
         f"<blockquote expandable>\n{roster_str}\n</blockquote>\n\n"
         "<i>Use /addshadow to add more, /delshadow &lt;id&gt; to remove.</i>"
@@ -895,7 +896,7 @@ async def handle_list_shadows(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SHADOW CATALOG // REGISTERED CHARACTERS ]"),
+            heading(1, f"{premium_emoji('folder')} [ SHADOW CATALOG // REGISTERED CHARACTERS ]"),
             paragraph(f"<b>Page {page} of {total_pages} (Total: {len(chars)} Characters)</b>"),
             quote(roster_str),
             paragraph("<i>Use /addshadow to add more, /delshadow &lt;id&gt; to remove.</i>", expandable=False),
@@ -1013,7 +1014,7 @@ async def handle_shadow_stats(client: Client, message: Message) -> None:
     active = "Yes" if message.chat.id in _active_spawns else "No"
 
     text = (
-        "<b>[ SHADOW MONARCH // TELEMETRY DOSSIER ]</b>\n\n"
+        f"{premium_emoji('system')} <b>[ SHADOW MONARCH // TELEMETRY DOSSIER ]</b>\n\n"
         "<blockquote expandable>"
         f"• <b>Database Channel ID:</b> <code>{stats.get('channel_id')}</code>\n"
         f"• <b>Registered Characters:</b> <code>{stats.get('total_characters')}</code>\n"
@@ -1028,7 +1029,7 @@ async def handle_shadow_stats(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SHADOW MONARCH // TELEMETRY DOSSIER ]"),
+            heading(1, f"{premium_emoji('system')} [ SHADOW MONARCH // TELEMETRY DOSSIER ]"),
             quote(
                 f"• <b>Database Channel ID:</b> <code>{stats.get('channel_id')}</code>\n"
                 f"• <b>Registered Characters:</b> <code>{stats.get('total_characters')}</code>\n"

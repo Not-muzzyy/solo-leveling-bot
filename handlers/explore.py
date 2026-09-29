@@ -28,6 +28,7 @@ from game.captions import build_explore_caption, build_explore_rich
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import photo_media, reply_rich
 from game.shop import SHOP_ITEMS, create_item_from_shop
+from game.premium_emoji import premium_emoji
 from models import Hunter, Item, Inventory
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]"),
+                heading(1, f"{premium_emoji('warning')} [ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]"),
                 paragraph(
                     f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)<br>"
                     f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed"
@@ -129,7 +130,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ DAILY EXPEDITIONS EXHAUSTED // 탐색 한도 초과 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
                 f"📊 <b>Expeditions Today:</b> <code>{hunter.daily_explores} / {DAILY_EXPLORE_LIMIT}</code> Completed\n\n"
                 "<blockquote expandable>"
@@ -156,7 +157,7 @@ async def handle(client: Client, message: Message) -> None:
             await reply_rich(
                 message,
                 RichDoc(
-                    heading(1, "[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]"),
+                    heading(1, f"{premium_emoji('search')} [ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]"),
                     paragraph(
                         f"👤 <b>Hunter:</b> {h_name}<br>"
                         f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>"
@@ -168,7 +169,7 @@ async def handle(client: Client, message: Message) -> None:
                     ),
                 ),
                 fallback=lambda: message.reply_text(
-                    "<b>[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]</b>\n\n"
+                    f"{premium_emoji('search')} <b>[ EXPEDITION RADAR RECHARGING // 탐색 레이더 충전 중 ]</b>\n\n"
                     f"👤 <b>Hunter:</b> {h_name}\n"
                     f"⏱️ <b>Next Expedition Ready In:</b> <code>{timer_str}</code>\n\n"
                     "<blockquote expandable>"

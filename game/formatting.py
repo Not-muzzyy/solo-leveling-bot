@@ -10,6 +10,7 @@ from __future__ import annotations
 from config import RARITY_EMOJI, RANK_EMOJI
 from models import Hunter, Item, HuntResult, Inventory
 from game.rich_text import escape_html, safe_message, Bold, Italic, InlineCode, Chain, Quote, PlainText
+from game.premium_emoji import premium_emoji
 
 
 def _stat_bar(value: int, max_val: int = 50) -> str:
@@ -102,7 +103,7 @@ def format_profile(hunter: Hunter, inventory: Inventory) -> str:
         return f"• {icon} <i>— empty —</i>"
 
     lines = [
-        "<b>[ STATUS WINDOW // 상태창 ]</b>",
+        f"{premium_emoji('system')} <b>[ STATUS WINDOW // 상태창 ]</b>",
         "",
         f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} {rank_icon}]",
         f"🏅 <b>Title:</b> {Italic(title_esc).to_html()}",
@@ -143,7 +144,7 @@ def format_welcome(hunter: Hunter) -> str:
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return safe_message(
-        "<b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
         "<i>A new Hunter has been detected and registered by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Rank:</b> {InlineCode(f'{r_name}-Rank').to_html()}\n"
@@ -173,10 +174,10 @@ def format_hunt_victory(result: HuntResult) -> str:
     crit_text = " 💥 <b>CRITICAL!</b>" if result.critical_hit else ""
 
     lines = [
-        "<b>[ GATE RAID // 던전 클리어 ]</b>",
+        f"{premium_emoji('lightning')} <b>[ GATE RAID // 던전 클리어 ]</b>",
         "",
         f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}",
-        f"⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>",
+        f"⚔️ <b>Battle Outcome:</b> {premium_emoji('trophy')} ✅ <b>VICTORY</b>",
         "",
         "<blockquote expandable>",
         f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}{crit_text}",
@@ -217,7 +218,7 @@ def format_hunt_defeat(result: HuntResult) -> str:
     m_name = escape_html(monster.name)
 
     lines = [
-        "<b>[ GATE CASUALTY // 공략 실패 ]</b>",
+        f"{premium_emoji('warning')} <b>[ GATE CASUALTY // 공략 실패 ]</b>",
         "",
         f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}",
         f"⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>",
@@ -274,7 +275,7 @@ def format_inventory(
     total_items = len(inventory.items)
 
     lines = [
-        f"{Bold(f'[ SHADOW STORAGE // {name.upper()} ]').to_html()}",
+        f"{premium_emoji('folder')} {Bold(f'[ SHADOW STORAGE // {name.upper()} ]').to_html()}",
         "",
     ]
 
@@ -377,7 +378,7 @@ def format_equip_result(item: Item, old_item: Item | None, hunter: Hunter) -> st
     diff_body = "\n".join(stat_diffs)
 
     return safe_message(
-        "<b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
+        f"{premium_emoji('gem')} <b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
         f"⚡ <b>Equipped:</b> {InlineCode(f'[{escape_html(item.rarity)}]').to_html()} {Bold(i_name).to_html()} {rarity_icon}\n"
         f"💪 <b>Combat Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()}\n\n"
         "<blockquote expandable>"
@@ -393,7 +394,7 @@ def format_cooldown(remaining_seconds: int) -> str:
     minutes = remaining_seconds // 60
     seconds = remaining_seconds % 60
     return safe_message(
-        "<b>[ RECOVERY IN PROGRESS // 피로도 회복 중 ]</b>\n\n"
+        f"{premium_emoji('heart')} <b>[ RECOVERY IN PROGRESS // 피로도 회복 중 ]</b>\n\n"
         "<i>You are still catching your breath from your previous hunt.</i>\n\n"
         "<blockquote expandable>"
         f"⏱️ <b>Ready In:</b> {InlineCode(escape_html(f'{minutes}m {seconds:02d}s')).to_html()}\n"
@@ -407,7 +408,7 @@ def format_already_registered(hunter: Hunter) -> str:
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return safe_message(
-        "<b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
+        f"{premium_emoji('rank')} <b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Rank:</b> {Bold(f'{r_name}-Rank').to_html()} ┊ 📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}\n"
         f"⚡ <b>Power:</b> {InlineCode(escape_html(f'{hunter.power:,}')).to_html()} ┊ 💰 <b>Gold:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}\n\n"
@@ -424,7 +425,7 @@ def format_already_registered(hunter: Hunter) -> str:
 def format_not_registered() -> str:
     """Message when unregistered user tries a command."""
     return safe_message(
-        "<b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
         "<i>The System detects no awakened mana signature for your identity.</i>\n\n"
         "<blockquote>"
         "<b>Status:</b> ❌ <b>Unawakened Citizen</b>\n"
@@ -442,7 +443,7 @@ def format_not_registered_rich() -> "RichDoc":
     """Rich twin of format_not_registered (same copy, block structure)."""
     from game.rich_message import RichDoc, heading, paragraph, quote
     return RichDoc(
-        heading(1, "[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
+        heading(1, f"{premium_emoji('system')} [ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
         paragraph("<i>The System detects no awakened mana signature for your identity.</i>"),
         quote(
             "<b>Status:</b> ❌ <b>Unawakened Citizen</b><br>"
@@ -459,7 +460,7 @@ def format_cooldown_rich(remaining_seconds: int) -> "RichDoc":
     minutes = remaining_seconds // 60
     seconds = remaining_seconds % 60
     return RichDoc(
-        heading(1, "[ RECOVERY IN PROGRESS // 피로도 회복 중 ]"),
+        heading(1, f"{premium_emoji('heart')} [ RECOVERY IN PROGRESS // 피로도 회복 중 ]"),
         paragraph("<i>You are still catching your breath from your previous hunt.</i>"),
         quote(
             f"⏱️ <b>Ready In:</b> {code(escape_html(f'{minutes}m {seconds:02d}s'))}<br>"
@@ -500,7 +501,7 @@ def format_profile_rich(hunter: Hunter, inventory: Inventory) -> "RichDoc":
         return f"• {icon} <i>— empty —</i>"
 
     return RichDoc(
-        heading(1, "[ STATUS WINDOW // 상태창 ]"),
+        heading(1, f"{premium_emoji('system')} [ STATUS WINDOW // 상태창 ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} {rank_icon}]<br>"
             f"🏅 <b>Title:</b> {Italic(title_esc).to_html()}<br>"
@@ -537,7 +538,7 @@ def format_welcome_rich(hunter: Hunter) -> "RichDoc":
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return RichDoc(
-        heading(1, "[ SYSTEM AWAKENING NOTICE // 각성 확인 ]"),
+        heading(1, f"{premium_emoji('system')} [ SYSTEM AWAKENING NOTICE // 각성 확인 ]"),
         paragraph("<i>A new Hunter has been detected and registered by the System.</i>"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name}<br>"
@@ -567,7 +568,7 @@ def format_already_registered_rich(hunter: Hunter) -> "RichDoc":
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return RichDoc(
-        heading(1, "[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]"),
+        heading(1, f"{premium_emoji('rank')} [ HUNTER RE-AUTHENTICATION // 헌터 인증 ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name}<br>"
             f"⭐ <b>Rank:</b> {Bold(f'{r_name}-Rank').to_html()} ┊ 📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}<br>"
@@ -613,10 +614,10 @@ def format_hunt_result_rich(result: HuntResult) -> "RichDoc":
             reward_lines.append(f"• 🔥 <b>RANK ADVANCEMENT!</b> → {Bold(escape_html(result.new_rank)).to_html()} {new_rank_icon}")
 
         blocks = [
-            heading(1, "[ GATE RAID // 던전 클리어 ]"),
+            heading(1, f"{premium_emoji('lightning')} [ GATE RAID // 던전 클리어 ]"),
             paragraph(
                 f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}<br>"
-                "⚔️ <b>Battle Outcome:</b> ✅ <b>VICTORY</b>"
+                f"⚔️ <b>Battle Outcome:</b> {premium_emoji('trophy')} ✅ <b>VICTORY</b>"
             ),
             quote(
                 f"💥 <b>Damage Dealt:</b> {InlineCode(escape_html(f'{result.damage_dealt:,}')).to_html()}{crit_text}<br>"
@@ -635,7 +636,7 @@ def format_hunt_result_rich(result: HuntResult) -> "RichDoc":
         f"• Consolation EXP: {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}",
     ]
     blocks = [
-        heading(1, "[ GATE CASUALTY // 공략 실패 ]"),
+        heading(1, f"{premium_emoji('warning')} [ GATE CASUALTY // 공략 실패 ]"),
         paragraph(
             f"🎯 <b>Target:</b> {Bold(m_name).to_html()} (Lv.{monster.level}) {rank_icon}<br>"
             "⚔️ <b>Battle Outcome:</b> ☠️ <b>DEFEAT</b>"

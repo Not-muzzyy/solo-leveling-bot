@@ -30,6 +30,19 @@ from pyrogram import enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, CopyTextButton
 
 from telegram_text import Bold, Italic, InlineCode, Chain, Quote, PlainText
+from game.premium_emoji import (
+    PREMIUM_EMOJI_REGISTRY,
+    PREMIUM_EMOJI_IDS,
+    SECTION_EMOJIS,
+    SECTION_EMOJI_IDS,
+    fallback_emoji,
+    premium_emoji,
+    premium_emoji_id,
+    section_emoji,
+    section_emoji_id,
+    section_fallback_emoji,
+    validate_premium_emoji_id,
+)
 
 ALLOWED_TELEGRAM_TAGS = {
     "b", "strong", "i", "em", "u", "ins", "s", "strike", "del",
@@ -158,6 +171,7 @@ def inline_button(
     switch_inline_query_current_chat: Optional[str] = None,
     style: Optional[Any] = None,
     copy_text: Optional[Any] = None,
+    icon_custom_emoji_id: Optional[str] = None,
 ) -> InlineKeyboardButton:
     """
     Build a Pyrogram InlineKeyboardButton with rich convenience options and modern Telegram styling.
@@ -168,6 +182,8 @@ def inline_button(
         inline_button("📋 Copy Hunter ID", copy_text="12345678")
     """
     kwargs: dict[str, Any] = {"text": str(text)}
+    if icon_custom_emoji_id is not None:
+        kwargs["icon_custom_emoji_id"] = validate_premium_emoji_id(icon_custom_emoji_id)
     if style is not None:
         kwargs["style"] = style
     if copy_text is not None:
@@ -193,9 +209,12 @@ def callback_button(
     text: str,
     callback_data: str,
     style: Optional[Any] = None,
+    icon_custom_emoji_id: Optional[str] = None,
 ) -> InlineKeyboardButton:
     """Convenience shortcut for an inline callback button with optional modern ButtonStyle."""
     kwargs: dict[str, Any] = {"text": str(text), "callback_data": callback_data}
+    if icon_custom_emoji_id is not None:
+        kwargs["icon_custom_emoji_id"] = validate_premium_emoji_id(icon_custom_emoji_id)
     if style is not None:
         kwargs["style"] = style
     return InlineKeyboardButton(**kwargs)

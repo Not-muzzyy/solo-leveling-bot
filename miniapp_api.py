@@ -144,6 +144,7 @@ def _raise_action_error(exc: GameActionError) -> HTTPException:
         "item_not_found": 404,
         "claim_cooldown": 409,
         "insufficient_gold": 409,
+        "idempotency_conflict": 409,
         "storage_error": 503,
     }.get(exc.code, 400)
     return HTTPException(status_code=status, detail={"code": exc.code, "message": exc.message})
@@ -215,7 +216,6 @@ async def buy_item(payload: PurchasePayload, request: Request, user_id: int = De
         result = await purchase_shop_item(_db(request), user_id, payload.item_key, payload.request_id)
     except GameActionError as exc:
         raise _raise_action_error(exc)
-    hunter = await _db(request).get_hunter(user_id)
     return {
         "item": {
             "id": result.item.id,
@@ -230,7 +230,8 @@ async def buy_item(payload: PurchasePayload, request: Request, user_id: int = De
             },
         },
         "price": result.price,
-        "hunter": _hunter_summary(hunter),
+        "inventory_count": result.inventory_count,
+        "hunter": _hunter_summary(result.hunter),
     }
 
 

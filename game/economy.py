@@ -45,6 +45,9 @@ class PurchaseResult:
     item: Item
     price: int
     gold_remaining: int
+    inventory_count: int
+    item_key: str
+    hunter: Hunter
 
 
 def _get_action_lock(user_id: int) -> asyncio.Lock:
@@ -127,6 +130,11 @@ async def purchase_shop_item(db, user_id: int, item_key: str, request_id: str | 
         previous = _purchase_results.get(cache_key)
         if previous:
             _purchase_results.move_to_end(cache_key)
+            if previous.item_key != item_key:
+                raise GameActionError(
+                    "idempotency_conflict",
+                    "This purchase request was already used for a different item. Start a new purchase.",
+                )
             return copy.deepcopy(previous)
 
         hunter = await db.get_hunter(user_id)
@@ -171,7 +179,14 @@ async def purchase_shop_item(db, user_id: int, item_key: str, request_id: str | 
                 detail = "Purchase storage is uncertain. Please contact a bot admin before retrying."
             raise GameActionError("storage_error", detail) from exc
 
-        result = PurchaseResult(item=item, price=price, gold_remaining=hunter.gold)
+        result = PurchaseResult(
+            item=item,
+            price=price,
+            gold_remaining=hunter.gold,
+            inventory_count=len(inventory.items),
+            item_key=item_key,
+            hunter=copy.deepcopy(hunter),
+        )
         _purchase_results[cache_key] = copy.deepcopy(result)
         if len(_purchase_results) > _MAX_REMEMBERED_PURCHASES:
             _purchase_results.popitem(last=False)

@@ -10,13 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-28-miniapp-system-ui-design.md`
 
+> **Implementation status (2026-09-30):** Mini App Tasks 1–6 are present in repository history. Bot Premium emoji Task 7 is implemented in the local working tree. Task 8 verification remains pending; unchecked verification steps below have not been confirmed.
+
 ## Global Constraints
 
 - Zero new frontend dependencies (React + react-dom only — package.json must not gain deps).
 - Palette stays byte-consistent with `game/design_tokens.py` except documented deviations: `ink-muted #64748b` kept for contrast; Legendary `#fbbf24`, Rank A `#f43f5e`, Monarch `#c084fc` aligned to bot.
 - All animations behind `@media (prefers-reduced-motion: reduce)` disabling them.
 - Deep links: `claim|shop|guilds|guild_<id>` must keep working; default section becomes `profile`.
-- No new API endpoints; no bot-side changes (`game/miniapp.py` untouched).
+- No new Mini App API endpoints or bot-side link changes (`game/miniapp.py` stays unchanged). The separately approved bot Premium emoji work updates bot message presentation.
+- Bot custom emoji come only from the semantic allowlist in `game/premium_emoji.py`, retain Unicode fallbacks, and never enter Telegram channel JSON or the browser Mini App.
+- Continue using `telegram-text` through `game/rich_text.py`; escape dynamic HTML and use `.to_html()` when rendering its elements.
 - Build must stay green: `npm run build` (= `tsc -b && vite build`).
 
 ## Review Focus
@@ -159,7 +163,26 @@
 - [ ] Verify: `npm run build`.
 - [ ] Commit: `feat(miniapp): guild directory HUD styling + section motion`
 
-### Task 7: Full verification
+### Task 7: Bot-wide Premium custom emoji — implemented locally
+
+**Files:**
+- Modify: `game/premium_emoji.py` (single immutable semantic registry of real custom emoji IDs plus Unicode fallback text)
+- Modify: `game/rich_text.py` (registry re-exports, safe rendering, and allowlisted inline button icon helper)
+- Modify: `game/captions.py`, `game/formatting.py`, and user-facing bot handlers to use semantic section tokens
+
+**Coverage:** start/profile, hunt/explore, claim/shop/inventory/equipment/forge, guild/guild war, duel, quest/redeem/tower, shadows/leaderboard/help, and admin output.
+
+**Status:** Message bodies across the covered feature paths use registry entries. The inline button icon helper is available in `game/rich_text.py`.
+
+**Constraints:**
+- Only use verified registry entries; unknown semantic keys or IDs fail closed. Never invent IDs or accept a caller-supplied ID.
+- Keep each custom emoji's Unicode fallback in message markup. Use button icons only through the helper that validates IDs against the same allowlist.
+- The bot owner has Telegram Premium, enabling the bot to send custom emoji in private, group, and supergroup chats.
+- Rich markup is presentation only: never persist it in channel JSON or render Telegram `tg-emoji` markup in the web Mini App.
+
+**Verification:** pending under Task 8. Inspect representative message output for every section, confirm fallback text remains present, and smoke-check custom emoji rendering in private and group chats. Check button icons where supported by the installed Kurigram version.
+
+### Task 8: Full verification
 
 **Steps:**
 - [ ] `npm run build` → clean (tsc + vite).
@@ -167,5 +190,6 @@
 - [ ] `python -m py_compile config.py models.py channel_db.py shadows_db.py main.py` → 0 (no accidental damage).
 - [ ] Run `tests/verify_progression_battery.sh` → PASS (regression guard from prior work).
 - [ ] Visual check: `npx --yes playwright` + local `vite dev` with mocked initData/API (best effort — webapp-testing skill); fallback: document manual Telegram smoke for user.
+- [ ] Bot emoji check: representative messages render custom emoji in Telegram; Unicode fallback remains valid; no raw custom emoji IDs appear outside `game/premium_emoji.py` or its helper integration.
 - [ ] `git status` + `git diff --stat` review; fix any stragglers.
 - [ ] Report results; commits already staged per-task; **push only on user OK**.

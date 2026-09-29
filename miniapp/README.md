@@ -1,6 +1,10 @@
 # Hunter System Mini App
 
-This is a TypeScript, React, and Vite frontend for the Telegram Mini App. It has no separate database: profile reads, claims, purchases, and guild directory reads go to the existing Python bot process, which uses its in-memory cache and persists records in the configured Telegram channels.
+This is a TypeScript, React, and Vite static frontend for the Telegram Mini App. The Python bot process also serves the authenticated FastAPI API and shares its initialized `ChannelDB`; there is no separate Mini App database or game-data service. Hunter, inventory, and guild records remain JSON messages in the configured Telegram channels.
+
+## Implementation status
+
+Mini App Tasks 1–6 are present in repository history. Bot Premium emoji Task 7 is implemented in the local working tree; Task 8 verification remains pending.
 
 ## What it supports
 
@@ -8,8 +12,15 @@ This is a TypeScript, React, and Vite frontend for the Telegram Mini App. It has
 - Shop catalogue browsing and item purchases, with the same item list and balance rules as the bot shop.
 - Read-only guild standings, guild details, and member rosters.
 - Telegram `initData` authentication. The frontend sends raw `Telegram.WebApp.initData`; the bot API validates its HMAC before deriving the Telegram user ID.
+- A Solo Leveling System HUD with Profile as the home screen, plus Claim, Shop, and Guilds navigation.
 
 Guild creation, joining, leaving, and management remain bot commands. The Mini App does not expose those mutations.
+
+Claim and shop requests share the locked operations in `game/economy.py` with the bot handlers. Telegram stores hunter and inventory in separate messages, so writes cannot be atomic; compensating writes reduce risk. A `storage_error` can indicate a partial or uncertain Telegram write. Before retrying, check the hunter's balance and inventory, then contact a bot admin. Purchase request deduplication is kept in process memory and does not survive a bot restart.
+
+## Bot Premium emoji
+
+Premium custom emoji are a bot-message feature, rendered through the shared `telegram-text` and rich-message helpers. The bot uses the curated registry in `game/premium_emoji.py` for user-facing sections and retains Unicode fallbacks. The bot owner's Telegram Premium enables these bot-sent emoji in private, group, and supergroup chats. The browser Mini App has its own CSS/UI and does not render Telegram `tg-emoji` markup; custom emoji markup is not stored in Telegram channel JSON records.
 
 ## Local frontend
 
@@ -17,12 +28,12 @@ Install Node.js and npm, then run these commands from the repository root:
 
 ```powershell
 cd miniapp
-Copy-Item .env.example .env.local
-npm install
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+npm ci
 npm run dev
 ```
 
-Open the local Vite URL shown in the terminal to inspect the layout and navigation. A normal browser does not provide Telegram `initData`, so authenticated requests will show the Telegram-required state. Set `VITE_API_BASE_URL` in `.env.local` when you have a reachable API; an API URL alone does not replace Telegram authentication.
+Open the local Vite URL shown in the terminal to inspect layout and navigation. A normal browser does not provide Telegram `initData`, so authenticated requests will show the Telegram-required state. Set `VITE_API_BASE_URL` in `.env.local` when you have a reachable API; an API URL alone does not replace Telegram authentication. `npm run build` type-checks and builds the static bundle in `dist/`.
 
 ### Full Telegram flow on a local frontend
 
@@ -36,7 +47,7 @@ MINIAPP_BOT_USERNAME=your_bot_username
 MINIAPP_ALLOWED_ORIGINS=https://your-frontend-tunnel.example
 ```
 
-Start `python main.py` from the repository root. In `@BotFather`, temporarily set the bot's Main Mini App URL to the frontend tunnel URL. Then use `/claim`, `/shop`, or `/guild info` in Telegram; each command opens its matching app section. The API tunnel must use HTTPS too, and its URL must be the value of `VITE_API_BASE_URL`.
+Start `python main.py` from the repository root. In `@BotFather`, temporarily set the bot's Main Mini App URL to the frontend tunnel URL. Then use `/claim`, `/shop`, or `/guild info` in Telegram; each command opens its matching app section. The API tunnel must use HTTPS too, and its URL must be the value of `VITE_API_BASE_URL`. Telegram authorization data is rejected after 24 hours (or if dated more than 30 seconds in the future); reopen the Mini App from Telegram to obtain fresh data.
 
 To check the frontend bundle separately, run `npm run build` from `miniapp/`; Vite writes the static output to `miniapp/dist/`.
 
@@ -79,4 +90,4 @@ Build the `miniapp` directory with `VITE_API_BASE_URL` set to the bot API origin
 | `GET /api/v1/guilds?sort=power` | Read guild directory |
 | `GET /api/v1/guilds/{guild_id}` | Read one guild and roster |
 
-Claim and shop writes update Telegram-backed records through the shared bot service. Telegram stores hunter and inventory records as separate messages, so a process interruption between those writes cannot provide database-grade atomic transactions; the implementation serializes app/bot claim and shop requests and attempts compensating saves if a write fails.
+Claim and shop writes update Telegram-backed records through the shared bot service. Requests are serialized across app and bot handlers, with compensating saves when a write fails.

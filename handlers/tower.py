@@ -31,6 +31,7 @@ from game.rich_send import edit_rich, photo_media, reply_rich
 from game.tower import generate_guardian, simulate_tower_climb
 from game.tower_image import render_tower_image
 from models import Hunter
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ async def _execute_climb(
 
     if hunter.tower_keys <= 0:
         msg = (
-            "<b>[ DEMON CASTLE // 열쇠 소진 ]</b>\n\n"
+            f"{premium_emoji('warning')} <b>[ DEMON CASTLE // 열쇠 소진 ]</b>\n\n"
             "❌ <b>Daily Keys Depleted!</b>\n\n"
             "<blockquote expandable>"
             "• You have exhausted all <code>3/3</code> daily Demon Castle Keys.\n"
@@ -138,7 +139,7 @@ async def _execute_climb(
             await reply_rich(
                 target,
                 RichDoc(
-                    heading(1, "[ DEMON CASTLE // 열쇠 소진 ]"),
+                    heading(1, f"{premium_emoji('warning')} [ DEMON CASTLE // 열쇠 소진 ]"),
                     paragraph("❌ <b>Daily Keys Depleted!</b>"),
                     quote(
                         "• You have exhausted all <code>3/3</code> daily Demon Castle Keys.<br>"
@@ -152,7 +153,7 @@ async def _execute_climb(
 
     if hunter.tower_floor > 100:
         msg = (
-            "<b>[ DEMON CASTLE // 악마성 정복 ]</b>\n\n"
+            f"{premium_emoji('trophy')} <b>[ DEMON CASTLE // 악마성 정복 ]</b>\n\n"
             "🏆 <b>Apex Monarch Achievement!</b>\n\n"
             "<blockquote expandable>"
             "• You have already conquered all <code>100 Floors</code> of the Demon Castle!\n"
@@ -165,7 +166,7 @@ async def _execute_climb(
             await reply_rich(
                 target,
                 RichDoc(
-                    heading(1, "[ DEMON CASTLE // 악마성 정복 ]"),
+                    heading(1, f"{premium_emoji('trophy')} [ DEMON CASTLE // 악마성 정복 ]"),
                     paragraph("🏆 <b>Apex Monarch Achievement!</b>"),
                     quote(
                         "• You have already conquered all <code>100 Floors</code> of the Demon Castle!<br>"

@@ -44,6 +44,7 @@ from game.captions import (
     build_war_challenge_rich,
     build_war_status_rich,
 )
+from game.premium_emoji import premium_emoji
 from game.guild_war_image import (
     render_war_challenge_card,
     render_war_status_card,
@@ -253,12 +254,12 @@ async def handle_war(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTICE // WAR PROTOCOL PENDING ]"),
+                heading(1, f"{premium_emoji('announce')} [ SYSTEM NOTICE // WAR PROTOCOL PENDING ]"),
                 paragraph("<b>전쟁 프로토콜 // 대기 중인 도전 과제</b>"),
                 paragraph("<i>A syndicate war challenge is currently awaiting resolution.</i>"),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM NOTICE // WAR PROTOCOL PENDING ]</b>\n"
+                f"{premium_emoji('announce')} <b>[ SYSTEM NOTICE // WAR PROTOCOL PENDING ]</b>\n"
                 "<b>전쟁 프로토콜 // 대기 중인 도전 과제</b>\n\n"
                 "<i>A syndicate war challenge is currently awaiting resolution.</i>",
                 parse_mode=ParseMode.HTML,
@@ -269,7 +270,7 @@ async def handle_war(client: Client, message: Message) -> None:
     # /guild war (no args) — show help
     if not args:
         text = (
-            "<b>[ SYSTEM DIRECTIVE // GUILD WARFARE ]</b>\n"
+            f"{premium_emoji('announce')} <b>[ SYSTEM DIRECTIVE // GUILD WARFARE ]</b>\n"
             "<b>길드 전쟁 // 연맹 간 총력전</b>\n\n"
             "<i>Challenge another Hunter Syndicate to official clan warfare!</i>\n\n"
             "<blockquote expandable>"
@@ -287,7 +288,7 @@ async def handle_war(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // GUILD WARFARE ]"),
+                heading(1, f"{premium_emoji('announce')} [ SYSTEM DIRECTIVE // GUILD WARFARE ]"),
                 paragraph("<b>길드 전쟁 // 연맹 간 총력전</b>"),
                 paragraph("<i>Challenge another Hunter Syndicate to official clan warfare!</i>"),
                 details(
@@ -507,13 +508,13 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         await edit_rich(
             client, query.message.chat.id, query.message.id,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]"),
+                heading(1, f"{premium_emoji('announce')} [ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]"),
                 paragraph("<b>전쟁 거부 // 평화 협정 체결</b>"),
                 paragraph(f"❌ <b>{def_name}</b> declined the war challenge."),
                 quote("<i>Their leader chose diplomacy over bloodshed.</i>", expandable=True),
             ),
             fallback=lambda: query.edit_message_text(
-                "<b>[ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]</b>\n"
+                f"{premium_emoji('announce')} <b>[ SYSTEM NOTIFICATION // WAR CHALLENGE DECLINED ]</b>\n"
                 "<b>전쟁 거부 // 평화 협정 체결</b>\n\n"
                 f"❌ <b>{def_name}</b> declined the war challenge.\n\n"
                 "<blockquote expandable><i>Their leader chose diplomacy over bloodshed.</i></blockquote>",
@@ -552,7 +553,7 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
         ch_name = escape_html(war['challenger_guild_name'])
         def_name = escape_html(war['defender_guild_name'])
         caption = (
-            "<b>[ SYSTEM NOTIFICATION // GUILD WAR INITIATED ]</b>\n"
+            f"{premium_emoji('announce')} <b>[ SYSTEM NOTIFICATION // GUILD WAR INITIATED ]</b>\n"
             "<b>전쟁 개시 // 1:1 결투 개전</b>\n\n"
             f"🏰 <b>{ch_name}</b> vs <b>{def_name}</b>\n\n"
             "<blockquote expandable>"
@@ -592,7 +593,7 @@ async def war_callback(client: Client, query: CallbackQuery) -> None:
             await edit_rich(
                 client, query.message.chat.id, query.message.id,
                 RichDoc(
-                    heading(1, "[ SYSTEM NOTIFICATION // GUILD WAR INITIATED ]"),
+                    heading(1, f"{premium_emoji('announce')} [ SYSTEM NOTIFICATION // GUILD WAR INITIATED ]"),
                     paragraph("<b>전쟁 개시 // 1:1 결투 개전</b>"),
                     paragraph(f"🏰 <b>{ch_name}</b> vs <b>{def_name}</b>"),
                     quote(
@@ -716,7 +717,7 @@ async def _resolve_war(
     w_name = escape_html(winner_guild.name)
     l_name = escape_html(loser_guild.name)
     result_text = (
-        f"<b>[ GUILD WAR VICTORY // {w_name.upper()} ]</b>\n"
+        f"{premium_emoji('trophy')} <b>[ GUILD WAR VICTORY // {w_name.upper()} ]</b>\n"
         "<b>전쟁 종결 // 최종 승리 길드</b>\n\n"
         f"👑 <b>Victor Syndicate:</b> <b>{w_name}</b>\n"
         f"💀 <b>Defeated Syndicate:</b> <b>{l_name}</b>\n\n"
@@ -768,7 +769,7 @@ async def _resolve_war(
             await send_rich(
                 client, war["message_chat_id"],
                 RichDoc(
-                    heading(1, f"[ GUILD WAR VICTORY // {w_name.upper()} ]"),
+                    heading(1, f"{premium_emoji('trophy')} [ GUILD WAR VICTORY // {w_name.upper()} ]"),
                     paragraph("<b>전쟁 종결 // 최종 승리 길드</b>"),
                     paragraph(
                         f"👑 <b>Victor Syndicate:</b> <b>{w_name}</b>\n"

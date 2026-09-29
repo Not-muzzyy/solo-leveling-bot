@@ -90,6 +90,7 @@ export interface PurchaseResponse {
     stats: ShopStats;
   };
   price: number;
+  inventory_count: number;
   hunter: HunterSummary;
 }
 

@@ -32,13 +32,14 @@ from game.rich_message import (
 )
 from game.rich_send import edit_rich, photo_media, reply_rich, send_rich
 from game.rich_text import escape_html
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
 HELP_CAPTION = build_help_caption()
 
 HELP_FALLBACK_TEXT = (
-    "<b>[ SYSTEM DIRECTIVE // 시스템 가이드 ]</b>\n\n"
+    f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // 시스템 가이드 ]</b>\n\n"
     "<b>Solo Leveling Hunter System // Archives V2.5</b>\n\n"
     "<blockquote expandable>"
     "⚔️ <b>Combat & Spire Directives:</b>\n"
@@ -73,7 +74,7 @@ HELP_FALLBACK_TEXT = (
 # ── TOPIC DETAIL TEXTS ────────────────────────────────────────────────────────
 TOPIC_TEXTS = {
     "combat": (
-        "<b>[ SYSTEM DIRECTIVE // COMBAT & SPIRE ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // COMBAT & SPIRE ]</b>\n\n"
         "<blockquote expandable>"
         "🚪 <b>Dimensional Gate Hunts (<code>/hunt</code>)</b>\n"
         "• Slay gate monsters ranging from E-Rank beasts to S-Rank Calamities.\n"
@@ -98,7 +99,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "forge": (
-        "<b>[ SYSTEM DIRECTIVE // FORGE & ALCHEMY ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // FORGE & ALCHEMY ]</b>\n\n"
         "<blockquote expandable>"
         "🔨 <b>Equipment Enhancement (<code>/forge</code>, <code>/craft</code>, <code>/upgrade</code>)</b>\n"
         "• Enhance equippable weapons, armor, and accessories from <b>+1 to +10</b>.\n"
@@ -122,7 +123,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "quests": (
-        "<b>[ SYSTEM DIRECTIVE // DAILY CONDITIONING ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // DAILY CONDITIONING ]</b>\n\n"
         "<blockquote expandable>"
         "🏋️ <b>Daily Physical Conditioning (<code>/daily</code>)</b>\n"
         "<i>「 The System demands daily physical conditioning. Failure is not an option. 」</i>\n\n"
@@ -145,7 +146,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "guild": (
-        "<b>[ SYSTEM DIRECTIVE // GUILD SYNDICATES ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // GUILD SYNDICATES ]</b>\n\n"
         "<blockquote expandable>"
         "👑 <b>Hunter Guild Syndicates (<code>/guild</code>)</b>\n"
         "• Band together with comrades to dominate global leaderboards.\n"
@@ -163,7 +164,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "tiers": (
-        "<b>[ SYSTEM DIRECTIVE // ASCENSION & TIERS ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // ASCENSION & TIERS ]</b>\n\n"
         "<blockquote expandable>"
         "⭐ <b>Hunter Rank Progression:</b>\n"
         "• <b>E-Rank:</b> Level 1+ (The Awakened Novice)\n"
@@ -186,7 +187,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "shadows": (
-        "<b>[ SYSTEM DIRECTIVE // SHADOW MONARCH ARISE ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // SHADOW MONARCH ARISE ]</b>\n\n"
         "<blockquote expandable>"
         "👥 <b>Dimensional Rifts & Spawning</b>\n"
         "• As hunters converse in group chats, dimensional rifts manifest every <b>250 messages</b>!\n"
@@ -202,7 +203,7 @@ TOPIC_TEXTS = {
         "</blockquote>"
     ),
     "admin": (
-        "<b>[ SYSTEM DIRECTIVE // SUPERADMIN CONSOLE ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // SUPERADMIN CONSOLE ]</b>\n\n"
         "<blockquote expandable>"
         "👑 <b>Hunter Administration:</b>\n"
         "• <code>/admin</code> — Show admin guide and permissions\n"
@@ -234,7 +235,7 @@ TOPIC_TEXTS = {
 def _topic_rich(title: str, *blocks: str) -> str:
     """Wrap topic blocks in the standard SYSTEM DIRECTIVE rich frame (validated)."""
     return RichDoc(
-        heading(1, f"[ SYSTEM DIRECTIVE // {title} ]"),
+        heading(1, f"{premium_emoji('books')} [ SYSTEM DIRECTIVE // {title} ]"),
         divider(),
         *blocks,
         footer("Solo Leveling Hunter System // Archives V2.5"),
@@ -248,7 +249,7 @@ def _sec(title: str, *items: str) -> list[str]:
 
 TOPIC_RICH = {
     "tiers": (
-        "<h1>[ SYSTEM DIRECTIVE // ASCENSION &amp; TIERS ]</h1>"
+        f"<h1>{premium_emoji('books')} [ SYSTEM DIRECTIVE // ASCENSION &amp; TIERS ]</h1>"
         "<hr/>"
         "<details><summary>⭐ Hunter Rank Progression</summary>"
         "<table>"
@@ -518,7 +519,7 @@ async def handle(client: Client, message: Message) -> None:
         pm_url = f"https://t.me/{bot_user}?start=help"
 
         gc_text = (
-            "<b>[ SYSTEM DIRECTIVE // OPERATIONAL MANUAL ]</b>\n"
+            f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // OPERATIONAL MANUAL ]</b>\n"
             "<b>시스템 안내 // 매뉴얼 전송</b>\n\n"
             f"👤 <b>Hunter:</b> <b>{escape_html(user.first_name)}</b>\n\n"
             "<blockquote expandable>"
@@ -533,7 +534,7 @@ async def handle(client: Client, message: Message) -> None:
             [InlineKeyboardButton("📖 Open Guide in Bot PM", url=pm_url, style=enums.ButtonStyle.PRIMARY)]
         ])
         gc_doc = RichDoc(
-            heading(1, "[ SYSTEM DIRECTIVE // OPERATIONAL MANUAL ]"),
+            heading(1, f"{premium_emoji('books')} [ SYSTEM DIRECTIVE // OPERATIONAL MANUAL ]"),
             paragraph("시스템 안내 // 매뉴얼 전송"),
             paragraph(f"👤 <b>Hunter:</b> <b>{escape_html(user.first_name)}</b>"),
             quote(

@@ -43,6 +43,7 @@ from game.formatting import _stat_bar, _rank_badge
 from game.rich_text import escape_html
 from game.shop import get_shop_item, create_item_from_shop, SHOP_ITEMS
 from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, quote
+from game.premium_emoji import premium_emoji
 from game.rich_send import edit_rich, reply_rich
 from models import Hunter, RedeemCode, Item
 
@@ -198,7 +199,7 @@ async def handle_admin_help(client: Client, message: Message) -> None:
         return
 
     text = (
-        "<b>[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]</b>\n"
         "<b>관리자 제어 // 최고 관리자 터미널</b>\n\n"
         "<i>Executive Hunter Management & Balances</i>\n\n"
         "<blockquote expandable>"
@@ -239,7 +240,7 @@ async def handle_admin_help(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM CONTROL // SUPERADMIN CONSOLE ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM CONTROL // SUPERADMIN CONSOLE ]"),
             paragraph("<b>관리자 제어 // 최고 관리자 터미널</b>"),
             paragraph("<i>Executive Hunter Management &amp; Balances</i>"),
             details(
@@ -327,7 +328,7 @@ async def handle_add_gold(client: Client, message: Message) -> None:
     h_name = escape_html(target_hunter.hunter_name)
 
     text = (
-        "<b>[ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]</b>\n"
         "<b>자금 조정 // 국고 잔액 변경</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
         f"⚡ <b>Adjustment:</b> {verb} <b>{abs_amt:,}</b> Gold\n\n"
@@ -340,7 +341,7 @@ async def handle_add_gold(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // TREASURY TRANSACTION ]"),
             paragraph("<b>자금 조정 // 국고 잔액 변경</b>"),
             paragraph(
                 f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
@@ -390,7 +391,7 @@ async def handle_set_gold(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>[ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]</b>\n"
         "<b>자금 재설정 // 국고 강제 조정</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n\n"
         "<blockquote expandable>"
@@ -402,7 +403,7 @@ async def handle_set_gold(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // TREASURY OVERWRITE ]"),
             paragraph("<b>자금 재설정 // 국고 강제 조정</b>"),
             paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)"),
             quote(
@@ -458,7 +459,7 @@ async def handle_add_xp(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>[ SYSTEM NOTIFICATION // ENERGY INFUSION ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // ENERGY INFUSION ]</b>\n"
         "<b>마력 주입 // 경험치 직접 지급</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
         f"⚡ <b>XP Injected:</b> +<b>{amount:,}</b> XP\n\n"
@@ -473,7 +474,7 @@ async def handle_add_xp(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // ENERGY INFUSION ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // ENERGY INFUSION ]"),
             paragraph("<b>마력 주입 // 경험치 직접 지급</b>"),
             paragraph(
                 f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n"
@@ -543,7 +544,7 @@ async def handle_set_level(client: Client, message: Message) -> None:
 
     h_name = escape_html(target_hunter.hunter_name)
     text = (
-        "<b>[ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]</b>\n"
         "<b>레벨 재설정 // 헌터 등급 강제 조정</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)\n\n"
         "<blockquote expandable>"
@@ -556,7 +557,7 @@ async def handle_set_level(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // LEVEL OVERRIDE ]"),
             paragraph("<b>레벨 재설정 // 헌터 등급 강제 조정</b>"),
             paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{target_hunter.user_id}</code>)"),
             quote(
@@ -613,7 +614,7 @@ async def handle_inspect(client: Client, message: Message) -> None:
     g_id = escape_html(target_hunter.guild_id or 'None')
 
     text = (
-        "<b>[ SYSTEM DOSSIER // HUNTER TELEMETRY ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM DOSSIER // HUNTER TELEMETRY ]</b>\n"
         "<b>헌터 정보 // 상세 데이터 열람</b>\n\n"
         f"👤 <b>Name:</b> {h_name}\n"
         f"🆔 <b>User ID:</b> <code>{target_hunter.user_id}</code> ┊ 🏷 <b>Username:</b> @{u_name}\n"
@@ -640,7 +641,7 @@ async def handle_inspect(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM DOSSIER // HUNTER TELEMETRY ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM DOSSIER // HUNTER TELEMETRY ]"),
             paragraph("<b>헌터 정보 // 상세 데이터 열람</b>"),
             paragraph(
                 f"👤 <b>Name:</b> {h_name}\n"
@@ -686,7 +687,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
     args = message.command[1:] if len(message.command) > 1 else []
     if len(args) < 3:
         text = (
-            "<b>[ SYSTEM DIRECTIVE // CODE FORGE ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM DIRECTIVE // CODE FORGE ]</b>\n"
             "<b>코드 생성 // 프로모션 코드 제작 지침</b>\n\n"
             "<i>Create Promo &amp; Gift Codes for Hunters</i>\n\n"
             "<blockquote expandable>"
@@ -708,7 +709,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // CODE FORGE ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM DIRECTIVE // CODE FORGE ]"),
                 paragraph("<b>코드 생성 // 프로모션 코드 제작 지침</b>"),
                 paragraph("<i>Create Promo &amp; Gift Codes for Hunters</i>"),
                 details(
@@ -769,7 +770,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
         text = (
-            "<b>[ SYSTEM NOTIFICATION // CODE FORGED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 골드 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"💰 <b>Reward:</b> +{amount:,} Gold\n\n"
@@ -782,7 +783,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // CODE FORGED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // CODE FORGED ]"),
                 paragraph("<b>코드 생성 완료 // 골드 코드 인가</b>"),
                 paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n💰 <b>Reward:</b> +{amount:,} Gold"),
                 quote(
@@ -833,7 +834,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
         text = (
-            "<b>[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]\n\n"
@@ -847,7 +848,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // ARTIFACT CODE FORGED ]"),
                 paragraph("<b>코드 생성 완료 // 장비 코드 인가</b>"),
                 paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]"),
                 quote(
@@ -927,7 +928,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         esc_iname = escape_html(item_obj.name)
         esc_stats = escape_html(item_obj.stat_summary())
         text = (
-            "<b>[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 특수 장비 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"🎒 <b>Artifact:</b> {esc_iname} [<code>{item_obj.rarity}</code>]\n"
@@ -942,7 +943,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // CUSTOM ARTIFACT CODE FORGED ]"),
                 paragraph("<b>코드 생성 완료 // 특수 장비 코드 인가</b>"),
                 paragraph(
                     f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
@@ -996,7 +997,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         limit_text = f"{max_uses} Hunters" if max_uses > 0 else "Unlimited"
         esc_code = escape_html(code_obj.code)
         text = (
-            "<b>[ SYSTEM NOTIFICATION // XP CODE FORGED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // XP CODE FORGED ]</b>\n"
             "<b>코드 생성 완료 // 경험치 코드 인가</b>\n\n"
             f"🔑 <b>Code:</b> <code>{esc_code}</code>\n"
             f"✨ <b>Reward:</b> +{amount:,} XP\n\n"
@@ -1009,7 +1010,7 @@ async def handle_create_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // XP CODE FORGED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // XP CODE FORGED ]"),
                 paragraph("<b>코드 생성 완료 // 경험치 코드 인가</b>"),
                 paragraph(f"🔑 <b>Code:</b> <code>{esc_code}</code>\n✨ <b>Reward:</b> +{amount:,} XP"),
                 quote(
@@ -1047,7 +1048,7 @@ async def handle_list_codes(client: Client, message: Message) -> None:
     all_codes = await db.get_all_redeem_codes()
     if not all_codes:
         text = (
-            "<b>[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]</b>\n"
             "<b>코드 목록 // 등록된 코드 없음</b>\n\n"
             "<i>No promotional redeem codes currently registered.</i>\n\n"
             "<blockquote expandable>"
@@ -1057,7 +1058,7 @@ async def handle_list_codes(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM DIRECTIVE // CODE REGISTRY EMPTY ]"),
                 paragraph("<b>코드 목록 // 등록된 코드 없음</b>"),
                 paragraph("<i>No promotional redeem codes currently registered.</i>"),
                 quote("• Use <code>/createcode</code> to generate a new gift code."),
@@ -1088,7 +1089,7 @@ async def handle_list_codes(client: Client, message: Message) -> None:
         )
 
     lines = [
-        "<b>[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]</b>",
+        f"{premium_emoji('system')} <b>[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]</b>",
         "<b>코드 등록소 // 활성 프로모션 목록</b>",
         "",
         "<blockquote expandable>",
@@ -1100,7 +1101,7 @@ async def handle_list_codes(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM DIRECTIVE // PROMO CODE REGISTRY ]"),
             paragraph("<b>코드 등록소 // 활성 프로모션 목록</b>"),
             quote("\n".join(entry_lines)),
             quote("💡 <i>Use <code>/deletecode &lt;CODE&gt;</code> to deactivate any code.</i>", expandable=False),
@@ -1135,7 +1136,7 @@ async def handle_delete_code(client: Client, message: Message) -> None:
     deleted = await db.delete_redeem_code(code_str)
     if deleted:
         text = (
-            "<b>[ SYSTEM NOTIFICATION // CODE REVOKED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // CODE REVOKED ]</b>\n"
             "<b>코드 삭제 // 프로모션 코드 폐기 완료</b>\n\n"
             f"Redemption key <code>{escape_html(code_str)}</code> was successfully purged from the System.\n\n"
             "<blockquote expandable>"
@@ -1145,7 +1146,7 @@ async def handle_delete_code(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // CODE REVOKED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // CODE REVOKED ]"),
                 paragraph("<b>코드 삭제 // 프로모션 코드 폐기 완료</b>"),
                 paragraph(f"Redemption key <code>{escape_html(code_str)}</code> was successfully purged from the System."),
                 quote("Hunters can no longer redeem this code."),
@@ -1267,7 +1268,7 @@ async def handle_update(client: Client, message: Message) -> None:
         return
 
     status_text = (
-        "<b>[ SYSTEM TELEMETRY // CHECKING UPDATES ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM TELEMETRY // CHECKING UPDATES ]</b>\n"
         "<b>업데이트 확인 // 원격 저장소 조회</b>\n\n"
         "<i>Contacting remote repository origin...</i>\n\n"
         "<blockquote expandable>• Fetching git refs from origin...</blockquote>"
@@ -1275,7 +1276,7 @@ async def handle_update(client: Client, message: Message) -> None:
     status_msg = await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM TELEMETRY // CHECKING UPDATES ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM TELEMETRY // CHECKING UPDATES ]"),
             paragraph("<b>업데이트 확인 // 원격 저장소 조회</b>"),
             paragraph("<i>Contacting remote repository origin...</i>"),
             quote("• Fetching git refs from origin..."),
@@ -1290,7 +1291,7 @@ async def handle_update(client: Client, message: Message) -> None:
     ret, _, stderr = await _run_git_async("fetch", "origin")
     if ret != 0:
         text = (
-            "<b>[ SYSTEM ERROR // UPDATE CHECK FAILED ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM ERROR // UPDATE CHECK FAILED ]</b>\n"
             "<b>조회 실패 // 원격 연결 오류</b>\n\n"
             "❌ Failed to reach remote git origin.\n\n"
             f"<blockquote expandable><code>{escape_html(stderr or 'Unknown network/git error')}</code></blockquote>"
@@ -1298,7 +1299,7 @@ async def handle_update(client: Client, message: Message) -> None:
         await edit_rich(
             client, status_msg.chat.id, status_msg.id,
             RichDoc(
-                heading(1, "[ SYSTEM ERROR // UPDATE CHECK FAILED ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM ERROR // UPDATE CHECK FAILED ]"),
                 paragraph("<b>조회 실패 // 원격 연결 오류</b>"),
                 paragraph("❌ Failed to reach remote git origin."),
                 quote(f"<code>{escape_html(stderr or 'Unknown network/git error')}</code>"),
@@ -1318,7 +1319,7 @@ async def handle_update(client: Client, message: Message) -> None:
         _, author, _ = await _run_git_async("log", "-1", "--format=%an")
 
         text = (
-            "<b>[ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]</b>\n"
+            f"{premium_emoji('system')} <b>[ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]</b>\n"
             "<b>시스템 상태 // 최신 버전 유지 중</b>\n\n"
             "<i>The Solo Leveling Hunter System is synchronized with remote origin.</i>\n\n"
             "<blockquote expandable>"
@@ -1333,7 +1334,7 @@ async def handle_update(client: Client, message: Message) -> None:
         await edit_rich(
             client, status_msg.chat.id, status_msg.id,
             RichDoc(
-                heading(1, "[ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM TELEMETRY // SYSTEM UP TO DATE ]"),
                 paragraph("<b>시스템 상태 // 최신 버전 유지 중</b>"),
                 paragraph("<i>The Solo Leveling Hunter System is synchronized with remote origin.</i>"),
                 quote(
@@ -1385,7 +1386,7 @@ async def handle_update(client: Client, message: Message) -> None:
     total_lines = insertions + deletions
 
     text = (
-        "<b>[ SYSTEM TELEMETRY // UPDATE AVAILABLE ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM TELEMETRY // UPDATE AVAILABLE ]</b>\n"
         "<b>업데이트 감지 // 신규 패치 대기</b>\n\n"
         f"<i>{commit_count} new commit{'s' if commit_count != 1 else ''} detected on <code>{escape_html(upstream)}</code>!</i>\n\n"
         "<blockquote expandable>"
@@ -1411,7 +1412,7 @@ async def handle_update(client: Client, message: Message) -> None:
     await edit_rich(
         client, status_msg.chat.id, status_msg.id,
         RichDoc(
-            heading(1, "[ SYSTEM TELEMETRY // UPDATE AVAILABLE ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM TELEMETRY // UPDATE AVAILABLE ]"),
             paragraph("<b>업데이트 감지 // 신규 패치 대기</b>"),
             paragraph(f"<i>{commit_count} new commit{'s' if commit_count != 1 else ''} detected on <code>{escape_html(upstream)}</code>!</i>"),
             quote(f"<b>📦 Incoming Commits ({commit_count}):</b>\n{commits_block}"),
@@ -1442,7 +1443,7 @@ async def handle_restart(client: Client, message: Message) -> None:
         return
 
     status_text = (
-        "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
         "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Initiating automated reboot sequence...</i>\n\n"
         "<blockquote expandable>"
@@ -1455,7 +1456,7 @@ async def handle_restart(client: Client, message: Message) -> None:
     status_msg = await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
             paragraph("<b>시스템 재부팅 // 재가동 시퀀스 시작</b>"),
             paragraph("<i>Initiating automated reboot sequence...</i>"),
             quote(
@@ -1482,7 +1483,7 @@ async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
     await query.answer("Initiating System restart...", show_alert=False)
 
     text = (
-        "<b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]</b>\n"
         "<b>시스템 재부팅 // 재가동 시퀀스 시작</b>\n\n"
         "<i>Applying updates and restarting System...</i>\n\n"
         "<blockquote expandable>"
@@ -1495,7 +1496,7 @@ async def handle_restart_callback(client: Client, query: CallbackQuery) -> None:
     await edit_rich(
         client, query.message.chat.id, query.message.id,
         RichDoc(
-            heading(1, "[ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM NOTIFICATION // REBOOT SEQUENCE INITIATED ]"),
             paragraph("<b>시스템 재부팅 // 재가동 시퀀스 시작</b>"),
             paragraph("<i>Applying updates and restarting System...</i>"),
             quote(
@@ -1527,7 +1528,7 @@ async def handle_stop(client: Client, message: Message) -> None:
 
     name = escape_html(user.first_name or "Sovereign")
     text = (
-        "<b>[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]</b>\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]</b>\n"
         "<b>시스템 정지 // 엔진 가동 중단</b>\n\n"
         "<i>Terminating Hunter System engine as commanded...</i>\n\n"
         "<blockquote expandable>"
@@ -1540,7 +1541,7 @@ async def handle_stop(client: Client, message: Message) -> None:
     await reply_rich(
         message,
         RichDoc(
-            heading(1, "[ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]"),
+            heading(1, f"{premium_emoji('system')} [ SYSTEM DIRECTIVE // EMERGENCY SHUTDOWN ]"),
             paragraph("<b>시스템 정지 // 엔진 가동 중단</b>"),
             paragraph("<i>Terminating Hunter System engine as commanded...</i>"),
             quote(

@@ -31,6 +31,7 @@ from game.rich_text import escape_html
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
 from models import Hunter, Inventory, Item
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def _stats_menu_rich(hunter: Hunter, variant: str = "full") -> RichDoc:
         )
         footer = "<i>Tap an attribute button below to invest points:</i>"
     return RichDoc(
-        heading(1, "[ STAT ALLOCATION // 능력치 배분 ]"),
+        heading(1, f"{premium_emoji('growth')} [ STAT ALLOCATION // 능력치 배분 ]"),
         paragraph(header),
         quote(attrs, expandable=True),
         paragraph(footer),
@@ -247,7 +248,7 @@ async def handle_stats(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ ATTRIBUTE ENHANCED // 능력치 강화 ]"),
+                heading(1, f"{premium_emoji('growth')} [ ATTRIBUTE ENHANCED // 능력치 강화 ]"),
                 paragraph(
                     f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}<br>"
                     f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!"
@@ -259,7 +260,7 @@ async def handle_stats(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ ATTRIBUTE ENHANCED // 능력치 강화 ]</b>\n\n"
+                f"{premium_emoji('growth')} <b>[ ATTRIBUTE ENHANCED // 능력치 강화 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)}\n"
                 f"✨ Invested <b>+{amount}</b> into <b>{escape_html(stat_name.upper())}</b>!\n\n"
                 "<blockquote expandable>"
@@ -276,7 +277,7 @@ async def handle_stats(client: Client, message: Message) -> None:
         message, _stats_menu_rich(hunter),
         reply_markup=_stats_keyboard(hunter),
         fallback=lambda: message.reply_text(
-            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+            f"{premium_emoji('growth')} <b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
             f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
             "<blockquote expandable>"
@@ -352,7 +353,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             gift_line = f"\n• 🎁 Blessed Gift: [<b>{escape_html(gift_item.rarity)}</b>] <i>{escape_html(gift_item.name)}</i>"
 
         caption = (
-            "<b>[ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]</b>\n\n"
+            f"{premium_emoji('trophy')} <b>[ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]</b>\n\n"
             f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b>\n"
             f"⚡ <b>Stat Points Available:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
             "<blockquote expandable>"
@@ -364,7 +365,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         )
         gift_line_rich = gift_line.replace("\n", "<br>")
         claim_doc = RichDoc(
-            heading(1, "[ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]"),
+            heading(1, f"{premium_emoji('trophy')} [ DAILY QUEST COMPLETED // 일일 퀘스트 완료 ]"),
             paragraph(
                 f"👤 <b>Hunter:</b> <b>{escape_html(hunter.hunter_name)}</b><br>"
                 f"⚡ <b>Stat Points Available:</b> <code>{hunter.unspent_stat_points}</code>"
@@ -424,7 +425,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             await query.answer(f"Allocated +{amount} into {stat_name.upper()}! Power: {hunter.power}")
 
         classic_text = (
-            "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+            f"{premium_emoji('growth')} <b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
             f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
             "<blockquote expandable>"
@@ -465,7 +466,7 @@ async def callback(client: Client, query: CallbackQuery) -> None:
             client, query.message.chat.id, query.message.id, _stats_menu_rich(hunter, "compact"),
             reply_markup=_stats_keyboard(hunter),
             fallback=lambda: query.message.reply_text(
-                "<b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
+                f"{premium_emoji('growth')} <b>[ STAT ALLOCATION // 능력치 배분 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} [Rank <b>{hunter.rank}</b>]\n"
                 f"⚡ <b>Unallocated Stat Points:</b> <code>{hunter.unspent_stat_points}</code>\n\n"
                 "<blockquote expandable>"

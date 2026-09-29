@@ -35,6 +35,7 @@ from game.shop_image import render_shop_image
 from game.shop import get_shop_items_by_type, get_shop_item
 from game.economy import GameActionError, purchase_shop_item
 from models import Inventory, Item
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ def _format_shop_category(item_type: str, gold: int) -> str:
     items = get_shop_items_by_type(item_type)
 
     lines = [
-        f"<b>[ EXCHANGE DEPOT // {label} ]</b>",
+        f"{premium_emoji('gold')} <b>[ EXCHANGE DEPOT // {label} ]</b>",
         "",
         f"💰 <b>Available Treasury:</b> <code>{gold:,} G</code>",
         "",
@@ -237,7 +238,7 @@ def _format_shop_category_rich(item_type: str, gold: int) -> RichDoc:
         lines.append(f"  └ <code>{escape_html(stats)}</code> ┊ 💰 <code>{entry['price']:,} G</code> {can_afford}")
 
     return RichDoc(
-        heading(1, f"[ EXCHANGE DEPOT // {label} ]"),
+        heading(1, f"{premium_emoji('gold')} [ EXCHANGE DEPOT // {label} ]"),
         paragraph(f"💰 <b>Available Treasury:</b> <code>{gold:,} G</code>"),
         quote("<br>".join(lines), expandable=True),
         paragraph("<i>Tap an item button below to complete purchase:</i>"),
@@ -267,7 +268,7 @@ async def handle(client: Client, message: Message) -> None:
         if not hunter:
             u_name = escape_html(user.first_name)
             gc_text = (
-                "<b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
+                f"{premium_emoji('system')} <b>[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]</b>\n\n"
                 f"👤 <b>Citizen:</b> <b>{u_name}</b>\n\n"
                 "<blockquote>"
                 "• You have not awakened as an active Hunter yet.\n"
@@ -280,7 +281,7 @@ async def handle(client: Client, message: Message) -> None:
             await reply_rich(
                 message,
                 RichDoc(
-                    heading(1, "[ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
+                    heading(1, f"{premium_emoji('system')} [ SYSTEM AWAKENING REQUIRED // 각성 필요 ]"),
                     paragraph(f"👤 <b>Citizen:</b> <b>{u_name}</b>"),
                     quote(
                         "• You have not awakened as an active Hunter yet.<br>"
@@ -326,7 +327,7 @@ async def handle(client: Client, message: Message) -> None:
         )
 
         gc_text = (
-            "<b>[ SHADOW STORAGE // 그림자 보관함 ]</b>\n\n"
+            f"{premium_emoji('folder')} <b>[ SHADOW STORAGE // 그림자 보관함 ]</b>\n\n"
             f"👤 <b>Hunter:</b> <b>{h_name}</b> [Rank <b>{hunter.rank}</b>]\n"
             f"📦 <b>Vault:</b> <code>{len(inventory.items)} items</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>\n\n"
             "<blockquote expandable>"
@@ -343,7 +344,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SHADOW STORAGE // 그림자 보관함 ]"),
+                heading(1, f"{premium_emoji('folder')} [ SHADOW STORAGE // 그림자 보관함 ]"),
                 paragraph(
                     f"👤 <b>Hunter:</b> <b>{h_name}</b> [Rank <b>{hunter.rank}</b>]<br>"
                     f"📦 <b>Vault:</b> <code>{len(inventory.items)} items</code> ┊ 💰 <b>Gold:</b> <code>{hunter.gold:,} G</code>"
@@ -447,14 +448,14 @@ async def tab_callback(client: Client, query: CallbackQuery) -> None:
             [InlineKeyboardButton("⬅️ Back to Inventory", callback_data="inv_weapon")]
         )
         equip_caption = (
-            "<b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
+            f"{premium_emoji('gem')} <b>[ EQUIPMENT BINDING // 장비 장착 ]</b>\n\n"
             f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code>\n\n"
             "<blockquote>"
             "Select an equipment piece below to bind it to your Hunter's soul resonance:"
             "</blockquote>"
         )
         equip_doc = RichDoc(
-            heading(1, "[ EQUIPMENT BINDING // 장비 장착 ]"),
+            heading(1, f"{premium_emoji('gem')} [ EQUIPMENT BINDING // 장비 장착 ]"),
             paragraph(f"👤 <b>Hunter:</b> {escape_html(hunter.hunter_name)} ┊ 💪 <b>Power:</b> <code>{hunter.power:,}</code>"),
             quote("Select an equipment piece below to bind it to your Hunter's soul resonance:", expandable=False),
         )

@@ -18,6 +18,7 @@ from game.formatting import format_not_registered, format_not_registered_rich
 from game.captions import build_claim_caption, build_claim_rich
 from game.rich_send import reply_rich
 from game.miniapp import send_miniapp_entry
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def _format_cooldown(remaining: int) -> str:
     hours = remaining // 3600
     minutes = (remaining % 3600) // 60
     return (
-        "<b>[ SYSTEM DAILY ALLOCATION // 보급품 대기 ]</b>\n\n"
+        f"{premium_emoji('calendar')} <b>[ SYSTEM DAILY ALLOCATION // 보급품 대기 ]</b>\n\n"
         "<blockquote expandable>"
         "You have already collected your daily ration from the System.\n"
         f"⏱️ <b>Next ration ready in:</b> <code>{hours}h {minutes:02d}m</code>\n"
@@ -41,7 +42,7 @@ def _format_cooldown_rich(remaining: int):
     hours = remaining // 3600
     minutes = (remaining % 3600) // 60
     return RichDoc(
-        heading(1, "[ SYSTEM DAILY ALLOCATION // 보급품 대기 ]"),
+        heading(1, f"{premium_emoji('calendar')} [ SYSTEM DAILY ALLOCATION // 보급품 대기 ]"),
         quote(
             "You have already collected your daily ration from the System.<br>"
             f"⏱️ <b>Next ration ready in:</b> {code(f'{hours}h {minutes:02d}m')}<br>"

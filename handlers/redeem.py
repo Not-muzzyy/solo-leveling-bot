@@ -22,6 +22,7 @@ from game.rich_text import escape_html
 from game.rich_message import RichDoc, bullet_list, details, heading, paragraph, quote
 from game.rich_send import reply_rich, send_rich
 from models import Item, Inventory, Hunter
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         )
 
         classic_text = (
-            "<b>[ SYSTEM DIRECTIVE // CONFIDENTIAL TRANSMISSION ]</b>\n"
+            f"{premium_emoji('warning')} <b>[ SYSTEM DIRECTIVE // CONFIDENTIAL TRANSMISSION ]</b>\n"
             "<b>기밀 전송 // 개인 통신망 전용</b>\n\n"
             "The <code>/redeem</code> terminal is strictly confidential and <b>only works in the Bot's Direct Messages (DM)</b>.\n\n"
             f"<blockquote expandable>{warning_subtext}</blockquote>\n\n"
@@ -73,7 +74,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await send_rich(
             client, chat.id,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // CONFIDENTIAL TRANSMISSION ]"),
+                heading(1, f"{premium_emoji('warning')} [ SYSTEM DIRECTIVE // CONFIDENTIAL TRANSMISSION ]"),
                 paragraph("<b>기밀 전송 // 개인 통신망 전용</b>"),
                 paragraph("The <code>/redeem</code> terminal is strictly confidential and <b>only works in the Bot's Direct Messages (DM)</b>."),
                 quote(warning_subtext, expandable=True),
@@ -95,7 +96,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTICE // UNREGISTERED ENTITY ]"),
+                heading(1, f"{premium_emoji('warning')} [ SYSTEM NOTICE // UNREGISTERED ENTITY ]"),
                 paragraph("<b>시스템 경고 // 미각성자 접근 제한</b>"),
                 quote(
                     "You have not awakened as a Hunter yet.<br>"
@@ -104,7 +105,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM NOTICE // UNREGISTERED ENTITY ]</b>\n"
+                f"{premium_emoji('warning')} <b>[ SYSTEM NOTICE // UNREGISTERED ENTITY ]</b>\n"
                 "<b>시스템 경고 // 미각성자 접근 제한</b>\n\n"
                 "<blockquote expandable>"
                 "You have not awakened as a Hunter yet.\n"
@@ -120,7 +121,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]"),
+                heading(1, f"{premium_emoji('system')} [ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]"),
                 paragraph("<b>코드 교환 // 보상 수령 터미널</b>"),
                 paragraph(
                     "Enter a secret System promo code to receive dimensional supplies, rare artifacts, or gold."
@@ -139,7 +140,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
                 quote("「 The System rewards those who remain vigilant. 」", expandable=False),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]</b>\n"
+                f"{premium_emoji('system')} <b>[ SYSTEM PROTOCOL // REDEMPTION TERMINAL ]</b>\n"
                 "<b>코드 교환 // 보상 수령 터미널</b>\n\n"
                 "<blockquote expandable>"
                 "Enter a secret System promo code to receive dimensional supplies, rare artifacts, or gold.\n\n"
@@ -163,12 +164,12 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM ERROR // REDEMPTION FAILED ]"),
+                heading(1, f"{premium_emoji('warning')} [ SYSTEM ERROR // REDEMPTION FAILED ]"),
                 paragraph("<b>교환 오류 // 코드 인식 실패</b>"),
                 quote(escape_html(err_msg), expandable=True),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM ERROR // REDEMPTION FAILED ]</b>\n"
+                f"{premium_emoji('warning')} <b>[ SYSTEM ERROR // REDEMPTION FAILED ]</b>\n"
                 "<b>교환 오류 // 코드 인식 실패</b>\n\n"
                 f"<blockquote expandable>{escape_html(err_msg)}</blockquote>",
                 parse_mode=enums.ParseMode.HTML,
@@ -186,7 +187,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await db.save_hunter(hunter)
 
         text = (
-            "<b>[ SYSTEM REWARD // CLAIM GRANTED ]</b>\n"
+            f"{premium_emoji('coin')} <b>[ SYSTEM REWARD // CLAIM GRANTED ]</b>\n"
             "<b>시스템 보상 // 지급 완료</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
@@ -199,7 +200,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM REWARD // CLAIM GRANTED ]"),
+                heading(1, f"{premium_emoji('coin')} [ SYSTEM REWARD // CLAIM GRANTED ]"),
                 paragraph("<b>시스템 보상 // 지급 완료</b>"),
                 paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)<br>🔑 <b>Code:</b> <code>{c_code}</code>"),
                 quote(
@@ -250,7 +251,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         stats_str = escape_html(added_item.stat_summary())
         item_name = escape_html(added_item.name)
         text = (
-            "<b>[ SYSTEM REWARD // ARTIFACT RECEIVED ]</b>\n"
+            f"{premium_emoji('gem')} <b>[ SYSTEM REWARD // ARTIFACT RECEIVED ]</b>\n"
             "<b>시스템 보상 // 아티팩트 지급</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
@@ -266,7 +267,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM REWARD // ARTIFACT RECEIVED ]"),
+                heading(1, f"{premium_emoji('gem')} [ SYSTEM REWARD // ARTIFACT RECEIVED ]"),
                 paragraph("<b>시스템 보상 // 아티팩트 지급</b>"),
                 paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)<br>🔑 <b>Code:</b> <code>{c_code}</code>"),
                 quote(
@@ -301,7 +302,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
             ascend_block = f"\n<blockquote>{' '.join(ascend_lines)}</blockquote>\n"
 
         text = (
-            "<b>[ SYSTEM REWARD // XP INFUSION ]</b>\n"
+            f"{premium_emoji('growth')} <b>[ SYSTEM REWARD // XP INFUSION ]</b>\n"
             "<b>시스템 보상 // 마력 주입 완료</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)\n"
             f"🔑 <b>Code:</b> <code>{c_code}</code>\n\n"
@@ -313,7 +314,7 @@ async def handle_redeem(client: Client, message: Message) -> None:
             "<blockquote><i>「 The Monarch's energy flows through your veins. 」</i></blockquote>"
         )
         xp_blocks = [
-            heading(1, "[ SYSTEM REWARD // XP INFUSION ]"),
+            heading(1, f"{premium_emoji('growth')} [ SYSTEM REWARD // XP INFUSION ]"),
             paragraph("<b>시스템 보상 // 마력 주입 완료</b>"),
             paragraph(f"👤 <b>Hunter:</b> {h_name} (<code>{hunter.user_id}</code>)<br>🔑 <b>Code:</b> <code>{c_code}</code>"),
             quote(

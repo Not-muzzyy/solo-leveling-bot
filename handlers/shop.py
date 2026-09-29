@@ -22,6 +22,7 @@ from game.rich_text import escape_html
 from game.miniapp import send_miniapp_entry
 from game.shop_image import render_shop_image
 from handlers.inventory import _shop_category_keyboard
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ async def handle(client: Client, message: Message) -> None:
         if not hunter:
             u_name = escape_html(user.first_name or "Hunter")
             gc_text = (
-                "<blockquote>⚡ <b>SYSTEM NOTIFICATION — HUNTER SHOP</b>\n\n"
+                f"<blockquote>{premium_emoji('gold')} <b>SYSTEM NOTIFICATION — HUNTER SHOP</b>\n\n"
                 f"👤 <b>{u_name}</b>, you are not an awakened Hunter yet!\n\n"
                 "Awaken first in Bot PM to gain access to the Hunter Shop.</blockquote>"
             )
@@ -66,7 +67,7 @@ async def handle(client: Client, message: Message) -> None:
             await reply_rich(
                 message,
                 RichDoc(
-                    heading(1, "⚡ SYSTEM NOTIFICATION — HUNTER SHOP"),
+                    heading(1, f"{premium_emoji('gold')} SYSTEM NOTIFICATION — HUNTER SHOP"),
                     quote(
                         f"👤 <b>{u_name}</b>, you are not an awakened Hunter yet!<br><br>"
                         "Awaken first in Bot PM to gain access to the Hunter Shop.",
@@ -107,7 +108,7 @@ async def handle(client: Client, message: Message) -> None:
         )
 
         gc_text = (
-            "<blockquote>⚡ <b>SYSTEM NOTIFICATION — HUNTER SHOP</b>\n\n"
+            f"<blockquote>{premium_emoji('gold')} <b>SYSTEM NOTIFICATION — HUNTER SHOP</b>\n\n"
             f"👤 <b>Hunter:</b> {h_name} ┊ 🏅 Rank <b>{hunter.rank}</b>\n"
             f"💰 <b>Treasury:</b> <code>{hunter.gold:,} G</code>\n\n"
             "⚠️ <i>To protect transactions and keep group chats clean, the Hunter Shop opens in Private Chat (PM).</i>\n\n"
@@ -120,7 +121,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "⚡ SYSTEM NOTIFICATION — HUNTER SHOP"),
+                heading(1, f"{premium_emoji('gold')} SYSTEM NOTIFICATION — HUNTER SHOP"),
                 paragraph(
                     f"👤 <b>Hunter:</b> {h_name} ┊ 🏅 Rank <b>{escape_html(hunter.rank)}</b><br>"
                     f"💰 <b>Treasury:</b> <code>{escape_html(f'{hunter.gold:,} G')}</code>"

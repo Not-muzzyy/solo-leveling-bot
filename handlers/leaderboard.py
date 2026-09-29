@@ -23,6 +23,7 @@ from game.captions import build_leaderboard_caption, build_leaderboard_rich
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
 from models import Hunter
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -113,12 +114,12 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ HALL OF FAME // 명예의 전당 ]"),
+                heading(1, f"{premium_emoji('trophy')} [ HALL OF FAME // 명예의 전당 ]"),
                 paragraph("<i>No hunters have awakened yet in the System registry!</i>"),
                 quote("• Use <code>/start</code> to awaken as the first registered Hunter.", expandable=True),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ HALL OF FAME // 명예의 전당 ]</b>\n\n"
+                f"{premium_emoji('trophy')} <b>[ HALL OF FAME // 명예의 전당 ]</b>\n\n"
                 "<i>No hunters have awakened yet in the System registry!</i>\n\n"
                 "<blockquote expandable>"
                 "• Use <code>/start</code> to awaken as the first registered Hunter."

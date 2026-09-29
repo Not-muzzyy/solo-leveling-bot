@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api/client';
 import BottomNav from './components/BottomNav';
 import StatePanels from './components/StatePanels';
@@ -20,6 +20,8 @@ import type {
   ShopItem,
 } from './types';
 
+const PURCHASE_REQUEST_STORAGE_PREFIX = 'solo-leveling-miniapp:purchase-request:';
+
 export default function App() {
   const [section, setSection] = useState<Section>(initialSection);
   const launchGuildId = initialGuildId();
@@ -36,6 +38,41 @@ export default function App() {
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [noticeTone, setNoticeTone] = useState<'ok' | 'error'>('ok');
+  const pendingPurchaseIds = useRef(new Map<string, string>());
+
+  function getPendingPurchaseId(itemKey: string): string {
+    const existing = pendingPurchaseIds.current.get(itemKey);
+    if (existing) return existing;
+
+    const storageKey = `${PURCHASE_REQUEST_STORAGE_PREFIX}${encodeURIComponent(itemKey)}`;
+    try {
+      const stored = window.sessionStorage.getItem(storageKey);
+      if (stored) {
+        pendingPurchaseIds.current.set(itemKey, stored);
+        return stored;
+      }
+    } catch {
+      // Keep the in-memory retry key if browser storage is unavailable.
+    }
+
+    const requestId = getRequestId();
+    pendingPurchaseIds.current.set(itemKey, requestId);
+    try {
+      window.sessionStorage.setItem(storageKey, requestId);
+    } catch {
+      // The request can still be retried during this app session.
+    }
+    return requestId;
+  }
+
+  function clearPendingPurchaseId(itemKey: string) {
+    pendingPurchaseIds.current.delete(itemKey);
+    try {
+      window.sessionStorage.removeItem(`${PURCHASE_REQUEST_STORAGE_PREFIX}${encodeURIComponent(itemKey)}`);
+    } catch {
+      // The in-memory key is still cleared when browser storage is unavailable.
+    }
+  }
 
   async function loadSystem() {
     setLoading(true);
@@ -123,14 +160,20 @@ export default function App() {
     setBusyItem(item.key);
     setNotice('');
     try {
-      const result = await api.purchase(item.key, getRequestId());
+      const result = await api.purchase(item.key, getPendingPurchaseId(item.key));
       setMe((current) => current ? {
         ...current,
         hunter: result.hunter,
-        inventory_count: current.inventory_count + 1,
+        inventory_count: result.inventory_count,
       } : current);
+      clearPendingPurchaseId(item.key);
       showNotice(`${result.item.name} acquired · −${number(result.price)} Gold`, 'ok');
     } catch (error) {
+      const uncertain = !(error instanceof ApiError)
+        || error.code === 'storage_error'
+        || error.status === 408
+        || error.status >= 500;
+      if (!uncertain) clearPendingPurchaseId(item.key);
       showNotice(errorMessage(error), 'error');
     } finally {
       setBusyItem(null);

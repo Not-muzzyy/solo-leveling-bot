@@ -39,6 +39,7 @@ from game.rich_send import edit_rich, photo_media, reply_rich
 from game.captions import build_guild_caption, build_guild_rich, build_guild_leaderboard_rich
 from game.miniapp import send_miniapp_entry
 from handlers import guild_war
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ def _format_guild_info(guild: Guild, db_guild_stats: dict | None = None) -> str:
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
     return (
-        f"<b>[ GUILD DIRECTORY // {g_name.upper()} ]</b>\n"
+        f"{premium_emoji('crown')} <b>[ GUILD DIRECTORY // {g_name.upper()} ]</b>\n"
         "<b>길드 정보 // 길드 상세</b>\n\n"
         f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{guild.guild_id}</code>)\n"
         f"👥 <b>Roster:</b> <code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>\n"
@@ -65,7 +66,7 @@ def _format_guild_info_rich(guild: Guild, db_guild_stats: dict | None = None) ->
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
     return RichDoc(
-        heading(1, f"[ GUILD DIRECTORY // {g_name.upper()} ]"),
+        heading(1, f"{premium_emoji('crown')} [ GUILD DIRECTORY // {g_name.upper()} ]"),
         paragraph("<b>길드 정보 // 길드 상세</b>"),
         paragraph(
             f"🏰 <b>Syndicate:</b> <b>{g_name}</b> (ID: <code>#{escape_html(str(guild.guild_id))}</code>)\n"
@@ -190,7 +191,7 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // GUILD REGISTRY ]"),
+                heading(1, f"{premium_emoji('crown')} [ SYSTEM DIRECTIVE // GUILD REGISTRY ]"),
                 paragraph("<b>시스템 안내 // 길드 목록 없음</b>"),
                 paragraph("<i>No Hunter Guilds have been established yet in the System!</i>"),
                 quote(
@@ -200,7 +201,7 @@ async def handle_view(client: Client, message: Message, target_query: str = "") 
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM DIRECTIVE // GUILD REGISTRY ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ SYSTEM DIRECTIVE // GUILD REGISTRY ]</b>\n"
                 "<b>시스템 안내 // 길드 목록 없음</b>\n\n"
                 "<i>No Hunter Guilds have been established yet in the System!</i>\n\n"
                 "<blockquote expandable>"
@@ -270,7 +271,7 @@ async def handle(client: Client, message: Message) -> None:
     # ── /guild (no args) — show help ──────────────────────
     if not sub:
         text = (
-            "<b>[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]</b>\n"
+            f"{premium_emoji('crown')} <b>[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]</b>\n"
             "<b>시스템 안내 // 헌터 길드 본부</b>\n\n"
             "<blockquote expandable>"
             "<b>⚔️ Syndicate Directives:</b>\n"
@@ -295,7 +296,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM DIRECTIVE // GUILD DIRECTORY ]"),
+                heading(1, f"{premium_emoji('crown')} [ SYSTEM DIRECTIVE // GUILD DIRECTORY ]"),
                 paragraph("<b>시스템 안내 // 헌터 길드 본부</b>"),
                 details(
                     "⚔️ Syndicate Directives:",
@@ -331,12 +332,12 @@ async def handle(client: Client, message: Message) -> None:
             await reply_rich(
                 message,
                 RichDoc(
-                    heading(1, "[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]"),
+                    heading(1, f"{premium_emoji('crown')} [ SYSTEM NOTICE // GUILD ESTABLISHMENT ]"),
                     paragraph("<b>시스템 안내 // 길드 창설 지침</b>"),
                     paragraph("⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n<i>Example:</i> <code>/guild create Shadow Legion</code>"),
                 ),
                 fallback=lambda: message.reply_text(
-                    "<b>[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]</b>\n"
+                    f"{premium_emoji('crown')} <b>[ SYSTEM NOTICE // GUILD ESTABLISHMENT ]</b>\n"
                     "<b>시스템 안내 // 길드 창설 지침</b>\n\n"
                     "⚠️ <b>Syntax:</b> <code>/guild create &lt;name&gt;</code>\n"
                     "<i>Example:</i> <code>/guild create Shadow Legion</code>",
@@ -408,7 +409,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]"),
+                heading(1, f"{premium_emoji('crown')} [ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]"),
                 paragraph("<b>길드 창설 // 시스템 인가 완료</b>"),
                 paragraph(f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!"),
                 quote(
@@ -420,7 +421,7 @@ async def handle(client: Client, message: Message) -> None:
                 paragraph("<i>Use <code>/guild info</code> to review your visual syndicate card.</i>"),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ SYSTEM NOTIFICATION // GUILD CHARTER ESTABLISHED ]</b>\n"
                 "<b>길드 창설 // 시스템 인가 완료</b>\n\n"
                 f"🎉 <b>{escape_html(guild_name)}</b> is officially recognized!\n\n"
                 "<blockquote expandable>"
@@ -496,7 +497,7 @@ async def handle(client: Client, message: Message) -> None:
             await reply_rich(
                 message,
                 RichDoc(
-                    heading(1, "[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]"),
+                    heading(1, f"{premium_emoji('crown')} [ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]"),
                     paragraph("<b>길드 가입 // 연맹 맹세 수락</b>"),
                     paragraph(f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!"),
                     quote(
@@ -506,7 +507,7 @@ async def handle(client: Client, message: Message) -> None:
                     ),
                 ),
                 fallback=lambda: message.reply_text(
-                    "<b>[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]</b>\n"
+                    f"{premium_emoji('crown')} <b>[ SYSTEM NOTIFICATION // GUILD PLEDGE ACCEPTED ]</b>\n"
                     "<b>길드 가입 // 연맹 맹세 수락</b>\n\n"
                     f"🎉 Welcome to <b>{escape_html(guild.name)}</b>!\n\n"
                     "<blockquote expandable>"
@@ -585,7 +586,7 @@ async def handle(client: Client, message: Message) -> None:
                 member_lines.append(f"• {role}: <b>{escape_html(h.display_full_name)}</b> [Rank <b>{h.rank}</b> | Lv.<code>{h.level}</code> | ⚡<code>{h.power:,}</code>]")
 
         text = (
-            f"<b>[ GUILD ROSTER // {escape_html(guild.name.upper())} ]</b>\n"
+            f"{premium_emoji('crown')} <b>[ GUILD ROSTER // {escape_html(guild.name.upper())} ]</b>\n"
             "<b>길드 명단 // 소속 헌터 목록</b>\n\n"
             f"🏰 <b>Syndicate:</b> <b>{escape_html(guild.name)}</b> (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>)\n\n"
             "<blockquote expandable>"
@@ -595,7 +596,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, f"[ GUILD ROSTER // {escape_html(guild.name.upper())} ]"),
+                heading(1, f"{premium_emoji('crown')} [ GUILD ROSTER // {escape_html(guild.name.upper())} ]"),
                 paragraph("<b>길드 명단 // 소속 헌터 목록</b>"),
                 paragraph(f"🏰 <b>Syndicate:</b> <b>{escape_html(guild.name)}</b> (<code>{len(guild.members)}/{GUILD_MAX_MEMBERS}</code>)"),
                 quote("\n".join(member_lines), expandable=True),
@@ -804,7 +805,7 @@ async def handle_gift(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ GUILD PROTOCOL // GIFT DISPATCH ]"),
+                heading(1, f"{premium_emoji('crown')} [ GUILD PROTOCOL // GIFT DISPATCH ]"),
                 paragraph("<b>길드 지원 // 물품 및 자금 지원</b>"),
                 paragraph("<i>Distribute treasury or equipment directly to your guildmates!</i>"),
                 quote(
@@ -816,7 +817,7 @@ async def handle_gift(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ GUILD PROTOCOL // GIFT DISPATCH ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ GUILD PROTOCOL // GIFT DISPATCH ]</b>\n"
                 "<b>길드 지원 // 물품 및 자금 지원</b>\n\n"
                 "<i>Distribute treasury or equipment directly to your guildmates!</i>\n\n"
                 "<blockquote expandable>"
@@ -943,7 +944,7 @@ async def handle_gift(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ GUILD PROTOCOL // TREASURY TRANSFER ]"),
+                heading(1, f"{premium_emoji('crown')} [ GUILD PROTOCOL // TREASURY TRANSFER ]"),
                 paragraph("<b>길드 금고 // 자금 이체 완료</b>"),
                 paragraph(f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!"),
                 quote(
@@ -953,7 +954,7 @@ async def handle_gift(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ GUILD PROTOCOL // TREASURY TRANSFER ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ GUILD PROTOCOL // TREASURY TRANSFER ]</b>\n"
                 "<b>길드 금고 // 자금 이체 완료</b>\n\n"
                 f"💰 <b>{s_name}</b> transferred <code>{amount:,} Gold</code> to <b>{r_name}</b>!\n\n"
                 "<blockquote expandable>"
@@ -1072,7 +1073,7 @@ async def handle_gift(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ GUILD PROTOCOL // ARTIFACT TRANSFER ]"),
+                heading(1, f"{premium_emoji('crown')} [ GUILD PROTOCOL // ARTIFACT TRANSFER ]"),
                 paragraph("<b>길드 보관소 // 장비 전달 완료</b>"),
                 paragraph(f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!"),
                 quote(
@@ -1083,7 +1084,7 @@ async def handle_gift(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ GUILD PROTOCOL // ARTIFACT TRANSFER ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ GUILD PROTOCOL // ARTIFACT TRANSFER ]</b>\n"
                 "<b>길드 보관소 // 장비 전달 완료</b>\n\n"
                 f"🎁 <b>{s_name}</b> transferred <b>{rarity_emoji} {it_name}</b> to <b>{r_name}</b>!\n\n"
                 "<blockquote expandable>"
@@ -1190,13 +1191,13 @@ async def handle_top(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]"),
+                heading(1, f"{premium_emoji('crown')} [ GUILD LEADERBOARD // SYNDICATE STANDINGS ]"),
                 paragraph("<b>길드 순위 // 연맹 랭킹 목록 없음</b>"),
                 paragraph("<i>No guilds have been established yet in the System!</i>"),
                 quote("• Use <code>/guild create &lt;name&gt;</code> to establish the first Guild.", expandable=True),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]</b>\n"
+                f"{premium_emoji('crown')} <b>[ GUILD LEADERBOARD // SYNDICATE STANDINGS ]</b>\n"
                 "<b>길드 순위 // 연맹 랭킹 목록 없음</b>\n\n"
                 "<i>No guilds have been established yet in the System!</i>\n\n"
                 "<blockquote expandable>"
@@ -1224,7 +1225,7 @@ async def handle_top(client: Client, message: Message) -> None:
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
         caption = (
-            f"<b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
+            f"{premium_emoji('crown')} <b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
             "<b>길드 순위 // 연맹 랭킹 차트</b>\n\n"
             f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
             "<blockquote expandable>"
@@ -1298,7 +1299,7 @@ async def guild_leaderboard_callback(client: Client, query: CallbackQuery) -> No
         )
         cat_name = GLB_CATEGORY_TITLES.get(category, "Total Power")
         caption = (
-            f"<b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
+            f"{premium_emoji('crown')} <b>[ GUILD LEADERBOARD // {cat_name.upper()} ]</b>\n"
             "<b>길드 순위 // 연맹 랭킹 차트</b>\n\n"
             f"📊 <b>Category:</b> <code>{escape_html(cat_name)}</code>\n\n"
             "<blockquote expandable>"

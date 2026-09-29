@@ -30,6 +30,7 @@ from game.formatting import (
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import photo_media, reply_rich
 from game.rich_text import escape_html
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]"),
+                heading(1, f"{premium_emoji('warning')} [ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]"),
                 paragraph(
                     f"👤 <b>Hunter:</b> {h_name}<br>"
                     f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed"
@@ -95,7 +96,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ DAILY HUNT CAPACITY // 일일 게이트 토벌 한도 ]</b>\n\n"
                 f"👤 <b>Hunter:</b> {h_name}\n"
                 f"📊 <b>Daily Quota:</b> <code>{hunter.daily_hunts} / {DAILY_HUNT_LIMIT}</code> Hunts Completed\n\n"
                 "<blockquote expandable>"

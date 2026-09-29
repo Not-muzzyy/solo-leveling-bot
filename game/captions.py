@@ -15,6 +15,7 @@ from typing import Any, Optional
 from config import RANK_EMOJI, RARITY_EMOJI
 from models import Hunter, Inventory, Item, HuntResult
 from game.rich_text import escape_html, safe_caption, Bold, Italic, InlineCode, Chain, Quote, PlainText
+from game.premium_emoji import premium_emoji
 
 
 def build_profile_caption(hunter: Hunter, inventory: Inventory, full_name: str = "") -> str:
@@ -31,7 +32,7 @@ def build_profile_caption(hunter: Hunter, inventory: Inventory, full_name: str =
     acc_name = escape_html(accessory.name) if accessory else "None"
 
     return safe_caption(
-        "<b>[ STATUS WINDOW // 상태창 ]</b>\n\n"
+        f"{premium_emoji('system')} <b>[ STATUS WINDOW // 상태창 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"🏅 <b>Rank:</b> {rank_icon} {Bold(escape_html(f'{hunter.rank}-Rank')).to_html()} ┊ 📊 <b>Lv:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}\n"
         f"🎖️ <b>Title:</b> {Italic(title_str).to_html()}\n"
@@ -65,11 +66,11 @@ def build_hunt_caption(hunter: Hunter, result: HuntResult) -> str:
             shadow_prompt = "\n\n" + Quote(Chain(Bold("[ SHADOW EXTRACTION AVAILABLE ]"), Italic('Phrase: "ARISE" (일어나라)'), sep="\n")).to_html()
 
         return safe_caption(
-            "<b>[ GATE RAID REPORT // 던전 클리어 ]</b>\n\n"
+            f"{premium_emoji('lightning')} <b>[ GATE RAID REPORT // 던전 클리어 ]</b>\n\n"
             f"🎯 <b>Target:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]\n"
             f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n\n"
             "<blockquote expandable>"
-            "<b>✅ RAID SUCCESSFUL:</b>\n"
+            f"{premium_emoji('trophy')} <b>✅ RAID SUCCESSFUL:</b>\n"
             f"• Dealt: {InlineCode(escape_html(f'{result.damage_dealt:,} DMG')).to_html()} ┊ Taken: {InlineCode(escape_html(f'{result.damage_taken:,} DMG')).to_html()}\n"
             f"• Bounty: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} Gold')).to_html()} ┊ ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}"
             f"{loot_line}\n"
@@ -80,7 +81,7 @@ def build_hunt_caption(hunter: Hunter, result: HuntResult) -> str:
         )
     else:
         return safe_caption(
-            "<b>[ GATE CASUALTY ALERT // 경고: 던전 공략 실패 ]</b>\n\n"
+            f"{premium_emoji('warning')} <b>[ GATE CASUALTY ALERT // 경고: 던전 공략 실패 ]</b>\n\n"
             f"🎯 <b>Monster:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]\n"
             f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n\n"
             "<blockquote expandable>"
@@ -128,12 +129,12 @@ def build_explore_caption(
         ascend_block = Quote(PlainText(" ".join(asc_lines))).to_html() + "\n\n"
 
     return safe_caption(
-        f"{Bold(f'[ TACTICAL GATE RADAR // {s_name} ]').to_html()}\n\n"
+        f"{premium_emoji('search')} {Bold(f'[ TACTICAL GATE RADAR // {s_name} ]').to_html()}\n\n"
         f"👤 <b>Scout:</b> {d_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(hunter.level))).to_html()}]\n\n"
         "<blockquote expandable>"
         "<b>📜 Reconnaissance Log:</b>\n"
         f"{Italic(story_esc).to_html()}\n\n"
-        f"• 💰 <b>Treasury Bounty:</b> {InlineCode(escape_html(f'+{gold_reward:,} Gold')).to_html()}\n"
+        f"{premium_emoji('gold')} <b>Treasury Bounty:</b> {InlineCode(escape_html(f'+{gold_reward:,} Gold')).to_html()}\n"
         f"• ✨ <b>Exp Bounty:</b> {InlineCode(escape_html(f'+{xp_reward:,} XP')).to_html()}"
         f"{gift_block}\n"
         "</blockquote>\n\n"
@@ -165,7 +166,7 @@ def build_inventory_caption(
         notice_block = Quote(Chain(Bold("⚡ System Notice:"), Italic(escape_html(notice)), sep=" ")).to_html() + "\n\n"
 
     return safe_caption(
-        f"{Bold(f'[ SHADOW STORAGE // {cat_title.upper()} ]').to_html()}\n\n"
+        f"{premium_emoji('folder')} {Bold(f'[ SHADOW STORAGE // {cat_title.upper()} ]').to_html()}\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
         f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()} ┊ 📦 <b>Stored Items:</b> {InlineCode(escape_html(str(total_items))).to_html()}\n\n"
         f"{notice_block}"
@@ -190,10 +191,10 @@ def build_shop_caption(
 
     notice_block = ""
     if notice:
-        notice_block = Quote(Chain(Bold("✅ Purchase Confirmed:"), Italic(escape_html(notice)), sep=" ")).to_html() + "\n\n"
+        notice_block = premium_emoji("gold") + " " + Quote(Chain(Bold("✅ Purchase Confirmed:"), Italic(escape_html(notice)), sep=" ")).to_html() + "\n\n"
 
     return safe_caption(
-        f"{Bold(f'[ EXCHANGE DEPOT // {cat_title.upper()} ]').to_html()}\n\n"
+        f"{premium_emoji('gold')} {Bold(f'[ EXCHANGE DEPOT // {cat_title.upper()} ]').to_html()}\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
         f"💰 <b>Available Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}\n\n"
         f"{notice_block}"
@@ -227,7 +228,7 @@ def build_tower_caption(
             title_line = f"\n• 👑 <b>Title:</b> {Italic(escape_html(result.title_unlocked)).to_html()}"
 
         return safe_caption(
-            "<b>[ DEMON CASTLE // TRIAL RESOLUTION ]</b>\n\n"
+            f"{premium_emoji('trophy')} <b>[ DEMON CASTLE // TRIAL RESOLUTION ]</b>\n\n"
             f"👤 <b>Challenger:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
             f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}\n\n"
             "<blockquote expandable>"
@@ -240,7 +241,7 @@ def build_tower_caption(
         )
     elif guardian:
         return safe_caption(
-            "<b>[ DEMON CASTLE // TRIAL CHAMBER ]</b>\n\n"
+            f"{premium_emoji('crown')} <b>[ DEMON CASTLE // TRIAL CHAMBER ]</b>\n\n"
             f"👤 <b>Challenger:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
             f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}\n\n"
             "<blockquote expandable>"
@@ -252,7 +253,7 @@ def build_tower_caption(
         )
     else:
         return safe_caption(
-            "<b>[ DEMON CASTLE // TRIAL CHAMBER ]</b>\n\n"
+            f"{premium_emoji('crown')} <b>[ DEMON CASTLE // TRIAL CHAMBER ]</b>\n\n"
             f"👤 <b>Challenger:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
             f"📍 <b>Floor:</b> {floor_str} ┊ 🔑 <b>Keys:</b> {keys_str}\n\n"
             "<blockquote expandable>"
@@ -275,7 +276,7 @@ def build_quest_caption(hunter: Hunter) -> str:
     status_tag = "✅ COMPLETED" if all_done else "⏳ IN PROGRESS"
 
     return safe_caption(
-        "<b>[ DAILY QUEST // 강해지기 위한 준비 ]</b>\n\n"
+        f"{premium_emoji('calendar')} <b>[ DAILY QUEST // 강해지기 위한 준비 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
         f"⚡ <b>Status:</b> {Bold(escape_html(status_tag)).to_html()}\n\n"
         "<blockquote expandable>"
@@ -302,7 +303,7 @@ def build_forge_caption(
 
     notice_block = ""
     if notice:
-        notice_block = Quote(Chain(Bold("🔥 Blacksmith Anvil:"), Italic(escape_html(notice)), sep=" ")).to_html() + "\n\n"
+        notice_block = premium_emoji("gem") + " " + Quote(Chain(Bold("🔥 Blacksmith Anvil:"), Italic(escape_html(notice)), sep=" ")).to_html() + "\n\n"
 
     if selected_item:
         enhancement_lvl = getattr(selected_item, "upgrade_level", getattr(selected_item, "enhancement", 0))
@@ -324,7 +325,7 @@ def build_forge_caption(
         )
 
     return safe_caption(
-        "<b>[ BLACKSMITH FORGE // 대장간 장비 강화 ]</b>\n\n"
+        f"{premium_emoji('fire')} <b>[ BLACKSMITH FORGE // 대장간 장비 강화 ]</b>\n\n"
         f"👤 <b>Artisan:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n"
         f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}\n\n"
         f"{notice_block}"
@@ -336,7 +337,7 @@ def build_forge_caption(
 def build_help_caption() -> str:
     """Master /help operational manual caption."""
     return safe_caption(
-        "<b>[ SYSTEM DIRECTIVE // 시스템 가이드 ]</b>\n\n"
+        f"{premium_emoji('books')} <b>[ SYSTEM DIRECTIVE // 시스템 가이드 ]</b>\n\n"
         "<b>Solo Leveling Hunter System // Archives V2.5</b>\n\n"
         "<blockquote expandable>"
         "<b>⚡ Combat & Spire Directives:</b>\n"
@@ -393,7 +394,7 @@ def build_help_rich() -> "RichDoc":
         ]),
     ]
     blocks = [
-        heading(1, "[ SYSTEM DIRECTIVE // 시스템 가이드 ]"),
+        heading(1, f"{premium_emoji('books')} [ SYSTEM DIRECTIVE // 시스템 가이드 ]"),
         paragraph("<b>Solo Leveling Hunter System // Archives V2.5</b>"),
         toc([(label, name) for label, name, _ in sections]),
         divider(),
@@ -431,7 +432,7 @@ def build_profile_rich(hunter: Hunter, inventory: Inventory, full_name: str = ""
     acc_name = escape_html(accessory.name) if accessory else "None"
 
     return RichDoc(
-        heading(1, "[ STATUS WINDOW // 상태창 ]"),
+        heading(1, f"{premium_emoji('system')} [ STATUS WINDOW // 상태창 ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name}<br>"
             f"🏅 <b>Rank:</b> {rank_icon} {Bold(escape_html(f'{hunter.rank}-Rank')).to_html()} ┊ 📊 <b>Lv:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}<br>"
@@ -470,7 +471,7 @@ def build_claim_rich(
         extra_parts.append(f"🔥 <b>RANK ADVANCEMENT!</b> Awakened as {Bold(f'[{escape_html(new_rank)}] Hunter').to_html()}")
 
     lines = [
-        "<b>✅ Daily Ration Dispatched:</b>",
+        f"{premium_emoji('gold')} <b>✅ Daily Ration Dispatched:</b>",
         f"• EXP Bounty: ✨ {InlineCode(escape_html(f'+{reward_xp:,} XP')).to_html()}",
         f"• Treasury Bonus: 💰 {InlineCode(escape_html(f'+{reward_gold:,} G')).to_html()}",
     ]
@@ -480,7 +481,7 @@ def build_claim_rich(
     lines.append(f"• Current EXP: {InlineCode(escape_html(f'{hunter.xp:,} / {hunter.xp_needed:,} XP')).to_html()}")
 
     blocks = [
-        heading(1, "[ SYSTEM DAILY ALLOCATION // 보급품 지급 ]"),
+        heading(1, f"{premium_emoji('calendar')} [ SYSTEM DAILY ALLOCATION // 보급품 지급 ]"),
         paragraph(f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"),
         quote("<br>".join(lines), expandable=True),
     ]
@@ -506,7 +507,7 @@ def build_shop_rich(
     cat_title = "Central Depot" if category == "menu" else escape_html(category.title())
 
     blocks = [
-        heading(1, f"[ EXCHANGE DEPOT // {cat_title.upper()} ]"),
+        heading(1, f"{premium_emoji('gold')} [ EXCHANGE DEPOT // {cat_title.upper()} ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
             f"💰 <b>Available Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
@@ -514,7 +515,7 @@ def build_shop_rich(
     ]
     if notice:
         blocks.append(quote(
-            f"<b>✅ Purchase Confirmed:</b> <i>{escape_html(notice)}</i>",
+            f"{premium_emoji('gold')} <b>✅ Purchase Confirmed:</b> <i>{escape_html(notice)}</i>",
             expandable=False,
         ))
     blocks.append(quote(
@@ -551,7 +552,7 @@ def build_inventory_rich(
     acc_str = escape_html(accessory.name) if accessory else "— None —"
 
     blocks = [
-        heading(1, f"[ SHADOW STORAGE // {cat_title.upper()} ]"),
+        heading(1, f"{premium_emoji('folder')} [ SHADOW STORAGE // {cat_title.upper()} ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
             f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()} ┊ 📦 <b>Stored Items:</b> {InlineCode(escape_html(str(total_items))).to_html()}"
@@ -592,13 +593,13 @@ def build_hunt_rich(hunter: Hunter, result: HuntResult, photo_first: bool | None
             loot_line = f"<br>• 🎁 <b>Loot:</b> {InlineCode(f'[{i_rarity}]').to_html()} {Bold(i_name).to_html()}"
 
         blocks = [
-            heading(1, "[ GATE RAID REPORT // 던전 클리어 ]"),
+            heading(1, f"{premium_emoji('lightning')} [ GATE RAID REPORT // 던전 클리어 ]"),
             paragraph(
                 f"🎯 <b>Target:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]<br>"
                 f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"
             ),
             quote(
-                "<b>✅ RAID SUCCESSFUL:</b><br>"
+                f"{premium_emoji('trophy')} <b>✅ RAID SUCCESSFUL:</b><br>"
                 f"• Dealt: {InlineCode(escape_html(f'{result.damage_dealt:,} DMG')).to_html()} ┊ Taken: {InlineCode(escape_html(f'{result.damage_taken:,} DMG')).to_html()}<br>"
                 f"• Bounty: 💰 {InlineCode(escape_html(f'+{result.gold_gained:,} Gold')).to_html()} ┊ ✨ {InlineCode(escape_html(f'+{result.xp_gained:,} XP')).to_html()}"
                 f"{loot_line}<br>"
@@ -615,7 +616,7 @@ def build_hunt_rich(hunter: Hunter, result: HuntResult, photo_first: bool | None
         blocks.append(paragraph(f"📊 <b>Daily Quota:</b> {quota_str} (1m CD)"))
     else:
         blocks = [
-            heading(1, "[ GATE CASUALTY ALERT // 경고: 던전 공략 실패 ]"),
+            heading(1, f"{premium_emoji('warning')} [ GATE CASUALTY ALERT // 경고: 던전 공략 실패 ]"),
             paragraph(
                 f"🎯 <b>Monster:</b> {Bold(m_name).to_html()} [{Bold(f'{m_rank}-Rank').to_html()}]<br>"
                 f"👤 <b>Hunter:</b> {Bold(escape_html(hunter.hunter_name)).to_html()} [Rank {Bold(escape_html(hunter.rank)).to_html()}]"
@@ -644,7 +645,7 @@ def build_duel_challenge_rich(challenger: Hunter, opponent: Hunter) -> "RichDoc"
     c_name = escape_html(challenger.display_full_name)
     o_name = escape_html(opponent.display_full_name)
     return RichDoc(
-        heading(1, "[ COMBAT ARENA CHALLENGE // 대련 신청 ]"),
+        heading(1, f"{premium_emoji('game')} [ COMBAT ARENA CHALLENGE // 대련 신청 ]"),
         paragraph(
             f"💥 <b>Challenger:</b> {c_name} [Rank {Bold(escape_html(challenger.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(challenger.level))).to_html()}]<br>"
             f"🎯 <b>Challenged:</b> {o_name} [Rank {Bold(escape_html(opponent.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(opponent.level))).to_html()}]"
@@ -672,7 +673,7 @@ def build_duel_result_rich(result: Any, photo_first: bool | None = None) -> "Ric
     l_dmg = result.opponent_damage_dealt if result.winner.user_id == result.challenger.user_id else result.challenger_damage_dealt
 
     blocks = [
-        heading(1, "[ COMBAT ARENA RESOLUTION // 대련 결과 ]"),
+        heading(1, f"{premium_emoji('trophy')} [ COMBAT ARENA RESOLUTION // 대련 결과 ]"),
         paragraph(
             f"👑 <b>Victor:</b> {Bold(winner_name).to_html()} [Rank {Bold(escape_html(result.winner.rank)).to_html()}]<br>"
             f"💀 <b>Defeated:</b> {Bold(loser_name).to_html()} [Rank {Bold(escape_html(result.loser.rank)).to_html()}]"
@@ -728,14 +729,14 @@ def build_explore_rich(
         ascend_lines.append(f"👑 <b>Awakened:</b> {Bold(f'[{escape_html(new_rank)}] Hunter').to_html()}!")
 
     blocks = [
-        heading(1, f"[ TACTICAL GATE RADAR // {s_name} ]"),
+        heading(1, f"{premium_emoji('search')} [ TACTICAL GATE RADAR // {s_name} ]"),
         paragraph(
             f"👤 <b>Scout:</b> {d_name} [Rank {Bold(escape_html(hunter.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(hunter.level))).to_html()}]"
         ),
         quote(
             "<b>📜 Reconnaissance Log:</b><br>"
             f"{Italic(story_esc).to_html()}<br><br>"
-            f"• 💰 <b>Treasury Bounty:</b> {InlineCode(escape_html(f'+{gold_reward:,} Gold')).to_html()}<br>"
+            f"{premium_emoji('gold')} <b>Treasury Bounty:</b> {InlineCode(escape_html(f'+{gold_reward:,} Gold')).to_html()}<br>"
             f"• ✨ <b>Exp Bounty:</b> {InlineCode(escape_html(f'+{xp_reward:,} XP')).to_html()}"
             f"{gift_block}",
             expandable=True,
@@ -763,7 +764,7 @@ def build_leaderboard_rich(category: str = "power", photo_first: bool | None = N
     }
     cat_name = cat_titles.get(category, category.title())
     blocks = [
-        heading(1, f"[ HALL OF FAME // {cat_name.upper()} ]"),
+        heading(1, f"{premium_emoji('trophy')} [ HALL OF FAME // {cat_name.upper()} ]"),
         paragraph(f"📊 <b>Category:</b> {InlineCode(escape_html(cat_name)).to_html()}"),
         quote(
             "<b>Rankings Directory:</b><br>"
@@ -807,7 +808,7 @@ def build_tower_rich(
         if result.title_unlocked:
             title_line = f"<br>• 👑 <b>Title:</b> {Italic(escape_html(result.title_unlocked)).to_html()}"
         blocks = [
-            heading(1, "[ DEMON CASTLE // TRIAL RESOLUTION ]"),
+            heading(1, f"{premium_emoji('trophy')} [ DEMON CASTLE // TRIAL RESOLUTION ]"),
             head,
             quote(
                 f"<b>{escape_html(outcome_title)}</b><br>"
@@ -820,7 +821,7 @@ def build_tower_rich(
         ]
     elif guardian:
         blocks = [
-            heading(1, "[ DEMON CASTLE // TRIAL CHAMBER ]"),
+            heading(1, f"{premium_emoji('crown')} [ DEMON CASTLE // TRIAL CHAMBER ]"),
             head,
             quote(
                 f"<b>Chamber Guardian:</b> {Bold(g_name).to_html()}<br>"
@@ -832,7 +833,7 @@ def build_tower_rich(
         ]
     else:
         blocks = [
-            heading(1, "[ DEMON CASTLE // TRIAL CHAMBER ]"),
+            heading(1, f"{premium_emoji('crown')} [ DEMON CASTLE // TRIAL CHAMBER ]"),
             head,
             quote(
                 f"<b>Chamber Guardian:</b> {Bold(g_name).to_html()}<br>"
@@ -860,7 +861,7 @@ def build_quest_rich(hunter: Hunter, photo_first: bool | None = None) -> "RichDo
     )
     status_tag = "✅ COMPLETED" if all_done else "⏳ IN PROGRESS"
     blocks = [
-        heading(1, "[ DAILY QUEST // 강해지기 위한 준비 ]"),
+        heading(1, f"{premium_emoji('calendar')} [ DAILY QUEST // 강해지기 위한 준비 ]"),
         paragraph(
             f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
             f"⚡ <b>Status:</b> {Bold(escape_html(status_tag)).to_html()}"
@@ -898,7 +899,7 @@ def build_forge_rich(
     h_name = escape_html(hunter.hunter_name)
 
     blocks = [
-        heading(1, "[ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
+        heading(1, f"{premium_emoji('fire')} [ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
         paragraph(
             f"👤 <b>Artisan:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]<br>"
             f"💰 <b>Treasury:</b> {InlineCode(escape_html(f'{hunter.gold:,} G')).to_html()}"
@@ -906,7 +907,7 @@ def build_forge_rich(
     ]
     if notice:
         blocks.append(quote(
-            f"<b>🔥 Blacksmith Anvil:</b> <i>{escape_html(notice)}</i>",
+            f"{premium_emoji('gem')} <b>🔥 Blacksmith Anvil:</b> <i>{escape_html(notice)}</i>",
             expandable=False,
         ))
     if selected_item:
@@ -957,10 +958,10 @@ def build_claim_caption(
     streak_line = f"• Login Streak: 🔥 {InlineCode(escape_html(f'{streak} Days')).to_html()}\n" if streak > 1 else ""
 
     return safe_caption(
-        "<b>[ SYSTEM DAILY ALLOCATION // 보급품 지급 ]</b>\n\n"
+        f"{premium_emoji('calendar')} <b>[ SYSTEM DAILY ALLOCATION // 보급품 지급 ]</b>\n\n"
         f"👤 <b>Hunter:</b> {h_name} [Rank {Bold(escape_html(hunter.rank)).to_html()}]\n\n"
         "<blockquote expandable>"
-        "<b>✅ Daily Ration Dispatched:</b>\n"
+        f"{premium_emoji('gold')} <b>✅ Daily Ration Dispatched:</b>\n"
         f"• EXP Bounty: ✨ {InlineCode(escape_html(f'+{reward_xp:,} XP')).to_html()}\n"
         f"• Treasury Bonus: 💰 {InlineCode(escape_html(f'+{reward_gold:,} G')).to_html()}\n"
         f"{streak_line}"
@@ -977,7 +978,7 @@ def build_start_welcome_caption(hunter: Hunter) -> str:
     h_name = escape_html(hunter.hunter_name)
     r_name = escape_html(hunter.rank)
     return safe_caption(
-        "<b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
+        f"{premium_emoji('system')} <b>[ SYSTEM AWAKENING NOTICE // 각성 확인 ]</b>\n\n"
         "<i>A new Player has been chosen by the System.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Awakened Rank:</b> {Bold(f'{r_name}-Rank').to_html()}\n"
@@ -998,7 +999,7 @@ def build_start_existing_caption(hunter: Hunter) -> str:
     """Aesthetic returning hunter card caption for /start."""
     h_name = escape_html(hunter.hunter_name)
     return safe_caption(
-        "<b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
+        f"{premium_emoji('rank')} <b>[ HUNTER RE-AUTHENTICATION // 헌터 인증 ]</b>\n\n"
         "<i>Welcome back, Player.</i>\n\n"
         f"👤 <b>Hunter:</b> {h_name}\n"
         f"⭐ <b>Rank:</b> {Bold(escape_html(f'{hunter.rank}-Rank')).to_html()} ┊ 📊 <b>Level:</b> {InlineCode(escape_html(str(hunter.level))).to_html()}\n"
@@ -1018,7 +1019,7 @@ def build_duel_challenge_caption(challenger: Hunter, opponent: Hunter) -> str:
     c_name = escape_html(challenger.display_full_name)
     o_name = escape_html(opponent.display_full_name)
     return safe_caption(
-        "<b>[ COMBAT ARENA CHALLENGE // 대련 신청 ]</b>\n\n"
+        f"{premium_emoji('game')} <b>[ COMBAT ARENA CHALLENGE // 대련 신청 ]</b>\n\n"
         f"💥 <b>Challenger:</b> {c_name} [Rank {Bold(escape_html(challenger.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(challenger.level))).to_html()}]\n"
         f"🎯 <b>Challenged:</b> {o_name} [Rank {Bold(escape_html(opponent.rank)).to_html()} ┊ Lv. {InlineCode(escape_html(str(opponent.level))).to_html()}]\n\n"
         "<blockquote expandable>"
@@ -1042,7 +1043,7 @@ def build_duel_result_caption(result: Any) -> str:
     l_dmg = result.opponent_damage_dealt if result.winner.user_id == result.challenger.user_id else result.challenger_damage_dealt
 
     return safe_caption(
-        "<b>[ COMBAT ARENA RESOLUTION // 대련 결과 ]</b>\n\n"
+        f"{premium_emoji('trophy')} <b>[ COMBAT ARENA RESOLUTION // 대련 결과 ]</b>\n\n"
         f"👑 <b>Victor:</b> {Bold(winner_name).to_html()} [Rank {Bold(escape_html(result.winner.rank)).to_html()}]\n"
         f"💀 <b>Defeated:</b> {Bold(loser_name).to_html()} [Rank {Bold(escape_html(result.loser.rank)).to_html()}]\n\n"
         "<blockquote expandable>"
@@ -1068,7 +1069,7 @@ def build_leaderboard_caption(category: str = "power") -> str:
     }
     cat_name = cat_titles.get(category, category.title())
     return safe_caption(
-        f"{Bold(f'[ HALL OF FAME // {cat_name.upper()} ]').to_html()}\n\n"
+        f"{premium_emoji('trophy')} {Bold(f'[ HALL OF FAME // {cat_name.upper()} ]').to_html()}\n\n"
         f"📊 <b>Category:</b> {InlineCode(escape_html(cat_name)).to_html()}\n\n"
         "<blockquote expandable>"
         "<b>Rankings Directory:</b>\n"
@@ -1084,7 +1085,7 @@ def build_guild_caption(guild: Any, member_count: int, total_power: int, max_mem
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
     return safe_caption(
-        f"{Bold(f'[ GUILD REGISTRY // {g_name.upper()} ]').to_html()}\n\n"
+        f"{premium_emoji('crown')} {Bold(f'[ GUILD REGISTRY // {g_name.upper()} ]').to_html()}\n\n"
         f"🏰 <b>Syndicate:</b> {Bold(g_name).to_html()} (ID: {InlineCode(escape_html(f'#{guild.guild_id}')).to_html()})\n"
         f"👥 <b>Roster:</b> {InlineCode(escape_html(f'{member_count}/{max_members}')).to_html()} ┊ ⚡ <b>Power:</b> {InlineCode(escape_html(f'{total_power:,}')).to_html()}\n"
         f"🏆 <b>War Score:</b> {InlineCode(escape_html(str(guild.war_score))).to_html()} (W: {InlineCode(escape_html(str(guild.war_wins))).to_html()} / L: {InlineCode(escape_html(str(guild.war_losses))).to_html()})\n\n"
@@ -1106,7 +1107,7 @@ def build_war_challenge_caption(
     s_name = escape_html(sender_guild_name)
     t_name = escape_html(target_guild_name)
     return safe_caption(
-        "<b>[ GUILD WAR DECLARATION // 길드전 선포 ]</b>\n\n"
+        f"{premium_emoji('announce')} <b>[ GUILD WAR DECLARATION // 길드전 선포 ]</b>\n\n"
         f"🏰 <b>Challenger:</b> {Bold(s_name).to_html()} (⚡{InlineCode(escape_html(f'{challenger_power:,}')).to_html()})\n"
         f"🛡️ <b>Target:</b> {Bold(t_name).to_html()} (⚡{InlineCode(escape_html(f'{defender_power:,}')).to_html()})\n\n"
         "<blockquote expandable>"
@@ -1130,7 +1131,7 @@ def build_war_status_caption(
     cg_name = escape_html(challenger_guild_name)
     dg_name = escape_html(defender_guild_name)
     return safe_caption(
-        "<b>[ GUILD WAR IN PROGRESS // 길드전 진행 ]</b>\n\n"
+        f"{premium_emoji('news')} <b>[ GUILD WAR IN PROGRESS // 길드전 진행 ]</b>\n\n"
         f"🏰 {Bold(cg_name).to_html()} [{InlineCode(escape_html(str(challenger_wins))).to_html()}] vs [{InlineCode(escape_html(str(defender_wins))).to_html()}] {Bold(dg_name).to_html()}\n\n"
         "<blockquote expandable>"
         f"• Current Engagement: {InlineCode(escape_html(f'{current_match}/{total_matches}')).to_html()} battles\n"
@@ -1154,7 +1155,7 @@ def build_guild_rich(
     g_name = escape_html(guild.name)
     desc = escape_html(guild.description or "No description recorded.")
     blocks = [
-        heading(1, f"[ GUILD REGISTRY // {g_name.upper()} ]"),
+        heading(1, f"{premium_emoji('crown')} [ GUILD REGISTRY // {g_name.upper()} ]"),
         paragraph(
             f"🏰 <b>Syndicate:</b> {Bold(g_name).to_html()} (ID: {InlineCode(escape_html(f'#{guild.guild_id}')).to_html()})\n"
             f"👥 <b>Roster:</b> {InlineCode(escape_html(f'{member_count}/{max_members}')).to_html()} ┊ ⚡ <b>Power:</b> {InlineCode(escape_html(f'{total_power:,}')).to_html()}\n"
@@ -1178,7 +1179,7 @@ def build_guild_leaderboard_rich(category_title: str, photo_first: bool | None =
     """Rich twin of the inline /guild top caption in handlers/guild.py."""
     from game.rich_message import RichDoc, heading, paragraph, photo_block, quote
     blocks = [
-        heading(1, f"[ GUILD LEADERBOARD // {escape_html(category_title).upper()} ]"),
+        heading(1, f"{premium_emoji('trophy')} [ GUILD LEADERBOARD // {escape_html(category_title).upper()} ]"),
         paragraph("<b>길드 순위 // 연맹 랭킹 차트</b>"),
         paragraph(f"📊 <b>Category:</b> {InlineCode(escape_html(category_title)).to_html()}"),
         quote(
@@ -1207,7 +1208,7 @@ def build_war_challenge_rich(
     s_name = escape_html(sender_guild_name)
     t_name = escape_html(target_guild_name)
     blocks = [
-        heading(1, "[ GUILD WAR DECLARATION // 길드전 선포 ]"),
+        heading(1, f"{premium_emoji('announce')} [ GUILD WAR DECLARATION // 길드전 선포 ]"),
         paragraph(
             f"🏰 <b>Challenger:</b> {Bold(s_name).to_html()} (⚡{InlineCode(escape_html(f'{challenger_power:,}')).to_html()})\n"
             f"🛡️ <b>Target:</b> {Bold(t_name).to_html()} (⚡{InlineCode(escape_html(f'{defender_power:,}')).to_html()})"
@@ -1241,7 +1242,7 @@ def build_war_status_rich(
     cg_name = escape_html(challenger_guild_name)
     dg_name = escape_html(defender_guild_name)
     blocks = [
-        heading(1, "[ GUILD WAR IN PROGRESS // 길드전 진행 ]"),
+        heading(1, f"{premium_emoji('news')} [ GUILD WAR IN PROGRESS // 길드전 진행 ]"),
         paragraph(
             f"🏰 {Bold(cg_name).to_html()} [{InlineCode(escape_html(str(challenger_wins))).to_html()}] vs "
             f"[{InlineCode(escape_html(str(defender_wins))).to_html()}] {Bold(dg_name).to_html()}"
@@ -1287,7 +1288,7 @@ def build_shadows_rich(
     filter_tag = f" ┊ Filter: {InlineCode(escape_html(filter_rarity)).to_html()}" if filter_rarity else ""
 
     blocks = [
-        paragraph(f"👥 <b>{h_display}'s Shadow Army</b>"),
+        paragraph(f"{premium_emoji('crown')} <b>{h_display}'s Shadow Army</b>"),
         paragraph(
             f"👑 <b>Rank {escape_html(hunter.rank)}</b> ┊ <b>Soldiers:</b> {InlineCode(escape_html(f'{total_soldiers:,}')).to_html()} ┊ "
             f"<b>Forms:</b> {InlineCode(escape_html(str(unique_count))).to_html()} (Page {page}/{total_pages}){filter_tag}"

@@ -1,6 +1,6 @@
 # Design Spec — Mini App "System Window" UI
 
-**Date**: 2026-09-28 · **Status**: approved in-session (user: "ok good" → approach A; all scope questions answered)
+**Date**: 2026-09-28 · **Status**: approved in-session; bot Premium emoji follow-up approved 2026-09-30
 
 ## Goal
 
@@ -15,7 +15,7 @@ Full visual redesign of the Telegram Mini App into a Solo-Leveling "System" HUD 
 | Motion | Polished CSS-only, no libraries, `prefers-reduced-motion` guard |
 | Approach | **A** — structural split into `screens/` + `components/` |
 | Profile data | Extend existing `/me` with attribute fields (6 keys) + fix stale guild XP bonus display |
-| Non-goals | No new endpoints, no router/UI-kit deps, no bot-side link changes, no inventory/leaderboard/shadow screens |
+| Non-goals | No new Mini App endpoints, router/UI-kit deps, or inventory/leaderboard/shadow screens. The bot-side Premium emoji follow-up is separate from the Mini App UI and does not change launch links. |
 
 ## 1. HUD Design System
 
@@ -77,6 +77,12 @@ Navigation: BottomNav `◈ STATUS` (home, default) · `CLAIM` · `SHOP` · `GUIL
 2. `python -m py_compile miniapp_api.py`; `tests/verify_progression_battery.sh` still green (no regression).
 3. Screenshots: `npx playwright` with mocked `window.Telegram.WebApp.initData` + route-intercepted `/api/v1/*` covering all 4 screens + notice; fallback — user smoke-tests in Telegram.
 4. Bot boot smoke: starts clean, Mini App API serves `/api/health`.
+
+## 7. Approved follow-up: bot-wide Premium emoji
+
+This is a cross-cutting bot-message enhancement, separate from the browser Mini App renderer. Use the semantic allowlist in `game/premium_emoji.py`, exposed through `game/rich_text.py`, when composing user-facing bot output. Each registry entry pairs a real Telegram custom emoji ID with its ordinary Unicode fallback; unknown keys/IDs must fail closed. Use custom emoji in supported bot message bodies and button icons only through the shared helpers. Keep the fallback visible in the markup for clients or contexts without the custom rendering.
+
+Coverage includes start/profile, hunt/explore, claim/shop/inventory/equipment/forge, guild/guild war, duel, quest/redeem/tower, shadows/leaderboard/help, and admin sections. These are presentation tokens: do not store Telegram rich markup in channel JSON, and do not inject `tg-emoji` into the Mini App. The bot owner has Telegram Premium, enabling bot-sent custom emoji in private, group, and supergroup chats.
 
 ## Commits (in order; push only on user OK)
 

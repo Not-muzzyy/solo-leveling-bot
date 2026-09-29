@@ -34,6 +34,7 @@ from game.duel_image import render_duel_card
 from game.photo_helper import fetch_user_pfp_bytes
 from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ COMBAT ARENA // 헌터 협회 대련 ]"),
+                heading(1, f"{premium_emoji('game')} [ COMBAT ARENA // 헌터 협회 대련 ]"),
                 paragraph("⚠️ <b>Arena Protocol: Group Directives Only</b>"),
                 quote(
                     "• Duels can only be initiated inside <b>Group Chats</b>!<br>"
@@ -60,7 +61,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ COMBAT ARENA // 헌터 협회 대련 ]</b>\n\n"
+                f"{premium_emoji('game')} <b>[ COMBAT ARENA // 헌터 협회 대련 ]</b>\n\n"
                 "⚠️ <b>Arena Protocol: Group Directives Only</b>\n\n"
                 "<blockquote expandable>"
                 "• Duels can only be initiated inside <b>Group Chats</b>!\n"
@@ -76,7 +77,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ TARGET SPECIFICATION REQUIRED // 대련 상대 지정 필요 ]"),
+                heading(1, f"{premium_emoji('warning')} [ TARGET SPECIFICATION REQUIRED // 대련 상대 지정 필요 ]"),
                 paragraph("⚠️ <b>Direct reply required to issue a challenge!</b>"),
                 quote(
                     "• <b>Reply</b> to a rival Hunter's message in this group with <code>/duel</code>.",
@@ -84,7 +85,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ TARGET SPECIFICATION REQUIRED // 대련 상대 지정 필요 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ TARGET SPECIFICATION REQUIRED // 대련 상대 지정 필요 ]</b>\n\n"
                 "⚠️ <b>Direct reply required to issue a challenge!</b>\n\n"
                 "<blockquote>"
                 "• <b>Reply</b> to a rival Hunter's message in this group with <code>/duel</code>."
@@ -101,7 +102,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ INVALID COMBAT TARGET // 유효하지 않은 대상 ]"),
+                heading(1, f"{premium_emoji('warning')} [ INVALID COMBAT TARGET // 유효하지 않은 대상 ]"),
                 paragraph("❌ <b>Target is a System Automaton!</b>"),
                 quote(
                     "• You cannot challenge non-awakened automata / bots to a duel.",
@@ -109,7 +110,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ INVALID COMBAT TARGET // 유효하지 않은 대상 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ INVALID COMBAT TARGET // 유효하지 않은 대상 ]</b>\n\n"
                 "❌ <b>Target is a System Automaton!</b>\n\n"
                 "<blockquote>"
                 "• You cannot challenge non-awakened automata / bots to a duel."
@@ -124,7 +125,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ SELF-COMBAT PROHIBITED // 자해 행위 금지 ]"),
+                heading(1, f"{premium_emoji('warning')} [ SELF-COMBAT PROHIBITED // 자해 행위 금지 ]"),
                 paragraph("❌ <b>Internal mana clash disallowed!</b>"),
                 quote(
                     "• Reply to a worthy rival Hunter's message to issue an Arena challenge.",
@@ -132,7 +133,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ SELF-COMBAT PROHIBITED // 자해 행위 금지 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ SELF-COMBAT PROHIBITED // 자해 행위 금지 ]</b>\n\n"
                 "❌ <b>Internal mana clash disallowed!</b>\n\n"
                 "<blockquote>"
                 "• Reply to a worthy rival Hunter's message to issue an Arena challenge."
@@ -160,7 +161,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ OPPONENT NOT AWAKENED // 상대 미각성 ]"),
+                heading(1, f"{premium_emoji('warning')} [ OPPONENT NOT AWAKENED // 상대 미각성 ]"),
                 paragraph(f"❌ <b>{opp_name} has not awakened!</b>"),
                 quote(
                     "• They have not registered with the System yet.<br>"
@@ -169,7 +170,7 @@ async def handle(client: Client, message: Message) -> None:
                 ),
             ),
             fallback=lambda: message.reply_text(
-                "<b>[ OPPONENT NOT AWAKENED // 상대 미각성 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ OPPONENT NOT AWAKENED // 상대 미각성 ]</b>\n\n"
                 f"❌ <b>{opp_name} has not awakened!</b>\n\n"
                 "<blockquote expandable>"
                 "• They have not registered with the System yet.\n"
@@ -234,12 +235,12 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         await edit_rich(
             client, query.message.chat.id, query.message.id,
             RichDoc(
-                heading(1, "[ DUEL DECLINED // 대련 거절 ]"),
+                heading(1, f"{premium_emoji('warning')} [ DUEL DECLINED // 대련 거절 ]"),
                 paragraph(f"<b>{o_name}</b> declined the duel challenge from <b>{c_name}</b>."),
                 quote("<i>Combat avoided. Peace maintained in the district.</i>", expandable=False),
             ),
             fallback=lambda: query.edit_message_text(
-                "<b>[ DUEL DECLINED // 대련 거절 ]</b>\n\n"
+                f"{premium_emoji('warning')} <b>[ DUEL DECLINED // 대련 거절 ]</b>\n\n"
                 f"<b>{o_name}</b> declined the duel challenge from <b>{c_name}</b>.\n\n"
                 "<blockquote><i>Combat avoided. Peace maintained in the district.</i></blockquote>",
                 parse_mode=ParseMode.HTML,
@@ -253,12 +254,12 @@ async def callback(client: Client, query: CallbackQuery) -> None:
         await edit_rich(
             client, query.message.chat.id, query.message.id,
             RichDoc(
-                heading(1, "[ ARENA GATES OPENING // 결투장 입장 ]"),
+                heading(1, f"{premium_emoji('game')} [ ARENA GATES OPENING // 결투장 입장 ]"),
                 paragraph(f"<b>{c_name}</b> and <b>{o_name}</b> have stepped into the Arena!"),
                 quote("<i>The System is computing combat matrix resolution...</i>", expandable=False),
             ),
             fallback=lambda: query.edit_message_text(
-                "<b>[ ARENA GATES OPENING // 결투장 입장 ]</b>\n\n"
+                f"{premium_emoji('game')} <b>[ ARENA GATES OPENING // 결투장 입장 ]</b>\n\n"
                 f"<b>{c_name}</b> and <b>{o_name}</b> have stepped into the Arena!\n\n"
                 "<blockquote><i>The System is computing combat matrix resolution...</i></blockquote>",
                 parse_mode=ParseMode.HTML,

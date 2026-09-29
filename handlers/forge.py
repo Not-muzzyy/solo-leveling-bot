@@ -31,6 +31,7 @@ from game.rich_message import RichDoc, heading, paragraph, quote
 from game.rich_send import edit_rich, photo_media, reply_rich
 from game.forge_image import render_forge_image
 from models import Hunter, Inventory, Item
+from game.premium_emoji import premium_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ async def handle(client: Client, message: Message) -> None:
         bot_user = me.username or "solo_leveling_hunter_bot"
         pm_url = f"https://t.me/{bot_user}?start=forge"
         gc_text = (
-            "<b>[ BLACKSMITH FORGE // 대장간 장비 강화 ]</b>\n\n"
+            f"{premium_emoji('fire')} <b>[ BLACKSMITH FORGE // 대장간 장비 강화 ]</b>\n\n"
             "<blockquote expandable>"
             "The Blacksmith's Anvil contains searing heat &amp; delicate runes.\n"
             "To keep public chat clean, manage equipment forging in Private Chat."
@@ -112,7 +113,7 @@ async def handle(client: Client, message: Message) -> None:
         await reply_rich(
             message,
             RichDoc(
-                heading(1, "[ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
+                heading(1, f"{premium_emoji('fire')} [ BLACKSMITH FORGE // 대장간 장비 강화 ]"),
                 quote(
                     "The Blacksmith's Anvil contains searing heat &amp; delicate runes.<br>"
                     "To keep public chat clean, manage equipment forging in Private Chat.",
